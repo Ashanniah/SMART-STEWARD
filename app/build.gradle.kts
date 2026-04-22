@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -10,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.smart_steward"
+        applicationId = "com.example.smartstewardapp"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -35,6 +36,10 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    sourceSets {
+        getByName("main").java.srcDir("../api/src/main/java")
+    }
 }
 
 dependencies {
@@ -44,6 +49,9 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.auth)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
