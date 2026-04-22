@@ -9,4 +9,10 @@
     <color name="auth_button_bg">#FF00552F</color>
     <color name="auth_hint_text">#FF5C6A62</color>
     <color name="code_box_bg">#FFD6D6D6</color>
+    <color name="light_green">#A8BCAE</color>
+    <color name="dark_green">#003A21</color>
+    <color name="yellow_green">#559700</color>
+    <color name="yellow">#FCD53F</color>
+    <color name="red">#910909</color>
+    <color name="green">#049414</color>
 </resources>

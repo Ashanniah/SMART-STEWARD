@@ -20,7 +20,7 @@
 
         <ImageView
             android:id="@+id/loginBackgroundImage"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="230dp"
             android:contentDescription="@string/smart_steward_logo"
             android:scaleType="centerCrop"
@@ -68,7 +68,7 @@
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
                 android:textColor="@color/black"
-                android:textColorHint="@color/auth_hint_text" />
+                android:textColorHint="@color/light_green" />
 
             <EditText
                 android:id="@+id/loginPasswordInput"
@@ -82,7 +82,7 @@
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
                 android:textColor="@color/black"
-                android:textColorHint="@color/auth_hint_text" />
+                android:textColorHint="@color/light_green" />
 
             <TextView
                 android:id="@+id/forgotPasswordLink"
