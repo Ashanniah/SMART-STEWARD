@@ -2,8 +2,8 @@ package com.example.smart_steward
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
 class VerificationCodeActivity : AppCompatActivity() {
@@ -15,7 +15,7 @@ class VerificationCodeActivity : AppCompatActivity() {
             startActivity(Intent(this, ChangePasswordActivity::class.java))
         }
 
-        findViewById<TextView>(R.id.verificationSignUpLink).setOnClickListener {
+        findViewById<View>(R.id.verificationSignUpLink).setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
     }

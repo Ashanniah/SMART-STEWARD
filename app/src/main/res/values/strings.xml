@@ -12,7 +12,11 @@
     <string name="login_button">LOG IN  →</string>
     <string name="create_account_button">Create account  →</string>
     <string name="no_account_sign_up">Don\'t have an Account? Sign up</string>
+    <string name="no_account_prefix">Don\'t have an Account? </string>
+    <string name="sign_up_link">Sign up</string>
     <string name="have_account_sign_in">Already have an account? Sign in</string>
+    <string name="have_account_prefix">Already have an account?</string>
+    <string name="login_link">Login</string>
     <string name="terms_privacy_text">By signing up, you agree to our Terms of Service and Privacy Policy</string>
     <string name="forgot_password_caps">FORGOT PASSWORD</string>
     <string name="input_email_for_code">Input Email for verification code</string>

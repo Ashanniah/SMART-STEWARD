@@ -11,6 +11,7 @@
     <color name="code_box_bg">#FFD6D6D6</color>
     <color name="light_green">#A8BCAE</color>
     <color name="dark_green">#003A21</color>
+    <color name="hint_dark_gray">#FF424242</color>
     <color name="yellow_green">#559700</color>
     <color name="yellow">#FCD53F</color>
     <color name="red">#910909</color>

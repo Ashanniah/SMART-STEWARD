@@ -2,6 +2,7 @@ package com.example.smart_steward
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -48,7 +49,7 @@ class LoginActivity : AppCompatActivity() {
             )
         }
 
-        findViewById<TextView>(R.id.signUpLink).setOnClickListener {
+        findViewById<View>(R.id.signUpLink).setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
     }

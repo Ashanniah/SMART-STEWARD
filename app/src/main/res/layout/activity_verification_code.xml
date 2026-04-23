@@ -8,9 +8,6 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_margin="12dp"
-        android:background="@drawable/bg_landing_card"
-        android:clipToOutline="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -27,11 +24,20 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <View
+            android:id="@+id/verificationTopSpacer"
+            android:layout_width="0dp"
+            android:layout_height="130dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="470dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
+            android:layout_height="0dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="18dp"
             android:background="@drawable/bg_auth_panel_rounded"
             android:gravity="center_horizontal"
             android:orientation="vertical"
@@ -41,16 +47,19 @@
             android:paddingBottom="26dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="1.0"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/verificationTopSpacer"
+            app:layout_constraintVertical_bias="1.0">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="serif"
+                android:maxLines="1"
                 android:text="@string/verification_code"
                 android:textColor="@color/black"
-                android:textSize="40sp"
+                android:textSize="34sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -59,8 +68,7 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/enter_code_sent"
                 android:textColor="@color/black"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textSize="14sp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -71,7 +79,7 @@
                 <EditText
                     android:layout_width="42dp"
                     android:layout_height="42dp"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="12dp"
                     android:background="@drawable/bg_code_box"
                     android:gravity="center"
                     android:inputType="number"
@@ -81,7 +89,7 @@
                 <EditText
                     android:layout_width="42dp"
                     android:layout_height="42dp"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="12dp"
                     android:background="@drawable/bg_code_box"
                     android:gravity="center"
                     android:inputType="number"
@@ -91,7 +99,7 @@
                 <EditText
                     android:layout_width="42dp"
                     android:layout_height="42dp"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="12dp"
                     android:background="@drawable/bg_code_box"
                     android:gravity="center"
                     android:inputType="number"
@@ -112,12 +120,13 @@
                 android:id="@+id/submitCodeButton"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:layout_marginTop="22dp"
+                android:layout_marginTop="50dp"
                 android:background="@drawable/bg_auth_button"
                 android:text="@string/submit"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                app:backgroundTint="@null" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -127,14 +136,35 @@
                 android:textColor="@color/black"
                 android:textStyle="bold" />
 
-            <TextView
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <LinearLayout
                 android:id="@+id/verificationSignUpLink"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="@string/no_account_sign_up"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:gravity="center_horizontal"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/have_account_prefix"
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/sign_up_link"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 

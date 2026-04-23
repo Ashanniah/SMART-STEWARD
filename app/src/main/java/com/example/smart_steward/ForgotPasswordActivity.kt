@@ -2,6 +2,7 @@ package com.example.smart_steward
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -15,7 +16,7 @@ class ForgotPasswordActivity : AppCompatActivity() {
             finish()
         }
 
-        findViewById<TextView>(R.id.forgotSignUpLink).setOnClickListener {
+        findViewById<View>(R.id.forgotSignUpLink).setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
 
