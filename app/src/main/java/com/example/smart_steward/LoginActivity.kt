@@ -2,7 +2,8 @@ package com.example.smart_steward
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
+import android.text.InputType
+import android.view.MotionEvent
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -18,6 +19,7 @@ class LoginActivity : AppCompatActivity() {
 
         val emailInput = findViewById<EditText>(R.id.loginEmailInput)
         val passwordInput = findViewById<EditText>(R.id.loginPasswordInput)
+        setupPasswordToggle(passwordInput)
 
         findViewById<TextView>(R.id.forgotPasswordLink).setOnClickListener {
             startActivity(Intent(this, ForgotPasswordActivity::class.java))
@@ -49,8 +51,49 @@ class LoginActivity : AppCompatActivity() {
             )
         }
 
-        findViewById<View>(R.id.signUpLink).setOnClickListener {
+        val openSignUp = {
             startActivity(Intent(this, RegisterActivity::class.java))
+        }
+
+        findViewById<TextView>(R.id.signUpTextLink).setOnClickListener {
+            openSignUp()
+        }
+
+        findViewById<android.widget.LinearLayout>(R.id.signUpLink).setOnClickListener {
+            openSignUp()
+        }
+    }
+
+    private fun setupPasswordToggle(input: EditText) {
+        var isVisible = false
+
+        input.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                val endDrawable = input.compoundDrawablesRelative[2] ?: input.compoundDrawables[2]
+                if (endDrawable != null) {
+                    val tapStart = input.width - input.paddingEnd - endDrawable.bounds.width()
+                    if (event.x >= tapStart) {
+                        isVisible = !isVisible
+                        val cursor = input.selectionEnd
+
+                        input.inputType = if (isVisible) {
+                            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                        } else {
+                            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        }
+
+                        input.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                            R.drawable.ic_login_field_padlock,
+                            0,
+                            if (isVisible) R.drawable.ic_hide_sized else R.drawable.ic_eye_sized,
+                            0
+                        )
+                        input.setSelection(if (cursor >= 0) cursor else input.text.length)
+                        return@setOnTouchListener true
+                    }
+                }
+            }
+            false
         }
     }
 }

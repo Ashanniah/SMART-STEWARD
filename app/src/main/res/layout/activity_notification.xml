@@ -244,7 +244,7 @@
                 <ImageView
                     android:layout_width="20dp"
                     android:layout_height="20dp"
-                    android:src="@android:drawable/ic_menu_view"
+                    android:src="@drawable/home"
                     app:tint="@color/black" />
 
                 <TextView
@@ -265,7 +265,7 @@
                 <ImageView
                     android:layout_width="20dp"
                     android:layout_height="20dp"
-                    android:src="@android:drawable/ic_menu_agenda"
+                    android:src="@drawable/activity"
                     app:tint="@color/black" />
 
                 <TextView
@@ -290,7 +290,7 @@
                 <ImageView
                     android:layout_width="20dp"
                     android:layout_height="20dp"
-                    android:src="@android:drawable/ic_dialog_info"
+                    android:src="@drawable/notification"
                     app:tint="@color/auth_button_bg" />
 
                 <TextView
@@ -312,7 +312,7 @@
                 <ImageView
                     android:layout_width="20dp"
                     android:layout_height="20dp"
-                    android:src="@android:drawable/ic_menu_myplaces"
+                    android:src="@drawable/user"
                     app:tint="@color/black" />
 
                 <TextView
@@ -338,7 +338,7 @@
                 android:layout_width="28dp"
                 android:layout_height="28dp"
                 android:layout_gravity="center"
-                android:src="@android:drawable/ic_menu_camera"
+                android:src="@drawable/camera"
                 app:tint="@color/black" />
         </FrameLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>

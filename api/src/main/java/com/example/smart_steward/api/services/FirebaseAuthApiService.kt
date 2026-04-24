@@ -3,9 +3,13 @@ package com.example.smart_steward.api.services
 import com.example.smart_steward.api.routes.AuthRoutes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 class FirebaseAuthApiService : ApiService {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 
     override fun call(
         route: String,
@@ -18,6 +22,9 @@ class FirebaseAuthApiService : ApiService {
                 val email = params["email"] as? String
                 val password = params["password"] as? String
                 val displayName = params["displayName"] as? String
+                val firstName = params["firstName"] as? String ?: ""
+                val middleName = params["middleName"] as? String ?: ""
+                val lastName = params["lastName"] as? String ?: ""
 
                 if (email.isNullOrBlank() || password.isNullOrBlank()) {
                     onError("Email and password are required.")
@@ -37,13 +44,31 @@ class FirebaseAuthApiService : ApiService {
 
                         currentUser.updateProfile(profileUpdates)
                             .addOnSuccessListener {
-                                onSuccess(
-                                    mapOf(
-                                        "route" to route,
-                                        "uid" to (auth.currentUser?.uid ?: ""),
-                                        "email" to (auth.currentUser?.email ?: "")
-                                    )
+                                val userData = hashMapOf(
+                                    "firstName" to firstName,
+                                    "middleName" to middleName,
+                                    "lastName" to lastName,
+                                    "displayName" to (displayName ?: ""),
+                                    "email" to (currentUser.email ?: email.orEmpty()),
+                                    "role" to "citizen",
+                                    "createdAt" to FieldValue.serverTimestamp()
                                 )
+
+                                firestore.collection("users")
+                                    .document(currentUser.uid)
+                                    .set(userData, SetOptions.merge())
+                                    .addOnSuccessListener {
+                                        onSuccess(
+                                            mapOf(
+                                                "route" to route,
+                                                "uid" to (auth.currentUser?.uid ?: ""),
+                                                "email" to (auth.currentUser?.email ?: "")
+                                            )
+                                        )
+                                    }
+                                    .addOnFailureListener { error ->
+                                        onError(error.message ?: "Unable to save user profile.")
+                                    }
                             }
                             .addOnFailureListener { error ->
                                 onError(error.message ?: "Unable to update profile.")
