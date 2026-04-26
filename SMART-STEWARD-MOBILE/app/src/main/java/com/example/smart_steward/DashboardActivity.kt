@@ -2,10 +2,7 @@ package com.example.smart_steward
 
 import android.Manifest
 import android.content.Intent
-<<<<<<< HEAD
-=======
 import android.graphics.Bitmap
->>>>>>> feat/mobile-UI-updated
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
@@ -32,9 +29,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK) {
-<<<<<<< HEAD
-            Toast.makeText(this, "Photo captured successfully.", Toast.LENGTH_SHORT).show()
-=======
             val capturedBitmap = result.data?.extras?.get("data") as? Bitmap
             if (capturedBitmap != null) {
                 CapturedMediaStore.capturedBitmap = capturedBitmap
@@ -42,7 +36,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             } else {
                 Toast.makeText(this, "Unable to read captured photo.", Toast.LENGTH_SHORT).show()
             }
->>>>>>> feat/mobile-UI-updated
         }
     }
 
@@ -50,12 +43,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK) {
-<<<<<<< HEAD
-            Toast.makeText(this, "Video recorded successfully.", Toast.LENGTH_SHORT).show()
-=======
             CapturedMediaStore.capturedBitmap = null
             startActivity(Intent(this, IncidentFlowActivity::class.java))
->>>>>>> feat/mobile-UI-updated
         }
     }
 
