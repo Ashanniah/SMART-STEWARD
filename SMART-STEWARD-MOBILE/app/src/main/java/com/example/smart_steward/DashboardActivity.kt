@@ -24,7 +24,14 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 
 class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
+    private enum class CameraAction {
+        PHOTO,
+        VIDEO
+    }
+
     private var map: GoogleMap? = null
+    private var pendingCameraAction: CameraAction? = null
+
     private val takePhotoLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -45,6 +52,20 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         if (result.resultCode == RESULT_OK) {
             CapturedMediaStore.capturedBitmap = null
             startActivity(Intent(this, IncidentFlowActivity::class.java))
+        }
+    }
+
+    private val requestCameraPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val action = pendingCameraAction
+        pendingCameraAction = null
+
+        if (granted && action != null) {
+            launchCameraAction(action)
+        } else {
+            Toast.makeText(this, "Camera permission is required to capture evidence.", Toast.LENGTH_LONG)
+                .show()
         }
     }
 
@@ -85,21 +106,11 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnClickListener {
-            val photoIntent = Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
-            if (photoIntent.resolveActivity(packageManager) != null) {
-                takePhotoLauncher.launch(photoIntent)
-            } else {
-                Toast.makeText(this, "No camera app available.", Toast.LENGTH_SHORT).show()
-            }
+            handleCameraAction(CameraAction.PHOTO)
         }
 
         findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnLongClickListener {
-            val videoIntent = Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE)
-            if (videoIntent.resolveActivity(packageManager) != null) {
-                captureVideoLauncher.launch(videoIntent)
-            } else {
-                Toast.makeText(this, "No camera app available.", Toast.LENGTH_SHORT).show()
-            }
+            handleCameraAction(CameraAction.VIDEO)
             true
         }
     }
@@ -140,6 +151,37 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             enableCurrentLocation()
         } else {
             requestLocationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    private fun handleCameraAction(action: CameraAction) {
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasCameraPermission) {
+            launchCameraAction(action)
+        } else {
+            pendingCameraAction = action
+            requestCameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun launchCameraAction(action: CameraAction) {
+        val captureIntent = when (action) {
+            CameraAction.PHOTO -> Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+            CameraAction.VIDEO -> Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE)
+        }
+
+        if (captureIntent.resolveActivity(packageManager) == null) {
+            Toast.makeText(this, "No camera app available.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        when (action) {
+            CameraAction.PHOTO -> takePhotoLauncher.launch(captureIntent)
+            CameraAction.VIDEO -> captureVideoLauncher.launch(captureIntent)
         }
     }
 

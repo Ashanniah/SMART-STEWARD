@@ -13,7 +13,15 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
         findViewById<android.widget.Button>(R.id.getStartedButton).setOnClickListener {
-            startActivity(Intent(this, LoginActivity::class.java))
+            LandingGate.markLandingSeen(this)
+            val nextScreen = intent.getStringExtra(LandingGate.EXTRA_NEXT_SCREEN)
+            val nextIntent = if (nextScreen == LandingGate.NEXT_LOGIN) {
+                Intent(this, LoginActivity::class.java)
+            } else {
+                Intent(this, DashboardActivity::class.java)
+            }
+            startActivity(nextIntent)
+            finish()
         }
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())

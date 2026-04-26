@@ -7,7 +7,6 @@ import android.view.MotionEvent
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.smart_steward.api.ApiProvider
 import com.example.smart_steward.api.routes.AuthRoutes
@@ -29,11 +28,32 @@ class LoginActivity : AppCompatActivity() {
             val email = emailInput.text.toString().trim()
             val password = passwordInput.text.toString().trim()
 
-            if (email.isBlank() || password.isBlank()) {
-                Toast.makeText(this, "Enter email and password.", Toast.LENGTH_SHORT).show()
+            if (email.isBlank() && password.isBlank()) {
+                FormValidation.toast(this, "Please complete all required fields.")
                 return@setOnClickListener
             }
 
+            if (email.isBlank()) {
+                FormValidation.toast(this, "Please enter your email address.")
+                return@setOnClickListener
+            }
+
+            if (!FormValidation.isValidEmail(email)) {
+                FormValidation.toast(this, "Please enter a valid email address.")
+                return@setOnClickListener
+            }
+
+            if (password.isBlank()) {
+                FormValidation.toast(this, "Please enter your password.")
+                return@setOnClickListener
+            }
+
+            if (password.length < 8) {
+                FormValidation.toast(this, "Password must be at least 8 characters.")
+                return@setOnClickListener
+            }
+
+            FormValidation.toast(this, "Loading account...")
             ApiProvider.auth.call(
                 route = AuthRoutes.LOGIN_WITH_EMAIL,
                 params = mapOf(
@@ -41,12 +61,20 @@ class LoginActivity : AppCompatActivity() {
                     "password" to password
                 ),
                 onSuccess = {
-                    Toast.makeText(this, "Login successful.", Toast.LENGTH_SHORT).show()
-                    startActivity(Intent(this, DashboardActivity::class.java))
+                    FormValidation.toast(this, "Login successful.")
+                    val nextIntent = if (LandingGate.hasSeenLanding(this)) {
+                        Intent(this, DashboardActivity::class.java)
+                    } else {
+                        Intent(this, MainActivity::class.java).putExtra(
+                            LandingGate.EXTRA_NEXT_SCREEN,
+                            LandingGate.NEXT_DASHBOARD
+                        )
+                    }
+                    startActivity(nextIntent)
                     finish()
                 },
                 onError = { error ->
-                    Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                    FormValidation.toast(this, FormValidation.loginErrorMessage(error))
                 }
             )
         }
