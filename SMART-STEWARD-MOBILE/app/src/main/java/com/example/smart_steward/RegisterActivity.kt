@@ -8,7 +8,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.text.HtmlCompat
 import com.example.smart_steward.api.ApiProvider
@@ -43,18 +42,49 @@ class RegisterActivity : AppCompatActivity() {
             val password = passwordInput.text.toString().trim()
             val confirmPassword = confirmPasswordInput.text.toString().trim()
 
-            if (firstName.isBlank() || middleName.isBlank() || lastName.isBlank() || email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
-                Toast.makeText(this, "Complete all fields first.", Toast.LENGTH_SHORT).show()
+            if (firstName.isBlank() && middleName.isBlank() && lastName.isBlank() && email.isBlank() && password.isBlank() && confirmPassword.isBlank()) {
+                FormValidation.toast(this, "Please complete all registration fields.")
+                return@setOnClickListener
+            }
+
+            if (firstName.isBlank() || middleName.isBlank() || lastName.isBlank()) {
+                FormValidation.toast(this, "Please enter your full name.")
+                return@setOnClickListener
+            }
+
+            if (email.isBlank()) {
+                FormValidation.toast(this, "Please enter your email address.")
+                return@setOnClickListener
+            }
+
+            if (!FormValidation.isValidEmail(email)) {
+                FormValidation.toast(this, "Please enter a valid email address.")
+                return@setOnClickListener
+            }
+
+            if (password.isBlank()) {
+                FormValidation.toast(this, "Please enter your password.")
+                return@setOnClickListener
+            }
+
+            if (confirmPassword.isBlank()) {
+                FormValidation.toast(this, "Please confirm your password.")
+                return@setOnClickListener
+            }
+
+            FormValidation.passwordError(password)?.let { message ->
+                FormValidation.toast(this, message)
                 return@setOnClickListener
             }
 
             if (password != confirmPassword) {
-                Toast.makeText(this, "Passwords do not match.", Toast.LENGTH_SHORT).show()
+                FormValidation.toast(this, "Passwords do not match.")
                 return@setOnClickListener
             }
 
             val fullName = "$firstName $middleName $lastName"
 
+            FormValidation.toast(this, "Creating account...")
             ApiProvider.auth.call(
                 route = AuthRoutes.REGISTER_WITH_EMAIL,
                 params = mapOf(
@@ -66,12 +96,20 @@ class RegisterActivity : AppCompatActivity() {
                     "password" to password
                 ),
                 onSuccess = {
-                    Toast.makeText(this, "Registration successful. Please log in.", Toast.LENGTH_LONG).show()
-                    startActivity(Intent(this, LoginActivity::class.java))
+                    FormValidation.toast(this, "Account created successfully.")
+                    val nextIntent = if (LandingGate.hasSeenLanding(this)) {
+                        Intent(this, LoginActivity::class.java)
+                    } else {
+                        Intent(this, MainActivity::class.java).putExtra(
+                            LandingGate.EXTRA_NEXT_SCREEN,
+                            LandingGate.NEXT_LOGIN
+                        )
+                    }
+                    startActivity(nextIntent)
                     finish()
                 },
                 onError = { error ->
-                    Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                    FormValidation.toast(this, FormValidation.registerErrorMessage(error))
                 }
             )
         }
