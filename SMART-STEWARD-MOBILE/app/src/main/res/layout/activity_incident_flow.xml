@@ -9,12 +9,13 @@
     <LinearLayout
         android:id="@+id/incidentHeader"
         android:layout_width="0dp"
-        android:layout_height="56dp"
+        android:layout_height="72dp"
         android:background="#FFEDEDED"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
+        android:paddingStart="20dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="20dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -29,10 +30,10 @@
             android:id="@+id/incidentFlowTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="10dp"
             android:text="Send AI"
             android:textColor="@color/black"
-            android:textSize="18sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -40,9 +41,9 @@
         android:id="@+id/contentFrame"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:paddingStart="16dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="16dp"
+        android:paddingStart="22dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="22dp"
         android:paddingBottom="90dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -62,23 +63,24 @@
                 android:background="@android:color/black"
                 android:scaleType="centerCrop" />
 
-            <TextView
-                android:layout_width="136dp"
-                android:layout_height="136dp"
-                android:layout_gravity="center"
-                android:gravity="center"
-                android:text="[]\n  ()\n[]"
-                android:textColor="@color/black"
-                android:textSize="34sp"
-                android:textStyle="bold" />
+            <ImageView
+                android:id="@+id/previewBackButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="bottom|start"
+                android:layout_marginStart="26dp"
+                android:layout_marginBottom="18dp"
+                android:padding="10dp"
+                android:src="@android:drawable/ic_media_previous"
+                app:tint="@color/white" />
 
             <Button
                 android:id="@+id/sendToAiButton"
                 android:layout_width="126dp"
                 android:layout_height="42dp"
                 android:layout_gravity="bottom|end"
-                android:layout_marginEnd="10dp"
-                android:layout_marginBottom="12dp"
+                android:layout_marginEnd="26dp"
+                android:layout_marginBottom="18dp"
                 android:backgroundTint="@color/white"
                 android:text="Send To AI"
                 android:textAllCaps="false"
@@ -149,70 +151,91 @@
 
                 <ImageView
                     android:id="@+id/imagePreviewSmall"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
+                    android:layout_width="132dp"
+                    android:layout_height="132dp"
                     android:layout_gravity="center_horizontal"
-                    android:background="@android:color/black"
+                    android:background="@drawable/bg_incident_media_preview"
+                    android:clipToOutline="true"
                     android:scaleType="centerCrop" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="24dp"
                     android:text="Incident Type"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:id="@+id/detectedIncidentTypeText"
+                    android:layout_width="190dp"
+                    android:layout_height="38dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="7dp"
                     android:background="@drawable/bg_code_box"
                     android:gravity="center"
-                    android:text="Burning" />
+                    android:text="Burning"
+                    android:textColor="@color/black"
+                    android:textSize="14sp" />
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="230dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="[!] This information was generated by AI and may be incorrect."
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="⚠ This information was generated by AI and may be incorrect."
                     android:textColor="@color/hint_dark_gray"
-                    android:textSize="12sp" />
+                    android:textSize="10sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="20dp"
                     android:text="Assigned Agency"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:id="@+id/detectedAssignedAgencyText"
+                    android:layout_width="230dp"
+                    android:layout_height="38dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="7dp"
                     android:background="@drawable/bg_code_box"
                     android:gravity="center"
-                    android:text="Bureau of Fire Protection (BFP)" />
+                    android:text="Bureau of Fire Protection (BFP)"
+                    android:textColor="@color/black"
+                    android:textSize="14sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="18dp"
                     android:text="Incident Description"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/detectedDescriptionText"
-                    android:layout_width="match_parent"
-                    android:layout_height="80dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_width="230dp"
+                    android:layout_height="76dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="7dp"
                     android:background="@drawable/bg_code_box"
+                    android:gravity="center"
                     android:padding="10dp"
-                    android:text="The captured photo/video shows an open burning of trash in a public area. This is burning-related environmental disturbance." />
+                    android:text="The captured photo/video shows an open burning of trash in a public area. This is burning-related environmental disturbance."
+                    android:textColor="@color/black"
+                    android:textSize="12sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="16dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -221,30 +244,29 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Location: Bgy Lahug, Cebu City"
-                        android:textColor="@color/hint_dark_gray"
+                        android:textColor="@color/black"
                         android:textSize="12sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="04/24/2026 10:32 AM"
-                        android:textColor="@color/hint_dark_gray"
+                        android:textColor="@color/black"
                         android:textSize="12sp" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="18dp"
                     android:gravity="center"
                     android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/editButton"
-                        android:layout_width="0dp"
+                        android:layout_width="84dp"
                         android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
-                        android:layout_weight="1"
+                        android:layout_marginEnd="50dp"
                         android:backgroundTint="@color/code_box_bg"
                         android:text="Edit"
                         android:textAllCaps="false"
@@ -252,10 +274,8 @@
 
                     <Button
                         android:id="@+id/submitDetectedButton"
-                        android:layout_width="0dp"
+                        android:layout_width="84dp"
                         android:layout_height="40dp"
-                        android:layout_marginStart="8dp"
-                        android:layout_weight="1"
                         android:backgroundTint="#FF00F01A"
                         android:text="Submit"
                         android:textAllCaps="false"
@@ -283,22 +303,26 @@
                     android:layout_height="176dp"
                     android:layout_gravity="center_horizontal"
                     android:layout_marginTop="8dp"
-                    android:background="@android:color/black"
+                    android:background="@drawable/bg_incident_media_preview"
+                    android:clipToOutline="true"
                     android:scaleType="centerCrop" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="24dp"
                     android:text="Incident Type"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/editIncidentTypeText"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
                     android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_incident_ai_value"
+                    android:layout_marginTop="7dp"
+                    android:background="@drawable/bg_code_box"
                     android:gravity="center"
                     android:minWidth="192dp"
                     android:paddingStart="14dp"
@@ -311,14 +335,17 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="20dp"
                     android:text="Assigned Agency"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/editAssignedAgencyText"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
                     android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_incident_ai_value"
+                    android:layout_marginTop="7dp"
+                    android:background="@drawable/bg_code_box"
                     android:gravity="center"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
@@ -328,8 +355,10 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="18dp"
                     android:text="Incident Description"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <EditText
@@ -337,9 +366,9 @@
                     android:layout_width="200dp"
                     android:layout_height="84dp"
                     android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_incident_ai_value"
-                    android:gravity="top|start"
+                    android:layout_marginTop="7dp"
+                    android:background="@drawable/bg_code_box"
+                    android:gravity="center"
                     android:inputType="textMultiLine"
                     android:padding="8dp"
                     android:text="The Capture photo/video shows an open burning of trash in a public area, This is burning - related to environmental violation"
@@ -349,7 +378,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="16dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -358,29 +387,29 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Location: Banilad, Cebu City"
-                        android:textColor="@color/hint_dark_gray"
-                        android:textSize="10sp" />
+                        android:textColor="@color/black"
+                        android:textSize="12sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="04/24/2026 10:32 AM"
-                        android:textColor="@color/hint_dark_gray"
-                        android:textSize="10sp" />
+                        android:textColor="@color/black"
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
+                    android:layout_marginTop="18dp"
                     android:gravity="center"
                     android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/editAgainButton"
-                        android:layout_width="104dp"
+                        android:layout_width="84dp"
                         android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_marginEnd="50dp"
                         android:background="@drawable/bg_incident_button_gray"
                         android:text="Edit Again"
                         android:textAllCaps="false"
@@ -388,9 +417,8 @@
 
                     <Button
                         android:id="@+id/confirmSubmitButton"
-                        android:layout_width="wrap_content"
+                        android:layout_width="112dp"
                         android:layout_height="40dp"
-                        android:layout_marginStart="8dp"
                         android:background="@drawable/bg_incident_ai_value"
                         android:paddingStart="12dp"
                         android:paddingEnd="12dp"
@@ -455,6 +483,7 @@
                         android:text="Report ID: # REP-20251024-001" />
 
                     <TextView
+                        android:id="@+id/submittedReportTypeText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -473,6 +502,7 @@
                         android:text="Location: Banilad" />
 
                     <TextView
+                        android:id="@+id/submittedDescriptionText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -485,6 +515,7 @@
                         android:text="Attach Photo/Video: Attached" />
 
                     <TextView
+                        android:id="@+id/submittedAssignedAgencyText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -627,6 +658,7 @@
     </LinearLayout>
 
     <FrameLayout
+        android:id="@+id/incidentCameraFab"
         android:layout_width="74dp"
         android:layout_height="74dp"
         android:background="@drawable/bg_dashboard_camera_fab"
@@ -636,6 +668,7 @@
         app:layout_constraintTop_toTopOf="@id/incidentBottomNav">
 
         <ImageView
+            android:id="@+id/incidentCameraIcon"
             android:layout_width="28dp"
             android:layout_height="28dp"
             android:layout_gravity="center"

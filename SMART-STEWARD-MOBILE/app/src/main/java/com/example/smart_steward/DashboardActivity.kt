@@ -5,12 +5,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -31,6 +31,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var map: GoogleMap? = null
     private var pendingCameraAction: CameraAction? = null
+    private lateinit var captureOptionsMenu: LinearLayout
 
     private val takePhotoLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -39,6 +40,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             val capturedBitmap = result.data?.extras?.get("data") as? Bitmap
             if (capturedBitmap != null) {
                 CapturedMediaStore.capturedBitmap = capturedBitmap
+                CapturedMediaStore.capturedVideoUri = null
                 startActivity(Intent(this, IncidentFlowActivity::class.java))
             } else {
                 Toast.makeText(this, "Unable to read captured photo.", Toast.LENGTH_SHORT).show()
@@ -51,7 +53,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     ) { result ->
         if (result.resultCode == RESULT_OK) {
             CapturedMediaStore.capturedBitmap = null
-            startActivity(Intent(this, IncidentFlowActivity::class.java))
+            CapturedMediaStore.capturedVideoUri = result.data?.data
+            if (CapturedMediaStore.capturedVideoUri != null) {
+                startActivity(Intent(this, IncidentFlowActivity::class.java))
+            } else {
+                Toast.makeText(this, "Unable to read captured video.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -96,6 +103,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.dashboardMap) as? SupportMapFragment
         mapFragment?.getMapAsync(this)
+        captureOptionsMenu = findViewById(R.id.captureOptionsMenu)
 
         findViewById<LinearLayout>(R.id.dashboardNavNotification).setOnClickListener {
             startActivity(Intent(this, NotificationActivity::class.java))
@@ -106,13 +114,33 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnClickListener {
-            handleCameraAction(CameraAction.PHOTO)
+            toggleCameraOptions()
         }
 
         findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnLongClickListener {
+            hideCameraOptions()
             handleCameraAction(CameraAction.VIDEO)
             true
         }
+
+        findViewById<LinearLayout>(R.id.takePhotoOption).setOnClickListener {
+            hideCameraOptions()
+            handleCameraAction(CameraAction.PHOTO)
+        }
+
+        findViewById<LinearLayout>(R.id.recordVideoOption).setOnClickListener {
+            hideCameraOptions()
+            handleCameraAction(CameraAction.VIDEO)
+        }
+    }
+
+    private fun toggleCameraOptions() {
+        captureOptionsMenu.visibility =
+            if (captureOptionsMenu.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+    }
+
+    private fun hideCameraOptions() {
+        captureOptionsMenu.visibility = View.GONE
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
@@ -131,14 +159,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun requestLocationDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Allow location access")
-            .setMessage("Enable location while using the app to show your current position on the map.")
-            .setNegativeButton("Not now", null)
-            .setPositiveButton("Allow") { _, _ ->
-                handleLocationPermission()
-            }
-            .show()
+        handleLocationPermission()
     }
 
     private fun handleLocationPermission() {
@@ -171,7 +192,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun launchCameraAction(action: CameraAction) {
         val captureIntent = when (action) {
             CameraAction.PHOTO -> Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
-            CameraAction.VIDEO -> Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE)
+            CameraAction.VIDEO -> Intent(MediaStore.ACTION_VIDEO_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_DURATION_LIMIT, 15)
+                putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1)
+            }
         }
 
         if (captureIntent.resolveActivity(packageManager) == null) {

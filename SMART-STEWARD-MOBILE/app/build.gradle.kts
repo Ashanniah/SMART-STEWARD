@@ -24,6 +24,11 @@ android {
             localPropertiesFile.inputStream().use { localProperties.load(it) }
         }
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
+        buildConfigField(
+            "String",
+            "AI_API_BASE_URL",
+            "\"${localProperties.getProperty("AI_API_BASE_URL", "http://10.0.2.2:3000")}\""
+        )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -43,6 +48,10 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     sourceSets {

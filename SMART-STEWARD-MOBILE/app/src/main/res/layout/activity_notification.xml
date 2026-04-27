@@ -58,6 +58,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/notificationListContainer"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_marginStart="12dp"
@@ -71,10 +72,13 @@
             app:layout_constraintTop_toBottomOf="@id/notificationHeader">
 
             <LinearLayout
+                android:id="@+id/notificationAcknowledgedCard"
                 android:layout_width="match_parent"
                 android:layout_height="86dp"
                 android:layout_marginBottom="12dp"
                 android:background="@drawable/bg_profile_option_item"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="12dp"
@@ -122,10 +126,13 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/notificationResolvedCard"
                 android:layout_width="match_parent"
                 android:layout_height="86dp"
                 android:layout_marginBottom="12dp"
                 android:background="@drawable/bg_profile_option_item"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="12dp"
@@ -173,9 +180,12 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/notificationAdvisoryCard"
                 android:layout_width="match_parent"
                 android:layout_height="100dp"
                 android:background="@drawable/bg_profile_option_item"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="12dp"
@@ -256,6 +266,7 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/notificationNavActivity"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
