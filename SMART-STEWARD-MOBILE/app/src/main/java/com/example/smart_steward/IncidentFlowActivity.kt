@@ -52,6 +52,7 @@ class IncidentFlowActivity : AppCompatActivity() {
     private var currentState = ScreenState.PREVIEW
     private var currentIncidentType = "Incident"
     private var currentAssignedAgency = "Barangay"
+    private var currentSummary = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,8 +113,14 @@ class IncidentFlowActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.confirmSubmitButton).setOnClickListener {
+            val correctedDescription = descriptionInput.text.toString().trim()
+            if (correctedDescription.isBlank()) {
+                Toast.makeText(this, "Please enter an incident description.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             analyzeIncident(
-                userCorrection = descriptionInput.text.toString().trim(),
+                userCorrection = correctedDescription,
                 submitAfterAnalysis = true
             )
         }
@@ -202,7 +209,7 @@ class IncidentFlowActivity : AppCompatActivity() {
         showState(if (submitAfterAnalysis) ScreenState.REANALYZING else ScreenState.ANALYZING)
 
         val message = if (submitAfterAnalysis && !userCorrection.isNullOrBlank()) {
-            "The user corrected the incident description to: $userCorrection. Re-classify the incident and assigned agency."
+            buildReanalysisMessage(userCorrection)
         } else if (CapturedMediaStore.capturedVideoUri != null) {
             "Analyze this Smart Steward incident report from the attached video."
         } else {
@@ -234,6 +241,7 @@ class IncidentFlowActivity : AppCompatActivity() {
     private fun applyAnalysisResult(result: IncidentAnalysisClient.AnalysisResult) {
         currentIncidentType = result.incidentType
         currentAssignedAgency = result.assignedAgency
+        currentSummary = result.summary
 
         detectedIncidentTypeText.text = result.incidentType
         detectedAssignedAgencyText.text = result.assignedAgency
@@ -246,5 +254,23 @@ class IncidentFlowActivity : AppCompatActivity() {
         submittedReportTypeText.text = "Report Type: ${result.incidentType}"
         submittedDescriptionText.text = "Description: ${result.summary}"
         submittedAssignedAgencyText.text = "Assigned to: ${result.assignedAgency}"
+    }
+
+    private fun buildReanalysisMessage(userCorrection: String): String {
+        return """
+            The user edited the AI-generated incident description.
+
+            Previous AI summary:
+            ${currentSummary.ifBlank { "No previous summary available." }}
+
+            User-edited description:
+            $userCorrection
+
+            Re-analyze the incident using the user-edited description as the primary source of truth. Use the attached media only as supporting evidence. Return the same JSON format with:
+            - the corrected incidentType
+            - the correct assignedAgency
+            - a polished, agency-ready summary based on the user's edited description
+            - the updated severity
+        """.trimIndent()
     }
 }
