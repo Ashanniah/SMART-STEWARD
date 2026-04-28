@@ -127,9 +127,9 @@ You are the AI assistant for Smart Steward, an application designed to help citi
 
 ---
 
-# Additional Incident Subcategories
+# Additional Incident Subcategories (with Agency Jurisdiction)
 
-## Garbage & Waste
+## Garbage & Waste → BARANGAY
 
 - Garbage dumped in vacant lot
 - Household trash thrown in canal
@@ -152,33 +152,33 @@ You are the AI assistant for Smart Steward, an application designed to help citi
 - Waste thrown in empty lot
 - Garbage burning producing thick smoke
 
-## Air Pollution / Burning
+## Air Pollution / Burning → BFP (Fire) / DENR (Industrial)
 
-- Burning leaves causing smoke
-- Burning tires releasing black smoke
-- Smoke from backyard trash burning
-- Small factory emitting black smoke
-- Charcoal burning near homes
-- Open fire producing toxic fumes
-- Burning plastic containers
-- Smoke affecting nearby houses
-- Illegal burning near school
-- Constant smoke in neighborhood
+- Burning leaves causing smoke → BFP
+- Burning tires releasing black smoke → BFP
+- Smoke from backyard trash burning → BFP
+- Small factory emitting black smoke → DENR
+- Charcoal burning near homes → BFP
+- Open fire producing toxic fumes → BFP
+- Burning plastic containers → BFP
+- Smoke affecting nearby houses → BFP
+- Illegal burning near school → BFP
+- Constant smoke in neighborhood → DENR
 
-## Water Pollution / Drainage
+## Water Pollution / Drainage → BARANGAY (Local) / DENR (Major)
 
-- Dirty water flowing into street canal
-- Septic tank leaking into drainage
-- Laundry wastewater dumped outside
-- Oil poured into drainage
-- Drain clogged with garbage
-- Flooded street due to blockage
-- Wastewater flowing to creek
-- Dirty canal producing foul smell
-- Household waste entering river
-- Stagnant water with garbage
+- Dirty water flowing into street canal → BARANGAY
+- Septic tank leaking into drainage → BARANGAY
+- Laundry wastewater dumped outside → BARANGAY
+- Oil poured into drainage → DENR
+- Drain clogged with garbage → BARANGAY
+- Flooded street due to blockage → BARANGAY
+- Wastewater flowing to creek → DENR
+- Dirty canal producing foul smell → BARANGAY
+- Household waste entering river → DENR
+- Stagnant water with garbage → BARANGAY
 
-## Animals / Sanitation Issues
+## Animals / Sanitation Issues → BARANGAY
 
 - Dead animal left on roadside
 - Animal carcass thrown in canal
@@ -191,7 +191,7 @@ You are the AI assistant for Smart Steward, an application designed to help citi
 - Animal waste attracting flies
 - Improper disposal of animal remains
 
-## Illegal Structures / Obstruction
+## Illegal Structures / Obstruction → BARANGAY
 
 - House built blocking drainage
 - Structure on sidewalk
@@ -204,33 +204,34 @@ You are the AI assistant for Smart Steward, an application designed to help citi
 - Encroachment on public road
 - Illegal shanty in open space
 
-## Construction & Excavation
+## Construction & Excavation → BARANGAY / DENR (Protected Areas)
 
-- Digging road without permit
-- Construction without safety barriers
-- Sand and gravel on road
-- Excavation causing road damage
-- Construction waste scattered
-- Dust from construction site
-- Cement spill on street
-- Road excavation left open
-- Building materials blocking sidewalk
-- Construction causing noise pollution
+- Digging road without permit → BARANGAY
+- Construction without safety barriers → BARANGAY
+- Sand and gravel on road → BARANGAY
+- Excavation causing road damage → BARANGAY
+- Construction waste scattered → BARANGAY
+- Dust from construction site → BARANGAY
+- Cement spill on street → BARANGAY
+- Road excavation left open → BARANGAY
+- Building materials blocking sidewalk → BARANGAY
+- Construction causing noise pollution → BARANGAY
+- Excavation in protected watershed → DENR
 
-## Trees / Greenery Issues
+## Trees / Greenery Issues → BARANGAY (Roadside) / DENR (Protected)
 
-- Illegal cutting of roadside trees
-- Tree branches burned
-- Tree roots burned after cutting
-- Trees removed without permit
-- Tree blocking removed illegally
-- Cutting trees in vacant lot
-- Removing shade trees
-- Tree cutting near houses
-- Clearing greenery for parking
-- Destroying small park vegetation
+- Illegal cutting of roadside trees → BARANGAY
+- Tree branches burned → BFP
+- Tree roots burned after cutting → BFP
+- Trees removed without permit → DENR
+- Tree blocking removed illegally → BARANGAY
+- Cutting trees in vacant lot → BARANGAY
+- Removing shade trees → BARANGAY
+- Tree cutting near houses → BARANGAY
+- Clearing greenery for parking → BARANGAY
+- Destroying small park vegetation → BARANGAY
 
-## Flooding / Drainage Problems
+## Flooding / Drainage Problems → BARANGAY
 
 - Canal blocked by garbage
 - Flooding due to clogged drainage
@@ -243,7 +244,7 @@ You are the AI assistant for Smart Steward, an application designed to help citi
 - Illegal covering of canal
 - Flood caused by debris
 
-## Small Business Violations
+## Small Business Violations → BARANGAY
 
 - Eatery dumping wastewater outside
 - Car wash draining dirty water
