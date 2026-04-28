@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" fill="none">
+  <!-- Outer circle -->
+  <circle cx="50" cy="50" r="45" stroke="currentColor" stroke-width="3" fill="none"/>
+  <!-- Leaf/flame shape -->
+  <path d="M50 15 C35 35, 25 55, 50 85 C75 55, 65 35, 50 15Z" fill="currentColor" opacity="0.15"/>
+  <path d="M50 20 C38 38, 30 55, 50 80 C70 55, 62 38, 50 20Z" stroke="currentColor" stroke-width="2.5" fill="none"/>
+  <!-- Inner leaf vein -->
+  <path d="M50 30 L50 70" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  <path d="M50 45 L40 38" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  <path d="M50 55 L60 48" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  <!-- Text -->
+  <text x="50" y="108" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="700" fill="currentColor" letter-spacing="1">SMART STEWARD</text>
+</svg>
