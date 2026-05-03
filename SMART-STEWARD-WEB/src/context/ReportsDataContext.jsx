@@ -63,8 +63,8 @@ export function ReportsDataProvider({ children }) {
           setLoading(false);
           setError(
             err.code === 'permission-denied'
-              ? 'You do not have access to view reports. Sign in with an authorized account or contact your administrator.'
-              : err.message || 'Could not load reports. Please try again later.'
+              ? 'No permission to read reports. Check Firestore rules for signed-in agency users.'
+              : err.message || 'Failed to load reports.'
           );
         }
       );
