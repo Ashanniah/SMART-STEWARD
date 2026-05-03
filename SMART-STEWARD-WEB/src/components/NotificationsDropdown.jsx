@@ -7,7 +7,29 @@ import {
   ClockIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/solid';
-import { NOTIFICATIONS_SEED } from '../data/notificationsMock';
+import { useReportsData } from '../context/ReportsDataContext';
+import { formatRelativeTime } from '../utils/normalizeReportDoc';
+
+const READ_IDS_KEY = 'smartsteward-notif-read-doc-ids';
+
+function loadReadSet() {
+  try {
+    const raw = sessionStorage.getItem(READ_IDS_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReadSet(set) {
+  try {
+    sessionStorage.setItem(READ_IDS_KEY, JSON.stringify([...set]));
+  } catch {
+    /* ignore */
+  }
+}
 
 function NotificationIcon({ kind }) {
   switch (kind) {
@@ -48,19 +70,48 @@ function NotificationIcon({ kind }) {
 }
 
 export default function NotificationsDropdown() {
+  const { reports } = useReportsData();
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState(() => NOTIFICATIONS_SEED.map((n) => ({ ...n })));
+  const [readIds, setReadIds] = useState(() => loadReadSet());
   const wrapRef = useRef(null);
+
+  useEffect(() => {
+    saveReadSet(readIds);
+  }, [readIds]);
+
+  const items = useMemo(() => {
+    const slice = reports.slice(0, 25);
+    return slice.map((r) => {
+      const kind =
+        r.status === 'resolved'
+          ? 'status_update'
+          : r.status === 'review'
+            ? 'new_report_blue'
+            : 'new_report';
+      const dot =
+        r.status === 'resolved' ? 'green' : r.status === 'review' ? 'yellow' : 'red';
+      return {
+        id: r.docId,
+        kind,
+        title: 'New report submitted',
+        body: `${r.activity} — ${r.location}`,
+        timeLabel: formatRelativeTime(r.createdAt),
+        dot,
+        unread: !readIds.has(r.docId),
+      };
+    });
+  }, [reports, readIds]);
 
   const hasUnread = useMemo(() => items.some((n) => n.unread), [items]);
   const unreadCount = useMemo(() => items.filter((n) => n.unread).length, [items]);
 
   const markAllRead = useCallback(() => {
-    setItems((prev) => prev.map((n) => ({ ...n, unread: false })));
-  }, []);
+    const ids = reports.slice(0, 25).map((r) => r.docId);
+    setReadIds((prev) => new Set([...prev, ...ids]));
+  }, [reports]);
 
   const markOneRead = useCallback((id) => {
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+    setReadIds((prev) => new Set([...prev, id]));
   }, []);
 
   useEffect(() => {
@@ -117,31 +168,35 @@ export default function NotificationsDropdown() {
           </header>
 
           <ul className="notifications-list notifications-dropdown__list">
-            {items.map((n) => (
-              <li key={n.id}>
-                <article
-                  className={`notification-card ${n.unread ? 'notification-card--unread' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="notification-card__main"
-                    onClick={() => markOneRead(n.id)}
-                    aria-label={`${n.title}. ${n.body}`}
+            {items.length === 0 ? (
+              <li className="notifications-dropdown__empty">No reports yet.</li>
+            ) : (
+              items.map((n) => (
+                <li key={n.id}>
+                  <article
+                    className={`notification-card ${n.unread ? 'notification-card--unread' : ''}`}
                   >
-                    <NotificationIcon kind={n.kind} />
-                    <div className="notification-card__text">
-                      <h3 className="notification-card__title">{n.title}</h3>
-                      <p className="notification-card__body">{n.body}</p>
-                      <time className="notification-card__time">{n.timeLabel}</time>
-                    </div>
-                  </button>
-                  <span
-                    className={`notification-card__dot notification-card__dot--${n.dot}`}
-                    aria-hidden
-                  />
-                </article>
-              </li>
-            ))}
+                    <button
+                      type="button"
+                      className="notification-card__main"
+                      onClick={() => markOneRead(n.id)}
+                      aria-label={`${n.title}. ${n.body}`}
+                    >
+                      <NotificationIcon kind={n.kind} />
+                      <div className="notification-card__text">
+                        <h3 className="notification-card__title">{n.title}</h3>
+                        <p className="notification-card__body">{n.body}</p>
+                        <time className="notification-card__time">{n.timeLabel}</time>
+                      </div>
+                    </button>
+                    <span
+                      className={`notification-card__dot notification-card__dot--${n.dot}`}
+                      aria-hidden
+                    />
+                  </article>
+                </li>
+              ))
+            )}
           </ul>
         </div>
       ) : null}

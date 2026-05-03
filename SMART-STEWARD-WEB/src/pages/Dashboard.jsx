@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ClipboardDocumentListIcon,
   ClockIcon,
@@ -11,47 +12,21 @@ import { getDashboardConfig } from '../config/dashboardConfig';
 import SummaryStatCard from '../components/SummaryStatCard';
 import RecentReportRow from '../components/RecentReportRow';
 import GoogleMapComponent from '../components/GoogleMap';
+import { useReportsData } from '../context/ReportsDataContext';
+import { reportsToMapIncidents, statusToLabel } from '../utils/normalizeReportDoc';
 
-const summaryStats = [
-  { key: 'total', Icon: ClipboardDocumentListIcon, label: 'Total Reports', value: '10', accent: 'green' },
-  { key: 'pending', Icon: ClockIcon, label: 'Pending Reports', value: '10', accent: 'orange' },
-  { key: 'review', Icon: MagnifyingGlassIcon, label: 'Under Review', value: '5', accent: 'blue' },
-  { key: 'resolved', Icon: CheckCircleIcon, label: 'Resolved Reports', value: '15', accent: 'teal' },
-];
+const MAP_DEFAULT_CENTER = { lat: 10.2979, lng: 123.8965 };
 
-const recentReports = [
-  {
-    id: 1,
-    title: 'illegal logging',
-    location: 'Busay, Cebu City',
-    dateTime: 'May 20, 2025 · 2:30 PM',
-    imageUrl: 'https://images.unsplash.com/photo-1448375240586-882707db8887?w=200&h=120&fit=crop',
-  },
-  {
-    id: 2,
-    title: 'Open Burning',
-    location: 'Guadalupe, Cebu City',
-    dateTime: 'May 21, 2025 · 9:15 AM',
-    imageUrl: 'https://images.unsplash.com/photo-1476234251651-3533a066bd4b?w=200&h=120&fit=crop',
-  },
-  {
-    id: 3,
-    title: 'illegal Quarry',
-    location: 'Talamban, Cebu City',
-    dateTime: 'May 22, 2025 · 11:00 AM',
-    imageUrl: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=200&h=120&fit=crop',
-  },
-  {
-    id: 4,
-    title: 'Wildlife Violations',
-    location: 'Toledo City',
-    dateTime: 'May 23, 2025 · 8:45 AM',
-    imageUrl: 'https://images.unsplash.com/photo-1436280613368-f164db747295?w=200&h=120&fit=crop',
-  },
+const SUMMARY_CONFIG = [
+  { key: 'total', Icon: ClipboardDocumentListIcon, label: 'Total Reports', accent: 'green' },
+  { key: 'pending', Icon: ClockIcon, label: 'Pending Reports', accent: 'orange' },
+  { key: 'review', Icon: MagnifyingGlassIcon, label: 'Under Review', accent: 'blue' },
+  { key: 'resolved', Icon: CheckCircleIcon, label: 'Resolved Reports', accent: 'teal' },
 ];
 
 export default function Dashboard() {
   const cfg = useMemo(() => getDashboardConfig('default'), []);
+  const { reports, loading, error, counts } = useReportsData();
   const [filterType, setFilterType] = useState('All Types');
   const [filterStatus, setFilterStatus] = useState('All Status');
   const [filterAgency] = useState(cfg.filterAgencyDefault);
@@ -59,6 +34,28 @@ export default function Dashboard() {
 
   const reportMapPanelRef = useRef(null);
   const [reportMapFullscreen, setReportMapFullscreen] = useState(false);
+
+  const summaryStats = useMemo(
+    () =>
+      SUMMARY_CONFIG.map(({ key, Icon, label, accent }) => ({
+        key,
+        Icon,
+        label,
+        accent,
+        value: String(counts[key] ?? 0),
+      })),
+    [counts]
+  );
+
+  const recentSlice = useMemo(() => reports.slice(0, 6), [reports]);
+
+  const mapIncidents = useMemo(() => reportsToMapIncidents(reports), [reports]);
+
+  const mapCenter = useMemo(() => {
+    const first = mapIncidents[0];
+    if (first) return { lat: first.lat, lng: first.lng };
+    return MAP_DEFAULT_CENTER;
+  }, [mapIncidents]);
 
   useEffect(() => {
     const sync = () => {
@@ -81,6 +78,12 @@ export default function Dashboard() {
 
   return (
     <div className="denr-dashboard fade-in">
+      {error ? (
+        <p className="denr-dashboard__firestore-msg" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       <div className="denr-dashboard__stats">
         {summaryStats.map(({ key, Icon, ...rest }) => (
           <SummaryStatCard key={key} Icon={Icon} {...rest} />
@@ -91,18 +94,34 @@ export default function Dashboard() {
         <section className="denr-panel denr-panel--reports">
           <div className="denr-panel__head">
             <h3 className="denr-panel__title">Recent Receive Reports</h3>
-            <button type="button" className="denr-link-all">
+            <Link to="/reports" className="denr-link-all">
               View all reports
-            </button>
+            </Link>
           </div>
           <div className="recent-report-list">
-            {recentReports.map((r) => (
-              <RecentReportRow key={r.id} {...r} />
-            ))}
+            {loading && reports.length === 0 ? (
+              <p className="denr-dashboard__muted">Loading reports…</p>
+            ) : recentSlice.length === 0 ? (
+              <p className="denr-dashboard__muted">
+                No reports yet. Submissions from the mobile app will appear here.
+              </p>
+            ) : (
+              recentSlice.map((r) => (
+                <RecentReportRow
+                  key={r.docId}
+                  title={r.activity}
+                  location={r.location}
+                  dateTime={r.date}
+                  imageUrl={r.imageUrl || undefined}
+                  statusLabel={statusToLabel(r.status)}
+                  statusKey={r.status}
+                />
+              ))
+            )}
           </div>
-          <button type="button" className="denr-view-all-bottom">
+          <Link to="/reports" className="denr-view-all-bottom">
             View all reports
-          </button>
+          </Link>
         </section>
 
         <section ref={reportMapPanelRef} className="denr-panel denr-panel--map">
@@ -124,7 +143,9 @@ export default function Dashboard() {
             </button>
             <GoogleMapComponent
               height={reportMapFullscreen ? '100%' : '360px'}
-              zoom={11}
+              zoom={mapIncidents.length ? 11 : 10}
+              center={mapCenter}
+              incidents={mapIncidents}
               enableFullscreenControl={false}
             />
           </div>

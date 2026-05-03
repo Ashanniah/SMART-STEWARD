@@ -13,12 +13,11 @@ import {
   EllipsisVerticalIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
-import {
-  HISTORY_STATS,
-  HISTORY_TOTAL_COUNT,
-  getHistoryPageRows,
-  getPaginationRange,
-} from '../data/reportHistoryMock';
+import { getPaginationRange } from '../data/reportHistoryMock';
+import { useReportsData } from '../context/ReportsDataContext';
+
+const PLACEHOLDER_THUMB =
+  'https://images.unsplash.com/photo-1611287157826-4e513e77ba9a?w=120&h=120&fit=crop&q=80';
 
 const STAT_CONFIG = [
   {
@@ -53,6 +52,7 @@ function HistoryStatusPill({ status }) {
     review: 'Under Review',
     resolved: 'Resolved',
     in_progress: 'In Progress',
+    rejected: 'Rejected',
   };
   return (
     <span className={`history-pill history-pill--${status}`}>
@@ -70,32 +70,96 @@ function PriorityLabel({ priority }) {
   );
 }
 
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('en-US');
+}
+
 export default function ReportHistory() {
   const navigate = useNavigate();
+  const { reports, loading, error, counts } = useReportsData();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const totalPages = Math.max(1, Math.ceil(HISTORY_TOTAL_COUNT / pageSize));
-  const effectivePage = Math.min(Math.max(1, page), totalPages);
+  const totalCount = reports.length;
 
-  const rows = useMemo(
-    () => getHistoryPageRows(effectivePage, pageSize),
-    [effectivePage, pageSize]
+  const HISTORY_STATS = useMemo(
+    () => ({
+      total: {
+        value: fmtNum(counts.total),
+        hint: 'All reports submitted',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+      pending: {
+        value: fmtNum(counts.pending),
+        hint: 'Awaiting initial review',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+      review: {
+        value: fmtNum(counts.review),
+        hint: 'Currently being reviewed',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+      resolved: {
+        value: fmtNum(counts.resolved),
+        hint: 'Successfully resolved',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+    }),
+    [counts]
   );
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const effectivePage = Math.min(Math.max(1, page), totalPages);
+
+  const rows = useMemo(() => {
+    const start = (effectivePage - 1) * pageSize;
+    return reports.slice(start, start + pageSize).map((r) => ({
+      docId: r.docId,
+      thumb: r.imageUrl || PLACEHOLDER_THUMB,
+      typeTitle: r.activity,
+      categoryLabel: r.categoryLabel,
+      location: r.location,
+      dateTime: r.dateTime,
+      reportedBy: r.reportedBy,
+      status: r.status,
+      priority: r.priority,
+      agency: r.assignedAgency,
+    }));
+  }, [reports, effectivePage, pageSize]);
+
   const startIdx = (effectivePage - 1) * pageSize;
-  const showingFrom = HISTORY_TOTAL_COUNT === 0 ? 0 : startIdx + 1;
-  const showingTo = Math.min(startIdx + pageSize, HISTORY_TOTAL_COUNT);
+  const showingFrom = totalCount === 0 ? 0 : startIdx + 1;
+  const showingTo = Math.min(startIdx + pageSize, totalCount);
 
   const pageItems = useMemo(
     () => getPaginationRange(effectivePage, totalPages, 2),
     [effectivePage, totalPages]
   );
 
-  const dateRangeLabel = 'May 13, 2025 – May 20, 2025';
+  const dateRangeLabel = useMemo(() => {
+    const dates = reports
+      .map((r) => r.createdAt)
+      .filter(Boolean)
+      .sort((a, b) => a.getTime() - b.getTime());
+    if (dates.length === 0) return 'No date range';
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    const opts = { month: 'short', day: 'numeric', year: 'numeric' };
+    return `${first.toLocaleDateString('en-US', opts)} – ${last.toLocaleDateString('en-US', opts)}`;
+  }, [reports]);
 
   return (
     <div className="report-history-page fade-in">
+      {error ? (
+        <p className="reports-page__banner-msg" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       <div className="report-history-page__stats">
         {STAT_CONFIG.map(({ key, title, Icon, accent }) => {
           const s = HISTORY_STATS[key];
@@ -125,7 +189,7 @@ export default function ReportHistory() {
         <div>
           <h1 className="report-history-page__title">All Reports History</h1>
           <p className="report-history-page__subtitle">
-            Complete history of all reports submitted to the system.
+            Complete history of reports submitted to the system (includes mobile uploads).
           </p>
         </div>
         <button type="button" className="history-btn history-btn--export-outline">
@@ -162,7 +226,7 @@ export default function ReportHistory() {
           </select>
         </label>
         <label className="history-filters__field history-filters__field--date">
-          <span className="history-filters__label">By Date</span>
+          <span className="history-filters__label">Date span</span>
           <div className="history-filters__range">{dateRangeLabel}</div>
         </label>
         <div className="history-filters__actions">
@@ -201,83 +265,96 @@ export default function ReportHistory() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => (
-                <tr key={`${row.id}-${startIdx + idx}`}>
-                  <td className="history-table__id">{row.id}</td>
-                  <td className="history-table__thumb-cell">
-                    <img
-                      src={row.thumb}
-                      alt=""
-                      className="history-table__thumb"
-                      width={48}
-                      height={48}
-                    />
-                  </td>
-                  <td>
-                    <div className="history-type">
-                      <CheckCircleSolidIcon
-                        className="history-type__check"
-                        aria-hidden
-                      />
-                      <div>
-                        <div className="history-type__title">{row.typeTitle}</div>
-                        <div className="history-type__cat">{row.categoryLabel}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="history-loc">
-                      <span>{row.location}</span>
-                      <a
-                        className="history-map-link"
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <MapPinIcon aria-hidden />
-                        View on Map
-                      </a>
-                    </div>
-                  </td>
-                  <td>{row.dateTime}</td>
-                  <td>{row.reportedBy}</td>
-                  <td>{row.agency}</td>
-                  <td>
-                    <HistoryStatusPill status={row.status} />
-                  </td>
-                  <td>
-                    <PriorityLabel priority={row.priority} />
-                  </td>
-                  <td>
-                    <div className="history-actions">
-                      <button
-                        type="button"
-                        className="history-btn-view"
-                        onClick={() =>
-                          navigate(`/reports/${encodeURIComponent(row.id)}`)
-                        }
-                      >
-                        View Details
-                      </button>
-                      <button
-                        type="button"
-                        className="history-btn-more"
-                        aria-label="More actions"
-                      >
-                        <EllipsisVerticalIcon aria-hidden />
-                      </button>
-                    </div>
+              {loading && reports.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="reports-table__loading">
+                    Loading reports…
                   </td>
                 </tr>
-              ))}
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="reports-table__loading">
+                    No reports yet. Mobile submissions will appear here.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row, idx) => (
+                  <tr key={`${row.docId}-${startIdx + idx}`}>
+                    <td className="history-table__id">{row.docId.slice(0, 12)}…</td>
+                    <td className="history-table__thumb-cell">
+                      <img
+                        src={row.thumb}
+                        alt=""
+                        className="history-table__thumb"
+                        width={48}
+                        height={48}
+                      />
+                    </td>
+                    <td>
+                      <div className="history-type">
+                        <CheckCircleSolidIcon
+                          className="history-type__check"
+                          aria-hidden
+                        />
+                        <div>
+                          <div className="history-type__title">{row.typeTitle}</div>
+                          <div className="history-type__cat">{row.categoryLabel}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="history-loc">
+                        <span>{row.location}</span>
+                        <a
+                          className="history-map-link"
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <MapPinIcon aria-hidden />
+                          View on Map
+                        </a>
+                      </div>
+                    </td>
+                    <td>{row.dateTime}</td>
+                    <td>{row.reportedBy}</td>
+                    <td>{row.agency}</td>
+                    <td>
+                      <HistoryStatusPill status={row.status} />
+                    </td>
+                    <td>
+                      <PriorityLabel priority={row.priority} />
+                    </td>
+                    <td>
+                      <div className="history-actions">
+                        <button
+                          type="button"
+                          className="history-btn-view"
+                          onClick={() =>
+                            navigate(`/reports/${encodeURIComponent(row.docId)}`)
+                          }
+                        >
+                          View Details
+                        </button>
+                        <button
+                          type="button"
+                          className="history-btn-more"
+                          aria-label="More actions"
+                        >
+                          <EllipsisVerticalIcon aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         <footer className="history-footer">
           <p className="history-footer__meta">
-            Showing {showingFrom} to {showingTo} of {HISTORY_TOTAL_COUNT.toLocaleString()}{' '}
-            reports
+            Showing {showingFrom} to {showingTo} of {fmtNum(totalCount)} reports
           </p>
 
           <nav className="history-pagination" aria-label="Pagination">
