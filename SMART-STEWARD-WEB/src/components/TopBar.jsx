@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Bars3Icon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { getDashboardConfig } from '../config/dashboardConfig';
 import avatarDefault from '../assets/avatar_icon.png';
+import NotificationsDropdown from './NotificationsDropdown';
 
 export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
   const cfg = useMemo(() => getDashboardConfig('default'), []);
@@ -26,17 +27,20 @@ export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
           <p className="topbar-subtitle">{cfg.pageSubtitle}</p>
         </div>
       </div>
-      <div className="topbar-user">
-        <div className="topbar-user-avatar" aria-hidden>
-          <img src={avatarDefault} alt="" />
+      <div className="topbar-right">
+        <NotificationsDropdown />
+        <div className="topbar-user">
+          <div className="topbar-user-avatar" aria-hidden>
+            <img src={avatarDefault} alt="" />
+          </div>
+          <div className="topbar-user-text">
+            <span className="topbar-user-name">{cfg.userDisplayName}</span>
+            <span className="topbar-user-role">{cfg.userRole}</span>
+          </div>
+          <button type="button" className="topbar-chevron" aria-label="Account menu">
+            <ChevronDownIcon aria-hidden />
+          </button>
         </div>
-        <div className="topbar-user-text">
-          <span className="topbar-user-name">{cfg.userDisplayName}</span>
-          <span className="topbar-user-role">{cfg.userRole}</span>
-        </div>
-        <button type="button" className="topbar-chevron" aria-label="Account menu">
-          <ChevronDownIcon aria-hidden />
-        </button>
       </div>
     </header>
   );

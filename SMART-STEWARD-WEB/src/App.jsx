@@ -9,7 +9,6 @@ import ReportDetail from './pages/ReportDetail';
 import ReportStatusUpdate from './pages/ReportStatusUpdate';
 import IncidentAnalytics from './pages/IncidentAnalytics';
 import SystemSettings from './pages/SystemSettings';
-import Notifications from './pages/Notifications';
 import ReportHistory from './pages/ReportHistory';
 import Profile from './pages/Profile';
 
@@ -35,7 +34,7 @@ export default function App() {
           <Route path="/sector-mapping" element={<Navigate to="/dashboard" replace />} />
           <Route path="/system-settings" element={<SystemSettings />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/notifications" element={<Navigate to="/dashboard" replace />} />
           <Route path="/report-history" element={<ReportHistory />} />
         </Route>
       </Routes>

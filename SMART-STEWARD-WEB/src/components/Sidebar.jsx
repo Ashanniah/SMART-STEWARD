@@ -1,29 +1,30 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Squares2X2Icon,
   DocumentTextIcon,
   ChartBarIcon,
   UserIcon,
-  BellIcon,
   ClipboardDocumentListIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import Logo from './Logo';
 import avatarDefault from '../assets/avatar_icon.png';
 import { getDashboardConfig } from '../config/dashboardConfig';
+import ConfirmModal from './ConfirmModal';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', Icon: Squares2X2Icon },
   { path: '/reports', label: 'Reports', Icon: DocumentTextIcon },
   { path: '/incident-analytics', label: 'Incident Analytics', Icon: ChartBarIcon },
   { path: '/profile', label: 'User Profile', Icon: UserIcon },
-  { path: '/notifications', label: 'Notification', Icon: BellIcon, highlight: true },
   { path: '/report-history', label: 'History of Reports', Icon: ClipboardDocumentListIcon },
 ];
 
 export default function Sidebar({ expanded = true }) {
   const navigate = useNavigate();
   const cfg = getDashboardConfig('default');
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   return (
     <aside className="sidebar" id="app-sidebar">
@@ -62,7 +63,7 @@ export default function Sidebar({ expanded = true }) {
           type="button"
           className="sidebar-logout"
           title="Logout"
-          onClick={() => navigate('/login')}
+          onClick={() => setLogoutOpen(true)}
         >
           <span className="icon">
             <ArrowRightOnRectangleIcon aria-hidden />
@@ -80,6 +81,19 @@ export default function Sidebar({ expanded = true }) {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={logoutOpen}
+        title="Log out"
+        message="Are you sure you want to logout?"
+        cancelLabel="Cancel"
+        confirmLabel="Log out"
+        onCancel={() => setLogoutOpen(false)}
+        onConfirm={() => {
+          setLogoutOpen(false);
+          navigate('/login');
+        }}
+      />
     </aside>
   );
 }
