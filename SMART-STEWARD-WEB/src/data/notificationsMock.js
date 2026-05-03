@@ -1,4 +1,4 @@
-/** Initial notification feed for the Notifications page */
+/** Initial notification feed (top bar dropdown) */
 export const NOTIFICATIONS_SEED = [
   {
     id: 'n1',
