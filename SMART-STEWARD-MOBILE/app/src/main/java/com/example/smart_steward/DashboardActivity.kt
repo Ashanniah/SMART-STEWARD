@@ -24,6 +24,11 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 
 class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
+
+    companion object {
+        const val EXTRA_OPEN_CAMERA = "open_camera"
+    }
+
     private enum class CameraAction {
         PHOTO,
         VIDEO
@@ -96,6 +101,16 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.dashboardMap) as? SupportMapFragment
         mapFragment?.getMapAsync(this)
+
+        if (intent.getBooleanExtra(EXTRA_OPEN_CAMERA, false)) {
+            findViewById<View>(R.id.dashboardRoot).post {
+                handleCameraAction(CameraAction.PHOTO)
+            }
+        }
+
+        findViewById<LinearLayout>(R.id.dashboardNavActivity).setOnClickListener {
+            startActivity(Intent(this, MyActivityActivity::class.java))
+        }
 
         findViewById<LinearLayout>(R.id.dashboardNavNotification).setOnClickListener {
             startActivity(Intent(this, NotificationActivity::class.java))

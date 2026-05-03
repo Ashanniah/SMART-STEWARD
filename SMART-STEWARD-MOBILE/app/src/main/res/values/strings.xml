@@ -66,4 +66,27 @@ Talamban</string>
     <string name="notif_one_hour_ago">1 Hour ago</string>
     <string name="notif_one_minute_ago">1 Minute ago</string>
     <string name="tap_to_view">Tap to View</string>
+    <string name="my_activity_title">My Activity</string>
+    <string name="my_activity_total">Total</string>
+    <string name="my_activity_pending">Pending</string>
+    <string name="my_activity_in_progress">In Progress</string>
+    <string name="my_activity_resolved">Resolved</string>
+    <string name="my_activity_recent_reports">RECENT REPORTS</string>
+    <string name="my_activity_newest_first">Newest first ↓</string>
+    <string name="my_activity_oldest_first">Oldest first ↑</string>
+    <string name="my_activity_chip_all">All</string>
+    <string name="my_activity_chip_trending">Trending</string>
+    <string name="my_activity_view_map">View on Map</string>
+    <string name="my_activity_track">Track Report ↗</string>
+    <string name="my_activity_view_evidence">View Evidence</string>
+    <string name="my_activity_see_resolution">See Resolution</string>
+    <string name="my_activity_no_reports">No reports yet. Submit one from the camera.</string>
+    <string name="my_activity_no_filtered">No reports in this category.</string>
+    <string name="my_activity_sign_in">Sign in to see your submitted reports.</string>
+    <string name="my_activity_load_error">Could not load reports.</string>
+    <string name="my_activity_status_pending">Pending</string>
+    <string name="my_activity_status_in_progress">In Progress</string>
+    <string name="my_activity_status_resolved">Resolved</string>
+    <string name="content_desc_filter">Sort order</string>
+    <string name="content_desc_back">Back</string>
 </resources>

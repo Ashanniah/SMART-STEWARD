@@ -16,4 +16,15 @@
     <color name="yellow">#FCD53F</color>
     <color name="red">#910909</color>
     <color name="green">#049414</color>
+    <color name="activity_page_bg">#F0F3EE</color>
+    <color name="activity_header_green">#0A3D2C</color>
+    <color name="activity_stat_card_bg">#E8EDE9</color>
+    <color name="activity_chip_bg">#DCE3DE</color>
+    <color name="activity_card_bg">#FFFFFF</color>
+    <color name="activity_pending_orange">#E07020</color>
+    <color name="activity_progress_blue">#1E6FAF</color>
+    <color name="activity_resolved_green">#1F9D55</color>
+    <color name="activity_accent_line">#7CB342</color>
+    <color name="activity_muted">#5C6560</color>
+    <color name="activity_title_bar">#0D4A36</color>
 </resources>
