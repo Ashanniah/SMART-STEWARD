@@ -3,6 +3,7 @@ package com.example.smart_steward
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -37,11 +38,28 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.profileNavHome).setOnClickListener {
+            startActivity(
+                Intent(this, DashboardActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            )
             finish()
+        }
+
+        findViewById<LinearLayout>(R.id.profileNavActivity).setOnClickListener {
+            startActivity(Intent(this, MyActivityActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.profileNavNotification).setOnClickListener {
             startActivity(Intent(this, NotificationActivity::class.java))
+        }
+
+        findViewById<FrameLayout>(R.id.profileCameraFab).setOnClickListener {
+            startActivity(
+                Intent(this, DashboardActivity::class.java)
+                    .putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            )
+            finish()
         }
     }
 }

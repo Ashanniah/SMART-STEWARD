@@ -69,6 +69,21 @@ function NotificationIcon({ kind }) {
   }
 }
 
+function kindForReport(status) {
+  if (status === 'rejected') return 'urgent';
+  if (status === 'pending') return 'new_report';
+  if (status === 'review') return 'new_report_blue';
+  return 'status_update';
+}
+
+function dotForReport(status) {
+  if (status === 'resolved') return 'green';
+  if (status === 'rejected') return 'red';
+  if (status === 'review') return 'blue';
+  if (status === 'pending') return 'yellow';
+  return 'blue';
+}
+
 export default function NotificationsDropdown() {
   const { reports } = useReportsData();
   const [open, setOpen] = useState(false);

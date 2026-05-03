@@ -25,37 +25,65 @@ const STAT_CONFIG = [
     title: 'Total Reports',
     Icon: ClipboardDocumentListIcon,
     accent: 'green',
+    hint: 'All reports received',
   },
   {
     key: 'pending',
     title: 'Pending Reports',
     Icon: ClockIcon,
     accent: 'orange',
+    hint: 'Awaiting initial review',
   },
   {
     key: 'review',
     title: 'Under Review',
     Icon: MagnifyingGlassIcon,
     accent: 'blue',
+    hint: 'Being reviewed by agency',
   },
   {
     key: 'resolved',
     title: 'Resolved Reports',
     Icon: CheckCircleIcon,
     accent: 'teal',
+    hint: 'Closed as resolved',
   },
 ];
+
+function getPaginationRange(current, total, delta = 2) {
+  if (total <= 0) return [];
+  const pages = new Set([1, total]);
+  for (let i = current - delta; i <= current + delta; i += 1) {
+    if (i >= 1 && i <= total) pages.add(i);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const out = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push('ellipsis');
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
 
 function HistoryStatusPill({ status }) {
   const labels = {
     pending: 'Pending',
     review: 'Under Review',
     resolved: 'Resolved',
+    rejected: 'Rejected',
     in_progress: 'In Progress',
     rejected: 'Rejected',
   };
+  const pillStatus =
+    status === 'rejected'
+      ? 'rejected'
+      : status === 'in_progress'
+        ? 'in_progress'
+        : status;
   return (
-    <span className={`history-pill history-pill--${status}`}>
+    <span className={`history-pill history-pill--${pillStatus}`}>
       {labels[status] ?? status}
     </span>
   );
@@ -161,28 +189,26 @@ export default function ReportHistory() {
       ) : null}
 
       <div className="report-history-page__stats">
-        {STAT_CONFIG.map(({ key, title, Icon, accent }) => {
-          const s = HISTORY_STATS[key];
-          return (
-            <div
-              key={key}
-              className={`history-stat-card history-stat-card--${accent}`}
-            >
-              <div className="history-stat-card__icon" aria-hidden>
-                <Icon />
+        {STAT_CONFIG.map(({ key, title, Icon, accent, hint }) => (
+          <div
+            key={key}
+            className={`history-stat-card history-stat-card--${accent}`}
+          >
+            <div className="history-stat-card__icon" aria-hidden>
+              <Icon />
+            </div>
+            <div className="history-stat-card__body">
+              <div className="history-stat-card__label">{title}</div>
+              <div className="history-stat-card__value">
+                {(counts[key] ?? 0).toLocaleString()}
               </div>
-              <div className="history-stat-card__body">
-                <div className="history-stat-card__label">{title}</div>
-                <div className="history-stat-card__value">{s.value}</div>
-                <div className="history-stat-card__hint">{s.hint}</div>
-                <div className="history-stat-card__trend">
-                  <span className="history-stat-card__trend-value">{s.trend}</span>{' '}
-                  {s.trendHint}
-                </div>
+              <div className="history-stat-card__hint">{hint}</div>
+              <div className="history-stat-card__trend">
+                <span className="history-stat-card__trend-value">Live</span> counts refresh automatically
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       <header className="report-history-page__header">
@@ -216,6 +242,7 @@ export default function ReportHistory() {
             <option value="review">Under Review</option>
             <option value="in_progress">In Progress</option>
             <option value="resolved">Resolved</option>
+            <option value="rejected">Rejected</option>
           </select>
         </label>
         <label className="history-filters__field">
@@ -361,7 +388,7 @@ export default function ReportHistory() {
             <button
               type="button"
               className="history-pagination__arrow"
-              disabled={effectivePage <= 1}
+              disabled={effectivePage <= 1 || totalCount === 0}
               onClick={() => setPage(effectivePage - 1)}
               aria-label="Previous page"
             >
@@ -387,7 +414,7 @@ export default function ReportHistory() {
             <button
               type="button"
               className="history-pagination__arrow"
-              disabled={effectivePage >= totalPages}
+              disabled={effectivePage >= totalPages || totalCount === 0}
               onClick={() => setPage(effectivePage + 1)}
               aria-label="Next page"
             >

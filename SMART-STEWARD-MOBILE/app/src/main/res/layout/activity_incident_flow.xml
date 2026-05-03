@@ -163,6 +163,7 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/detectedIncidentTypeText"
                     android:layout_width="match_parent"
                     android:layout_height="40dp"
                     android:layout_marginTop="6dp"
@@ -186,6 +187,7 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/detectedAgencyText"
                     android:layout_width="match_parent"
                     android:layout_height="40dp"
                     android:layout_marginTop="6dp"
@@ -217,6 +219,7 @@
                     android:orientation="horizontal">
 
                     <TextView
+                        android:id="@+id/detectedLocationText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -225,6 +228,7 @@
                         android:textSize="12sp" />
 
                     <TextView
+                        android:id="@+id/detectedTimestampText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="04/24/2026 10:32 AM"
@@ -294,6 +298,7 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/editIncidentTypeText"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
                     android:layout_gravity="center_horizontal"
@@ -314,6 +319,7 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/editAgencyText"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
                     android:layout_gravity="center_horizontal"
@@ -354,6 +360,7 @@
                     android:orientation="horizontal">
 
                     <TextView
+                        android:id="@+id/editLocationText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -362,6 +369,7 @@
                         android:textSize="10sp" />
 
                     <TextView
+                        android:id="@+id/editTimestampText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="04/24/2026 10:32 AM"
@@ -450,45 +458,52 @@
                     android:padding="12dp">
 
                     <TextView
+                        android:id="@+id/submittedReportIdText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Report ID: # REP-20251024-001" />
+                        android:text="Report ID: —" />
 
                     <TextView
+                        android:id="@+id/submittedReportTypeText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Report Type: Burning" />
+                        android:text="Report Type: —" />
 
                     <TextView
+                        android:id="@+id/submittedDateText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Date Submitted: April 24, 2026" />
+                        android:text="Date Submitted: —" />
 
                     <TextView
+                        android:id="@+id/submittedLocationText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Location: Banilad" />
+                        android:text="Location: —" />
 
                     <TextView
+                        android:id="@+id/submittedDescriptionText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Description: Setting fire to waste and leaves" />
+                        android:text="Description: —" />
 
                     <TextView
+                        android:id="@+id/submittedMediaText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Attach Photo/Video: Attached" />
+                        android:text="Attach Photo/Video: —" />
 
                     <TextView
+                        android:id="@+id/submittedAgencyText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Assigned to: Bureau of Fire Protection/BFP" />
+                        android:text="Assigned to: —" />
                 </LinearLayout>
 
                 <LinearLayout

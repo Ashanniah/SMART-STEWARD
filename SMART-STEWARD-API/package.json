@@ -1,0 +1,10 @@
+{
+  "name": "smart-steward-api",
+  "private": true,
+  "description": "Run scripts from the Express app in ./express",
+  "scripts": {
+    "dev": "npm run dev --prefix express",
+    "start": "npm start --prefix express",
+    "install:all": "npm install --prefix express"
+  }
+}

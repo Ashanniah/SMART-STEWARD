@@ -149,7 +149,9 @@ export default function Reports() {
         <div className="reports-footer">
           <p className="reports-footer__meta">
             {filteredTotal === 0 ? (
-              'No reports match your search.'
+              query.trim()
+                ? 'No reports match your search.'
+                : 'No reports to display.'
             ) : (
               <>
                 Showing {showingFrom} to {showingTo} of {filteredTotal} reports

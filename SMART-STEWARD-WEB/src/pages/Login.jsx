@@ -1,11 +1,17 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid';
 import { LOGIN_MSG, performAgencyLogin } from '../services/agencyLogin';
 import { validateLoginForm } from '../utils/loginValidation';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const rawFrom = location.state?.from;
+  const redirectTo =
+    typeof rawFrom === 'string' && rawFrom.startsWith('/') && !rawFrom.startsWith('//')
+      ? rawFrom
+      : '/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
@@ -62,7 +68,7 @@ export default function Login() {
         return;
       }
       setSuccessMsg(LOGIN_MSG.success);
-      window.setTimeout(() => navigate('/dashboard'), 900);
+      window.setTimeout(() => navigate(redirectTo, { replace: true }), 900);
     } finally {
       setLoading(false);
     }

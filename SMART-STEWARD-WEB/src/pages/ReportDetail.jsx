@@ -70,6 +70,12 @@ export default function ReportDetail() {
 
   return (
     <div className="report-detail fade-in">
+      {error ? (
+        <p className="denr-dashboard__firestore-msg" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       <button
         type="button"
         className="report-detail__back"
