@@ -8,7 +8,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
-import { REPORTS_LIST } from '../data/reportsMock';
+import { useReportsData } from '../context/ReportsDataContext';
 
 const PAGE_SIZE = 5;
 
@@ -17,29 +17,32 @@ function StatusBadge({ status }) {
     pending: 'Pending',
     review: 'Under Review',
     resolved: 'Resolved',
+    rejected: 'Rejected',
   };
   return (
     <span className={`reports-status reports-status--${status}`}>
-      {labels[status]}
+      {labels[status] ?? status}
     </span>
   );
 }
 
 export default function Reports() {
   const navigate = useNavigate();
+  const { reports, loading, error } = useReportsData();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return REPORTS_LIST;
-    return REPORTS_LIST.filter(
+    if (!q) return reports;
+    return reports.filter(
       (r) =>
         r.id.toLowerCase().includes(q) ||
+        r.docId.toLowerCase().includes(q) ||
         r.location.toLowerCase().includes(q) ||
         r.activity.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [query, reports]);
 
   const filteredTotal = filtered.length;
   const filteredPages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
@@ -52,6 +55,12 @@ export default function Reports() {
   return (
     <div className="reports-page fade-in">
       <h1 className="reports-page__title">REPORTS</h1>
+
+      {error ? (
+        <p className="reports-page__banner-msg" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="reports-toolbar">
         <div className="reports-search">
@@ -97,28 +106,42 @@ export default function Reports() {
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.id}</td>
-                  <td>{row.date}</td>
-                  <td>{row.location}</td>
-                  <td className="reports-table__activity">{row.activity}</td>
-                  <td>
-                    <StatusBadge status={row.status} />
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="reports-btn-view"
-                      onClick={() =>
-                        navigate(`/reports/${encodeURIComponent(row.id)}`)
-                      }
-                    >
-                      View
-                    </button>
+              {loading && reports.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="reports-table__loading">
+                    Loading reports…
                   </td>
                 </tr>
-              ))}
+              ) : pageRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="reports-table__loading">
+                    No reports to display.
+                  </td>
+                </tr>
+              ) : (
+                pageRows.map((row) => (
+                  <tr key={row.docId}>
+                    <td>{row.id}</td>
+                    <td>{row.date}</td>
+                    <td>{row.location}</td>
+                    <td className="reports-table__activity">{row.activity}</td>
+                    <td>
+                      <StatusBadge status={row.status} />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="reports-btn-view"
+                        onClick={() =>
+                          navigate(`/reports/${encodeURIComponent(row.docId)}`)
+                        }
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -126,7 +149,9 @@ export default function Reports() {
         <div className="reports-footer">
           <p className="reports-footer__meta">
             {filteredTotal === 0 ? (
-              'No reports match your search.'
+              query.trim()
+                ? 'No reports match your search.'
+                : 'No reports to display.'
             ) : (
               <>
                 Showing {showingFrom} to {showingTo} of {filteredTotal} reports

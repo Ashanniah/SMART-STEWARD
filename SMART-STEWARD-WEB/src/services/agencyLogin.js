@@ -74,11 +74,6 @@ export async function performAgencyLogin({ email, password, rememberMe }) {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     const user = cred.user;
 
-    if (!user.emailVerified) {
-      await signOut(auth);
-      return { ok: false, message: LOGIN_MSG.notVerified };
-    }
-
     let snap;
     try {
       snap = await getDoc(doc(db, USERS_COLLECTION, user.uid));

@@ -8,11 +8,12 @@ import {
   LockClosedIcon,
 } from '@heroicons/react/24/outline';
 import {
-  getReportDetail,
   WORKFLOW_STATUS_ORDER,
   WORKFLOW_STATUS_META,
   workflowStatusIndex,
 } from '../data/reportsMock';
+import { useReportsData } from '../context/ReportsDataContext';
+import { normalizedToDetailView } from '../utils/normalizeReportDoc';
 
 const STATUS_DOT_CLASS = {
   pending: 'status-update-legend__dot--pending',
@@ -43,12 +44,32 @@ export default function ReportStatusUpdate() {
   const navigate = useNavigate();
   const id = reportId ? decodeURIComponent(reportId) : '';
 
-  const detail = useMemo(() => (id ? getReportDetail(id) : null), [id]);
+  const { reports, loading, reportByDocId } = useReportsData();
+
+  const detail = useMemo(() => {
+    const row = id ? reportByDocId(id) : null;
+    return row ? normalizedToDetailView(row) : null;
+  }, [id, reportByDocId, reports]);
+
   const [selectedStatus, setSelectedStatus] = useState('');
   const [remarks, setRemarks] = useState('');
 
   const currentKey = detail?.status ?? 'pending';
   const currentIndex = workflowStatusIndex(currentKey);
+
+  if (!id) {
+    return <Navigate to="/reports" replace />;
+  }
+
+  if (loading && !detail) {
+    return (
+      <div className="status-update fade-in">
+        <p className="denr-dashboard__muted" style={{ padding: '2rem' }}>
+          Loading report…
+        </p>
+      </div>
+    );
+  }
 
   if (!detail) {
     return <Navigate to="/reports" replace />;

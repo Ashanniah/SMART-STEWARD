@@ -10,13 +10,15 @@ import {
   PhotoIcon,
 } from '@heroicons/react/24/outline';
 import GoogleMapComponent from '../components/GoogleMap';
-import { getReportDetail } from '../data/reportsMock';
+import { useReportsData } from '../context/ReportsDataContext';
+import { normalizedToDetailView, reportsToMapIncidents } from '../utils/normalizeReportDoc';
 
 function StatusHeaderBadge({ status }) {
   const map = {
     pending: { label: 'PENDING', className: 'report-detail__pill report-detail__pill--pending' },
     review: { label: 'UNDER REVIEW', className: 'report-detail__pill report-detail__pill--review' },
     resolved: { label: 'RESOLVED', className: 'report-detail__pill report-detail__pill--resolved' },
+    rejected: { label: 'REJECTED', className: 'report-detail__pill report-detail__pill--rejected' },
   };
   const item = map[status] ?? map.pending;
   return <span className={item.className}>{item.label}</span>;
@@ -27,7 +29,26 @@ export default function ReportDetail() {
   const navigate = useNavigate();
   const id = reportId ? decodeURIComponent(reportId) : '';
 
-  const detail = useMemo(() => (id ? getReportDetail(id) : null), [id]);
+  const { loading, error, reportByDocId } = useReportsData();
+
+  const row = id ? reportByDocId(id) : null;
+  const detail = useMemo(() => (row ? normalizedToDetailView(row) : null), [row]);
+
+  const mapIncidents = useMemo(() => (row ? reportsToMapIncidents([row]) : []), [row]);
+
+  if (!id) {
+    return <Navigate to="/reports" replace />;
+  }
+
+  if (loading && !detail) {
+    return (
+      <div className="report-detail fade-in">
+        <p className="denr-dashboard__muted" style={{ padding: '2rem' }}>
+          Loading report…
+        </p>
+      </div>
+    );
+  }
 
   if (!detail) {
     return <Navigate to="/reports" replace />;
@@ -35,6 +56,12 @@ export default function ReportDetail() {
 
   return (
     <div className="report-detail fade-in">
+      {error ? (
+        <p className="denr-dashboard__firestore-msg" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       <button
         type="button"
         className="report-detail__back"
@@ -136,6 +163,9 @@ export default function ReportDetail() {
                 height="280px"
                 zoom={detail.mapZoom}
                 center={detail.mapCenter}
+                incidents={mapIncidents}
+                enableFullscreenControl={false}
+                clustering={false}
               />
             </div>
           </section>

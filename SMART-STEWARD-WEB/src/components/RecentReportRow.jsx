@@ -6,6 +6,7 @@ export default function RecentReportRow({
   location,
   dateTime,
   statusLabel = 'Pending',
+  statusKey = 'pending',
 }) {
   return (
     <div className="recent-report-row">
@@ -27,7 +28,9 @@ export default function RecentReportRow({
         </div>
       </div>
       <div className="recent-report-row__actions">
-        <span className="recent-report-row__status recent-report-row__status--pending">
+        <span
+          className={`recent-report-row__status recent-report-row__status--${statusKey}`}
+        >
           {statusLabel}
         </span>
       </div>

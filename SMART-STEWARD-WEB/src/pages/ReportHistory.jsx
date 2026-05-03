@@ -13,12 +13,7 @@ import {
   EllipsisVerticalIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
-import {
-  HISTORY_STATS,
-  HISTORY_TOTAL_COUNT,
-  getHistoryPageRows,
-  getPaginationRange,
-} from '../data/reportHistoryMock';
+import { useReportsData } from '../context/ReportsDataContext';
 
 const STAT_CONFIG = [
   {
@@ -26,36 +21,64 @@ const STAT_CONFIG = [
     title: 'Total Reports',
     Icon: ClipboardDocumentListIcon,
     accent: 'green',
+    hint: 'All reports received',
   },
   {
     key: 'pending',
     title: 'Pending Reports',
     Icon: ClockIcon,
     accent: 'orange',
+    hint: 'Awaiting initial review',
   },
   {
     key: 'review',
     title: 'Under Review',
     Icon: MagnifyingGlassIcon,
     accent: 'blue',
+    hint: 'Being reviewed by agency',
   },
   {
     key: 'resolved',
     title: 'Resolved Reports',
     Icon: CheckCircleIcon,
     accent: 'teal',
+    hint: 'Closed as resolved',
   },
 ];
+
+function getPaginationRange(current, total, delta = 2) {
+  if (total <= 0) return [];
+  const pages = new Set([1, total]);
+  for (let i = current - delta; i <= current + delta; i += 1) {
+    if (i >= 1 && i <= total) pages.add(i);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const out = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push('ellipsis');
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
 
 function HistoryStatusPill({ status }) {
   const labels = {
     pending: 'Pending',
     review: 'Under Review',
     resolved: 'Resolved',
+    rejected: 'Rejected',
     in_progress: 'In Progress',
   };
+  const pillStatus =
+    status === 'rejected'
+      ? 'rejected'
+      : status === 'in_progress'
+        ? 'in_progress'
+        : status;
   return (
-    <span className={`history-pill history-pill--${status}`}>
+    <span className={`history-pill history-pill--${pillStatus}`}>
       {labels[status] ?? status}
     </span>
   );
@@ -72,60 +95,66 @@ function PriorityLabel({ priority }) {
 
 export default function ReportHistory() {
   const navigate = useNavigate();
+  const { reports, loading, error, counts } = useReportsData();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const totalPages = Math.max(1, Math.ceil(HISTORY_TOTAL_COUNT / pageSize));
+  const totalCount = reports.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const effectivePage = Math.min(Math.max(1, page), totalPages);
 
-  const rows = useMemo(
-    () => getHistoryPageRows(effectivePage, pageSize),
-    [effectivePage, pageSize]
-  );
+  const rows = useMemo(() => {
+    const start = (effectivePage - 1) * pageSize;
+    return reports.slice(start, start + pageSize);
+  }, [reports, effectivePage, pageSize]);
 
   const startIdx = (effectivePage - 1) * pageSize;
-  const showingFrom = HISTORY_TOTAL_COUNT === 0 ? 0 : startIdx + 1;
-  const showingTo = Math.min(startIdx + pageSize, HISTORY_TOTAL_COUNT);
+  const showingFrom = totalCount === 0 ? 0 : startIdx + 1;
+  const showingTo = Math.min(startIdx + pageSize, totalCount);
 
   const pageItems = useMemo(
     () => getPaginationRange(effectivePage, totalPages, 2),
     [effectivePage, totalPages]
   );
 
-  const dateRangeLabel = 'May 13, 2025 – May 20, 2025';
+  const dateRangeLabel = 'Newest first';
 
   return (
     <div className="report-history-page fade-in">
+      {error ? (
+        <p className="reports-page__banner-msg" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       <div className="report-history-page__stats">
-        {STAT_CONFIG.map(({ key, title, Icon, accent }) => {
-          const s = HISTORY_STATS[key];
-          return (
-            <div
-              key={key}
-              className={`history-stat-card history-stat-card--${accent}`}
-            >
-              <div className="history-stat-card__icon" aria-hidden>
-                <Icon />
+        {STAT_CONFIG.map(({ key, title, Icon, accent, hint }) => (
+          <div
+            key={key}
+            className={`history-stat-card history-stat-card--${accent}`}
+          >
+            <div className="history-stat-card__icon" aria-hidden>
+              <Icon />
+            </div>
+            <div className="history-stat-card__body">
+              <div className="history-stat-card__label">{title}</div>
+              <div className="history-stat-card__value">
+                {(counts[key] ?? 0).toLocaleString()}
               </div>
-              <div className="history-stat-card__body">
-                <div className="history-stat-card__label">{title}</div>
-                <div className="history-stat-card__value">{s.value}</div>
-                <div className="history-stat-card__hint">{s.hint}</div>
-                <div className="history-stat-card__trend">
-                  <span className="history-stat-card__trend-value">{s.trend}</span>{' '}
-                  {s.trendHint}
-                </div>
+              <div className="history-stat-card__hint">{hint}</div>
+              <div className="history-stat-card__trend">
+                <span className="history-stat-card__trend-value">Live</span> counts refresh automatically
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       <header className="report-history-page__header">
         <div>
           <h1 className="report-history-page__title">All Reports History</h1>
           <p className="report-history-page__subtitle">
-            Complete history of all reports submitted to the system.
+            Full history of all reports in the system, newest first.
           </p>
         </div>
         <button type="button" className="history-btn history-btn--export-outline">
@@ -152,6 +181,7 @@ export default function ReportHistory() {
             <option value="review">Under Review</option>
             <option value="in_progress">In Progress</option>
             <option value="resolved">Resolved</option>
+            <option value="rejected">Rejected</option>
           </select>
         </label>
         <label className="history-filters__field">
@@ -201,90 +231,112 @@ export default function ReportHistory() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => (
-                <tr key={`${row.id}-${startIdx + idx}`}>
-                  <td className="history-table__id">{row.id}</td>
-                  <td className="history-table__thumb-cell">
-                    <img
-                      src={row.thumb}
-                      alt=""
-                      className="history-table__thumb"
-                      width={48}
-                      height={48}
-                    />
-                  </td>
-                  <td>
-                    <div className="history-type">
-                      <CheckCircleSolidIcon
-                        className="history-type__check"
-                        aria-hidden
-                      />
-                      <div>
-                        <div className="history-type__title">{row.typeTitle}</div>
-                        <div className="history-type__cat">{row.categoryLabel}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="history-loc">
-                      <span>{row.location}</span>
-                      <a
-                        className="history-map-link"
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <MapPinIcon aria-hidden />
-                        View on Map
-                      </a>
-                    </div>
-                  </td>
-                  <td>{row.dateTime}</td>
-                  <td>{row.reportedBy}</td>
-                  <td>{row.agency}</td>
-                  <td>
-                    <HistoryStatusPill status={row.status} />
-                  </td>
-                  <td>
-                    <PriorityLabel priority={row.priority} />
-                  </td>
-                  <td>
-                    <div className="history-actions">
-                      <button
-                        type="button"
-                        className="history-btn-view"
-                        onClick={() =>
-                          navigate(`/reports/${encodeURIComponent(row.id)}`)
-                        }
-                      >
-                        View Details
-                      </button>
-                      <button
-                        type="button"
-                        className="history-btn-more"
-                        aria-label="More actions"
-                      >
-                        <EllipsisVerticalIcon aria-hidden />
-                      </button>
-                    </div>
+              {loading && reports.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="reports-table__loading">
+                    Loading reports…
                   </td>
                 </tr>
-              ))}
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="reports-table__loading">
+                    No reports to display.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.docId}>
+                    <td className="history-table__id">{row.id}</td>
+                    <td className="history-table__thumb-cell">
+                      <img
+                        src={
+                          row.imageUrl ||
+                          'https://images.unsplash.com/photo-1448375240586-882707db8887?w=120&h=120&fit=crop&q=80'
+                        }
+                        alt=""
+                        className="history-table__thumb"
+                        width={48}
+                        height={48}
+                      />
+                    </td>
+                    <td>
+                      <div className="history-type">
+                        <CheckCircleSolidIcon
+                          className="history-type__check"
+                          aria-hidden
+                        />
+                        <div>
+                          <div className="history-type__title">{row.activity}</div>
+                          <div className="history-type__cat">{row.categoryLabel}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="history-loc">
+                        <span>{row.location}</span>
+                        <a
+                          className="history-map-link"
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <MapPinIcon aria-hidden />
+                          View on Map
+                        </a>
+                      </div>
+                    </td>
+                    <td>{row.dateTime}</td>
+                    <td>{row.reportedBy}</td>
+                    <td>{row.assignedAgency}</td>
+                    <td>
+                      <HistoryStatusPill status={row.status} />
+                    </td>
+                    <td>
+                      <PriorityLabel priority={row.priority} />
+                    </td>
+                    <td>
+                      <div className="history-actions">
+                        <button
+                          type="button"
+                          className="history-btn-view"
+                          onClick={() =>
+                            navigate(`/reports/${encodeURIComponent(row.docId)}`)
+                          }
+                        >
+                          View Details
+                        </button>
+                        <button
+                          type="button"
+                          className="history-btn-more"
+                          aria-label="More actions"
+                        >
+                          <EllipsisVerticalIcon aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         <footer className="history-footer">
           <p className="history-footer__meta">
-            Showing {showingFrom} to {showingTo} of {HISTORY_TOTAL_COUNT.toLocaleString()}{' '}
-            reports
+            {totalCount === 0 ? (
+              'No reports to show.'
+            ) : (
+              <>
+                Showing {showingFrom} to {showingTo} of {totalCount.toLocaleString()} reports
+              </>
+            )}
           </p>
 
           <nav className="history-pagination" aria-label="Pagination">
             <button
               type="button"
               className="history-pagination__arrow"
-              disabled={effectivePage <= 1}
+              disabled={effectivePage <= 1 || totalCount === 0}
               onClick={() => setPage(effectivePage - 1)}
               aria-label="Previous page"
             >
@@ -310,7 +362,7 @@ export default function ReportHistory() {
             <button
               type="button"
               className="history-pagination__arrow"
-              disabled={effectivePage >= totalPages}
+              disabled={effectivePage >= totalPages || totalCount === 0}
               onClick={() => setPage(effectivePage + 1)}
               aria-label="Next page"
             >
