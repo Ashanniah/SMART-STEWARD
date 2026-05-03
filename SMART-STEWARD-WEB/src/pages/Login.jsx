@@ -1,61 +1,97 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid';
 
 export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Login logic placeholder
+    navigate('/dashboard');
   };
 
   return (
-    <div className="auth-card fade-in">
-      <div className="auth-tabs">
-        <button className="auth-tab active" id="login-tab">
-          🔑 Login
-        </button>
-        <Link to="/signup" className="auth-tab" id="signup-tab-link">
-          👤 Sign Up
-        </Link>
-      </div>
+    <div className="auth-form-panel fade-in">
+      <div className="auth-form-inner">
+        <header className="auth-form-header">
+          <h1 className="auth-form-title">Welcome Back!</h1>
+          <p className="auth-form-subtitle">
+            Sign in to access your agency account.
+          </p>
+          <p className="auth-form-agency-hint">
+            One login for Organization, DENR, BFP, PNP, and Barangay users.
+          </p>
+        </header>
 
-      <h2>Welcome back</h2>
-      <p className="subtitle">Sign in to your account</p>
-
-      <form onSubmit={handleSubmit}>
-        <div className="auth-field">
-          <label>Enter email address</label>
-          <div className="auth-input-wrap">
-            <span className="icon">📧</span>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="auth-form-field">
+            <label htmlFor="login-email">Email</label>
             <input
+              id="login-email"
               type="email"
-              placeholder="Email address"
+              autoComplete="email"
+              placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              id="login-email"
             />
           </div>
-        </div>
 
-        <div className="auth-field">
-          <label>Enter password</label>
-          <div className="auth-input-wrap">
-            <span className="icon">🔒</span>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              id="login-password"
-            />
+          <div className="auth-form-field">
+            <label htmlFor="login-password">Password</label>
+            <div className="auth-form-password-wrap">
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="auth-form-password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="auth-form-icon" aria-hidden />
+                ) : (
+                  <EyeIcon className="auth-form-icon" aria-hidden />
+                )}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
 
-      <p className="auth-link">
-        Don't have an Account? <Link to="/signup">Sign up</Link>
+          <div className="auth-form-row">
+            <label className="auth-form-checkbox">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              Remember me
+            </label>
+            <button type="button" className="auth-form-link-btn">
+              Forgot Password?
+            </button>
+          </div>
+
+          <button type="submit" className="auth-form-submit">
+            LOGIN
+          </button>
+        </form>
+
+        <p className="auth-form-footer-link">
+          Need an account? <Link to="/signup">Sign up</Link>
+        </p>
+      </div>
+
+      <p className="auth-form-copyright">
+        © 2026 Smart steward, All right reserved
       </p>
     </div>
   );

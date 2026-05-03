@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { GOOGLE_MAPS_API_KEY } from '../config/googleMaps';
 
 const mapContainerStyle = {
   width: '100%',
@@ -11,50 +12,34 @@ const defaultCenter = {
   lng: 123.8965,
 };
 
-const darkMapStyles = [
-  { elementType: 'geometry', stylers: [{ color: '#1a2e10' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a2e10' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#6e9050' }] },
-  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#a3c48a' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6e9050' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263d3e' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#6e9050' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3a5c22' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#2a4217' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#a3c48a' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#4a7c10' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1e3512' }] },
-  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#eef4e8' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2a4217' }] },
-  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#a3c48a' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1926' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515e6b' }] },
-];
-
+/** Default Google roadmap (light) — no custom `styles` so the base map stays white/neutral. */
 const defaultMapOptions = {
   disableDefaultUI: false,
   zoomControl: true,
   streetViewControl: false,
   mapTypeControl: false,
   fullscreenControl: true,
-  styles: darkMapStyles,
 };
 
+// google.maps.SymbolPath.CIRCLE — use numeric path so we never touch `google` at module load
+// (the Maps script is async; referencing google here crashed the whole app → blank green screen).
+const SYMBOL_PATH_CIRCLE = 0;
+
 const incidentIcon = {
-  path: google.maps.SymbolPath.CIRCLE,
+  path: SYMBOL_PATH_CIRCLE,
   scale: 10,
   fillColor: '#e67e22',
   fillOpacity: 1,
-  strokeColor: '#eef4e8',
+  strokeColor: '#fff',
   strokeWeight: 2,
 };
 
 const resolvedIcon = {
-  path: google.maps.SymbolPath.CIRCLE,
+  path: SYMBOL_PATH_CIRCLE,
   scale: 8,
   fillColor: '#7bc142',
   fillOpacity: 1,
-  strokeColor: '#eef4e8',
+  strokeColor: '#fff',
   strokeWeight: 2,
 };
 
@@ -70,10 +55,13 @@ export default function GoogleMapComponent({
   showAllControls = false,
   zoom = 14,
   center = defaultCenter,
+  /** Set false on embedded dashboard map — fullscreen is handled on the panel wrapper. */
+  enableFullscreenControl = true,
 }) {
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: 'AIzaSyCDzyU7r_W1JUVQi8JT3PG9gteHQm6inRI',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: ['places'],
   });
 
   const [selectedIncident, setSelectedIncident] = useState(null);
@@ -103,8 +91,13 @@ export default function GoogleMapComponent({
   }
 
   const mapOptions = showAllControls
-    ? { ...defaultMapOptions, zoomControl: true, mapTypeControl: true }
-    : defaultMapOptions;
+    ? {
+        ...defaultMapOptions,
+        zoomControl: true,
+        mapTypeControl: true,
+        fullscreenControl: enableFullscreenControl,
+      }
+    : { ...defaultMapOptions, fullscreenControl: enableFullscreenControl };
 
   return (
     <GoogleMap
