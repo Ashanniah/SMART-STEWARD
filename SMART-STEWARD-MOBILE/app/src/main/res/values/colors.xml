@@ -22,7 +22,7 @@
     <color name="activity_stat_card_bg">#E8EDE9</color>
     <color name="activity_chip_bg">#DCE3DE</color>
     <color name="activity_card_bg">#FFFFFF</color>
-    <color name="activity_pending_orange">#E07020</color>
+    <color name="activity_pending_orange">#7F8790</color>
     <color name="activity_progress_blue">#1E6FAF</color>
     <color name="activity_resolved_green">#1F9D55</color>
     <color name="activity_accent_line">#7CB342</color>

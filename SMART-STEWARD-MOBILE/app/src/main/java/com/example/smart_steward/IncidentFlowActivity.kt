@@ -1,6 +1,8 @@
 package com.example.smart_steward
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -16,6 +18,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -154,6 +157,7 @@ class IncidentFlowActivity : AppCompatActivity() {
             aiAnalysisLauncher.launch(
                 Intent(this, AiAnalysisActivity::class.java)
                     .putExtra(AiAnalysisActivity.EXTRA_REANALYZE, true)
+                    .putExtra(AiAnalysisActivity.EXTRA_USER_MESSAGE, description)
             )
         }
 
@@ -206,7 +210,7 @@ class IncidentFlowActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.detectedIncidentTypeText).setText(R.string.review_detected_incident_default)
             findViewById<TextView>(R.id.detectedIncidentSubtitle).setText(R.string.review_incident_subtitle_default)
             findViewById<TextView>(R.id.detectedAgencyText).setText(R.string.review_detected_agency_title_default)
-            findViewById<TextView>(R.id.detectedAgencySubtitle).text = getString(
+            findViewById<TextView>(R.id.detectedAgencySubtitle)?.text = getString(
                 R.string.review_agency_subtitle_fmt,
                 getString(R.string.review_detected_agency_short_default)
             )
@@ -217,17 +221,24 @@ class IncidentFlowActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.detectedIncidentTypeText).text =
             data.getStringExtra(AiAnalysisActivity.EXTRA_INCIDENT_TITLE)
                 ?: getString(R.string.review_detected_incident_default)
-        findViewById<TextView>(R.id.detectedIncidentSubtitle).text =
-            data.getStringExtra(AiAnalysisActivity.EXTRA_INCIDENT_SUBTITLE)
-                ?: getString(R.string.review_incident_subtitle_default)
-        findViewById<TextView>(R.id.detectedAgencyText).text =
-            data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_TITLE)
-                ?: getString(R.string.review_detected_agency_title_default)
-        findViewById<TextView>(R.id.detectedAgencySubtitle).text =
-            data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_SUBLINE) ?: getString(
-                R.string.review_agency_subtitle_fmt,
-                getString(R.string.review_detected_agency_short_default)
-            )
+        val incidentSubtitle = data.getStringExtra(AiAnalysisActivity.EXTRA_INCIDENT_SUBTITLE)
+            ?: getString(R.string.review_incident_subtitle_default)
+        val typeOnly = incidentSubtitle.split(" · ").firstOrNull() ?: incidentSubtitle
+        findViewById<TextView>(R.id.detectedIncidentSubtitle).text = typeOnly
+        val agencyTitle = data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_TITLE)
+            ?: getString(R.string.review_detected_agency_title_default)
+        findViewById<TextView>(R.id.detectedAgencyText).text = agencyTitle
+        val agencySub = data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_SUBLINE)?.trim().orEmpty()
+        findViewById<TextView>(R.id.detectedAgencySubtitle)?.apply {
+            when {
+                agencySub.isEmpty() -> visibility = View.GONE
+                agencySub.equals(agencyTitle.trim(), ignoreCase = true) -> visibility = View.GONE
+                else -> {
+                    visibility = View.VISIBLE
+                    text = agencySub
+                }
+            }
+        }
         findViewById<TextView>(R.id.detectedDescriptionText).text =
             data.getStringExtra(AiAnalysisActivity.EXTRA_DESCRIPTION)
                 ?: getString(R.string.review_ai_description_default)
@@ -271,11 +282,27 @@ class IncidentFlowActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.detectedTimestampText).text = fmt.format(Date())
     }
 
+    private fun copyAgencySubtitleState(dest: TextView?, src: TextView?) {
+        if (dest == null) return
+        if (src == null) {
+            dest.visibility = View.GONE
+            return
+        }
+        dest.visibility = src.visibility
+        dest.text = src.text
+    }
+
     private fun populateEditFromDetected() {
         findViewById<TextView>(R.id.editIncidentTypeText).text =
             findViewById<TextView>(R.id.detectedIncidentTypeText).text
+        findViewById<TextView>(R.id.editIncidentSubtitle).text =
+            findViewById<TextView>(R.id.detectedIncidentSubtitle).text
         findViewById<TextView>(R.id.editAgencyText).text =
             findViewById<TextView>(R.id.detectedAgencyText).text
+        copyAgencySubtitleState(
+            findViewById(R.id.editAgencySubtitle),
+            findViewById(R.id.detectedAgencySubtitle)
+        )
         descriptionInput.setText(findViewById<TextView>(R.id.detectedDescriptionText).text)
         findViewById<TextView>(R.id.editLocationText).text =
             formatLocationForSubmit(findViewById<TextView>(R.id.detectedLocationText).text.toString())
@@ -286,8 +313,14 @@ class IncidentFlowActivity : AppCompatActivity() {
     private fun syncEditToDetected() {
         findViewById<TextView>(R.id.detectedIncidentTypeText).text =
             findViewById<TextView>(R.id.editIncidentTypeText).text
+        findViewById<TextView>(R.id.detectedIncidentSubtitle).text =
+            findViewById<TextView>(R.id.editIncidentSubtitle).text
         findViewById<TextView>(R.id.detectedAgencyText).text =
             findViewById<TextView>(R.id.editAgencyText).text
+        copyAgencySubtitleState(
+            findViewById(R.id.detectedAgencySubtitle),
+            findViewById(R.id.editAgencySubtitle)
+        )
         findViewById<TextView>(R.id.detectedDescriptionText).text =
             descriptionInput.text.toString()
         findViewById<TextView>(R.id.detectedLocationText).text =
@@ -305,14 +338,17 @@ class IncidentFlowActivity : AppCompatActivity() {
         locationLine: String
     ) {
         val photo = CapturedMediaStore.capturedBitmap
-        ReportFirestore.submitReport(
-            userId = currentUserId(),
-            incidentType = incidentType,
-            assignedAgency = assignedAgency,
-            description = description,
-            locationLine = locationLine,
-            photo = photo,
-            onSuccess = { docId, _ ->
+        fun submitWithCoords(lat: Double?, lng: Double?) {
+            ReportFirestore.submitReport(
+                userId = currentUserId(),
+                incidentType = incidentType,
+                assignedAgency = assignedAgency,
+                description = description,
+                locationLine = locationLine,
+                photo = photo,
+                latitude = lat,
+                longitude = lng,
+                onSuccess = { docId, _ ->
                 populateSubmittedSummary(
                     docId,
                     incidentType,
@@ -328,7 +364,22 @@ class IncidentFlowActivity : AppCompatActivity() {
             onWarning = { msg ->
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
             }
-        )
+            )
+        }
+
+        val locOk = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (locOk) {
+            LocationServices.getFusedLocationProviderClient(this).lastLocation
+                .addOnCompleteListener { task ->
+                    val loc = if (task.isSuccessful) task.result else null
+                    submitWithCoords(loc?.latitude, loc?.longitude)
+                }
+        } else {
+            submitWithCoords(null, null)
+        }
     }
 
     private fun populateSubmittedSummary(

@@ -18,7 +18,9 @@ data class UserReport(
     val status: ReportStatusUi,
     val assignedAgency: String,
     val description: String,
-    val photoUrl: String
+    val photoUrl: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 ) {
     val progressPercent: Int
         get() = when (status) {
@@ -51,6 +53,19 @@ data class UserReport(
                     ReportStatusUi.IN_PROGRESS
                 else -> ReportStatusUi.PENDING
             }
+            val latRaw = (doc.get("latitude") as? Number)?.toDouble()
+            val lngRaw = (doc.get("longitude") as? Number)?.toDouble()
+            val latitude: Double?
+            val longitude: Double?
+            if (latRaw != null && lngRaw != null &&
+                latRaw in -90.0..90.0 && lngRaw in -180.0..180.0
+            ) {
+                latitude = latRaw
+                longitude = lngRaw
+            } else {
+                latitude = null
+                longitude = null
+            }
             return UserReport(
                 id = id,
                 incidentType = incidentType,
@@ -59,7 +74,9 @@ data class UserReport(
                 status = status,
                 assignedAgency = doc.getString("assignedAgency").orEmpty(),
                 description = doc.getString("description").orEmpty(),
-                photoUrl = doc.getString("photoUrl").orEmpty()
+                photoUrl = doc.getString("photoUrl").orEmpty(),
+                latitude = latitude,
+                longitude = longitude
             )
         }
     }

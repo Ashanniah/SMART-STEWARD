@@ -6,4 +6,5 @@
     <dimen name="bottom_nav_bottom_inset">10dp</dimen>
     <dimen name="bottom_nav_fab_size">58dp</dimen>
     <dimen name="bottom_nav_fab_lift">-26dp</dimen>
+    <dimen name="dashboard_bottom_sheet_peek">268dp</dimen>
 </resources>

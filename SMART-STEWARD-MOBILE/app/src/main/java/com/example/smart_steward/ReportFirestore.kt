@@ -37,6 +37,8 @@ object ReportFirestore {
         description: String,
         locationLine: String,
         photo: Bitmap?,
+        latitude: Double? = null,
+        longitude: Double? = null,
         onSuccess: (String, Boolean) -> Unit,
         onError: (String) -> Unit,
         onWarning: ((String) -> Unit)? = null
@@ -60,6 +62,12 @@ object ReportFirestore {
                 "status" to "pending",
                 "submittedAt" to FieldValue.serverTimestamp()
             )
+            val lat = latitude?.takeIf { it in -90.0..90.0 }
+            val lng = longitude?.takeIf { it in -180.0..180.0 }
+            if (lat != null && lng != null) {
+                data["latitude"] = lat
+                data["longitude"] = lng
+            }
             docRef.set(data)
                 .addOnSuccessListener { onWritten() }
                 .addOnFailureListener { e -> onError(e.message ?: "Failed to save report.") }

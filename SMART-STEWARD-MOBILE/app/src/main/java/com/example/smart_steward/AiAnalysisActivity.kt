@@ -9,17 +9,23 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.smart_steward.BuildConfig
+import com.example.smart_steward.net.SmartStewardAiClient
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 import kotlin.math.ceil
 
 class AiAnalysisActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_REANALYZE = "reanalyze"
+        /** Optional user text (e.g. corrected description) sent as multipart `message`. */
+        const val EXTRA_USER_MESSAGE = "extra_user_message"
         const val EXTRA_INCIDENT_TITLE = "extra_incident_title"
         const val EXTRA_INCIDENT_SUBTITLE = "extra_incident_subtitle"
         const val EXTRA_AGENCY_TITLE = "extra_agency_title"
@@ -34,6 +40,24 @@ class AiAnalysisActivity : AppCompatActivity() {
     private val tickMs = 50L
     private var elapsed = 0L
     private var reanalyze = false
+    private var userMessage: String? = null
+
+    private val executor = Executors.newSingleThreadExecutor()
+    @Volatile
+    private var animationFinished = false
+    @Volatile
+    private var apiFinished = false
+    @Volatile
+    private var apiResultIntent: Intent? = null
+    @Volatile
+    private var apiError: String? = null
+    private var finalized = false
+
+    /** Reverse-geocoded or coordinate label; used in UI and passed to the review screen. */
+    @Volatile
+    private var resolvedLocationShort: String? = null
+
+    private var lastPipelineT = 0f
 
     private lateinit var timeRemaining: TextView
     private lateinit var overallProgress: ProgressBar
@@ -78,7 +102,8 @@ class AiAnalysisActivity : AppCompatActivity() {
             if (elapsed < totalMs) {
                 handler.postDelayed(this, tickMs)
             } else {
-                completeOk()
+                animationFinished = true
+                tryFinalize()
             }
         }
     }
@@ -88,6 +113,7 @@ class AiAnalysisActivity : AppCompatActivity() {
         setContentView(R.layout.activity_ai_analysis)
 
         reanalyze = intent.getBooleanExtra(EXTRA_REANALYZE, false)
+        userMessage = intent.getStringExtra(EXTRA_USER_MESSAGE)
 
         timeRemaining = findViewById(R.id.aiTimeRemaining)
         overallProgress = findViewById(R.id.aiOverallProgress)
@@ -130,6 +156,11 @@ class AiAnalysisActivity : AppCompatActivity() {
         }
 
         bindStaticCopy()
+        LocationLabelHelper.resolveShortLabel(this) { label ->
+            resolvedLocationShort = label
+            bindStaticCopy()
+            applyPipelineUi(lastPipelineT)
+        }
         findViewById<ImageView>(R.id.aiBackButton).setOnClickListener {
             setResult(Activity.RESULT_CANCELED)
             finish()
@@ -137,11 +168,58 @@ class AiAnalysisActivity : AppCompatActivity() {
 
         applyPipelineUi(0f)
         handler.post(tickRunnable)
+
+        executor.execute {
+            try {
+                val result = SmartStewardAiClient.analyzeToResultIntent(
+                    applicationContext,
+                    BuildConfig.API_BASE_URL,
+                    userMessage,
+                    reanalyze,
+                    resolvedLocationShort
+                )
+                result.apply {
+                    resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }?.let { loc ->
+                        putExtra(EXTRA_LOCATION_SHORT, loc)
+                    }
+                }
+                apiResultIntent = result
+                apiError = null
+                runOnUiThread {
+                    result.getStringExtra(EXTRA_INCIDENT_TITLE)
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { reportIncidentTitle.text = it }
+                }
+            } catch (e: Exception) {
+                apiResultIntent = null
+                apiError = e.message ?: e.javaClass.simpleName
+            } finally {
+                apiFinished = true
+                runOnUiThread { tryFinalize() }
+            }
+        }
     }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        executor.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun tryFinalize() {
+        if (isFinishing) return
+        if (!animationFinished || !apiFinished || finalized) return
+        finalized = true
+        val intent = apiResultIntent ?: buildAnalysisResultIntent().also {
+            apiError?.let { msg ->
+                Toast.makeText(this, getString(R.string.ai_api_fallback_toast, msg), Toast.LENGTH_LONG).show()
+            }
+        }
+        resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }?.let { loc ->
+            intent.putExtra(EXTRA_LOCATION_SHORT, loc)
+        }
+        setResult(Activity.RESULT_OK, intent)
+        finish()
     }
 
     private fun mediaLabel(): String =
@@ -171,7 +249,7 @@ class AiAnalysisActivity : AppCompatActivity() {
             reanalyze -> getString(R.string.ai_report_title_reanalyze)
             CapturedMediaStore.capturedVideoUri != null && CapturedMediaStore.capturedBitmap == null ->
                 getString(R.string.ai_report_title_video_evidence)
-            else -> getString(R.string.ai_report_plausible_title)
+            else -> getString(R.string.ai_report_pending_title)
         }
 
     private fun bindStaticCopy() {
@@ -180,18 +258,27 @@ class AiAnalysisActivity : AppCompatActivity() {
         step3Title.setText(R.string.ai_step_classify_title)
         step4Title.setText(R.string.ai_step_route_title)
 
-        reportIncidentTitle.text = preliminaryReportTitle()
+        reportIncidentTitle.text = apiResultIntent?.getStringExtra(EXTRA_INCIDENT_TITLE)
+            ?: preliminaryReportTitle()
 
         val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
         reportMeta.text = getString(
             R.string.ai_report_meta_fmt,
-            "Brgy. Labangon",
+            locationDisplayForUi(),
             dateStr,
             mediaLabel()
         )
     }
 
+    private fun locationDisplayForUi(): String =
+        resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }
+            ?: getString(R.string.ai_location_placeholder)
+
+    private fun locationStepDoneSubtitle(): String =
+        getString(R.string.ai_step_location_sub_done_fmt, locationDisplayForUi())
+
     private fun applyPipelineUi(t: Float) {
+        lastPipelineT = t
         overallProgress.progress = (t * 100).toInt().coerceIn(0, 100)
         val secLeft = ceil((1f - t.coerceIn(0f, 1f)) * countdownSeconds.toDouble()).toInt().coerceAtLeast(0)
         timeRemaining.text = getString(R.string.ai_time_remaining_fmt, secLeft)
@@ -243,7 +330,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                 stepDone(step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar, mediaDoneSubtitle)
                 stepDone(
                     step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    getString(R.string.ai_step_location_sub_done)
+                    locationStepDoneSubtitle()
                 )
                 stepRunning(
                     step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
@@ -260,7 +347,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                 stepDone(step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar, mediaDoneSubtitle)
                 stepDone(
                     step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    getString(R.string.ai_step_location_sub_done)
+                    locationStepDoneSubtitle()
                 )
                 stepDone(
                     step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
@@ -276,7 +363,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                 stepDone(step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar, mediaDoneSubtitle)
                 stepDone(
                     step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    getString(R.string.ai_step_location_sub_done)
+                    locationStepDoneSubtitle()
                 )
                 stepDone(
                     step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
@@ -351,6 +438,10 @@ class AiAnalysisActivity : AppCompatActivity() {
         badge.setTextColor(ContextCompat.getColor(this, R.color.ai_badge_queued_text))
     }
 
+    private fun fallbackLocationExtra(): String =
+        resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }
+            ?: getString(R.string.review_location_short_default)
+
     private fun buildAnalysisResultIntent(): Intent {
         val hasPhoto = CapturedMediaStore.capturedBitmap != null
         val hasVideo = CapturedMediaStore.capturedVideoUri != null
@@ -367,7 +458,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                     )
                 )
                 putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_reanalyze))
-                putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+                putExtra(EXTRA_LOCATION_SHORT, fallbackLocationExtra())
             } else {
                 when {
                     hasPhoto && hasVideo -> {
@@ -382,7 +473,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                             )
                         )
                         putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_mixed))
-                        putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+                        putExtra(EXTRA_LOCATION_SHORT, fallbackLocationExtra())
                     }
                     hasVideo && !hasPhoto -> {
                         putExtra(EXTRA_INCIDENT_TITLE, getString(R.string.ai_result_title_video_focus))
@@ -396,7 +487,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                             )
                         )
                         putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_video))
-                        putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+                        putExtra(EXTRA_LOCATION_SHORT, fallbackLocationExtra())
                     }
                     else -> {
                         putExtra(EXTRA_INCIDENT_TITLE, getString(R.string.review_detected_incident_default))
@@ -410,16 +501,12 @@ class AiAnalysisActivity : AppCompatActivity() {
                             )
                         )
                         putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_photo))
-                        putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+                        putExtra(EXTRA_LOCATION_SHORT, fallbackLocationExtra())
                     }
                 }
             }
         }
     }
 
-    private fun completeOk() {
-        setResult(Activity.RESULT_OK, buildAnalysisResultIntent())
-        finish()
-    }
 }
 

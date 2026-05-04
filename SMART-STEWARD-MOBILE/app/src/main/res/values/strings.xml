@@ -67,6 +67,8 @@ Talamban</string>
     <string name="incident_title_analyzing">AI analyzing incident</string>
     <string name="incident_title_detected">AI detected incident</string>
     <string name="incident_title_edit">Updated information</string>
+    <string name="incident_edit_again">Edit Again</string>
+    <string name="incident_confirm_submit">Confirm &amp; Submit</string>
     <string name="incident_title_reanalyzing">AI re-analyzing incident</string>
     <string name="incident_title_submitted">Report submitted</string>
     <string name="submitted_success_headline">Report submitted!</string>
@@ -172,8 +174,11 @@ Talamban</string>
     <string name="ai_subheadline_reanalyze">Applying your edits and re-running classification</string>
     <string name="ai_processing_status">Processing…</string>
     <string name="ai_time_remaining_fmt">~%1$d sec remaining</string>
+    <string name="ai_api_fallback_toast">Could not reach AI server (%1$s). Showing offline preview.</string>
     <string name="ai_submitted_report_header">Submitted report</string>
     <string name="ai_report_plausible_title">Illegal Logging Suspected</string>
+    <!-- Shown on AI analyzing screen until the server returns a real category -->
+    <string name="ai_report_pending_title">Classifying incident…</string>
     <string name="ai_report_meta_fmt">%1$s · %2$s · %3$s</string>
     <string name="ai_media_photos_fmt">%1$d photos</string>
     <string name="ai_media_photo_one">1 photo</string>
@@ -182,7 +187,8 @@ Talamban</string>
     <string name="ai_step_media_title">Media analysis</string>
     <string name="ai_step_media_sub_done">%1$d photos scanned · logging detected</string>
     <string name="ai_step_location_title">Location detection</string>
-    <string name="ai_step_location_sub_done">GPS confirmed · Labangon, Cebu</string>
+    <!-- %1$s = resolved area (GPS / reverse geocode) -->
+    <string name="ai_step_location_sub_done_fmt">GPS confirmed · %1$s</string>
     <string name="ai_step_classify_title">Activity classification</string>
     <string name="ai_step_classify_sub_running">Matching incident to violation type…</string>
     <string name="ai_step_classify_sub_done">Incident type ranked · forwarding next</string>
@@ -203,14 +209,16 @@ Talamban</string>
     <string name="review_incident_subtitle_default">Environmental violation</string>
     <string name="review_ai_disclaimer">AI-generated — please verify before submitting. You can edit if incorrect.</string>
     <string name="review_assigned_agency_label">Assigned agency</string>
-    <string name="review_agency_subtitle_fmt">%1$s · Auto-routed</string>
+    <!-- Agency card second line: agency short name only (no “Auto-routed”). -->
+    <string name="review_agency_subtitle_fmt">%1$s</string>
     <string name="review_ai_description_label">AI description</string>
     <string name="review_ai_description_default">Photo/video shows open burning of waste in a public area. This is an environmental violation under RA 9003.</string>
     <string name="review_detected_incident_default">Open Burning</string>
     <string name="review_detected_agency_title_default">Bureau of Fire Protection</string>
     <string name="review_detected_agency_short_default">BFP</string>
-    <string name="review_location_short_default">Brgy. Lahug, Cebu City</string>
-    <string name="review_location_line_submit">Location: Brgy. Lahug, Cebu City</string>
+    <string name="location_unavailable_short">Location unavailable</string>
+    <string name="review_location_short_default">Location unavailable</string>
+    <string name="review_location_line_submit">Location: Location unavailable</string>
 
     <string name="ai_result_desc_photo">Photo shows open burning of waste in a public area. This matches an environmental disturbance consistent with RA 9003.</string>
     <string name="ai_result_desc_video">Video shows sustained combustion in an open area with visible smoke. Routed as an environmental violation.</string>
@@ -220,6 +228,7 @@ Talamban</string>
     <string name="ai_result_subtitle_transport">Environmental violation · mobility corridor</string>
     <string name="cd_evidence_preview">Evidence preview</string>
     <string name="cd_video_thumbnail">Video thumbnail</string>
+    <string name="cd_report_thumbnail">Report photo</string>
     <string name="ai_step_media_sub_running">Scanning captured media…</string>
     <string name="ai_step_media_sub_running_photo">Scanning captured photo…</string>
     <string name="ai_step_media_sub_running_video">Scanning captured video…</string>

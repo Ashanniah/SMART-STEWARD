@@ -247,7 +247,7 @@
                             android:id="@+id/aiReportIncidentTitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="@string/ai_report_plausible_title"
+                            android:text="@string/ai_report_pending_title"
                             android:textColor="@color/ai_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
