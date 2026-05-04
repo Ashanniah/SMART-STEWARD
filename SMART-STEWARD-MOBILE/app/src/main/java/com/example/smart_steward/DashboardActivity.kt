@@ -3,6 +3,7 @@ package com.example.smart_steward
 import android.Manifest
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
@@ -13,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import kotlin.math.abs
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnLayout
@@ -55,7 +57,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK) {
-            CapturedMediaStore.capturedBitmap = null
+            val uri: Uri? = result.data?.data
+            if (uri != null) {
+                CapturedMediaStore.capturedVideoUri = uri
+            }
             startActivity(Intent(this, IncidentFlowActivity::class.java))
         }
     }
@@ -136,7 +141,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.uiSettings.isMapToolbarEnabled = false
         googleMap.uiSettings.isMyLocationButtonEnabled = true
         findViewById<LinearLayout>(R.id.dashboardBottomNav).doOnLayout { nav ->
-            googleMap.setPadding(0, 0, 0, nav.height + 16)
+            val fabLift = abs(resources.getDimensionPixelSize(R.dimen.bottom_nav_fab_lift))
+            googleMap.setPadding(0, 0, 0, nav.height + fabLift + 16)
         }
         googleMap.addMarker(MarkerOptions().position(talamban).title("Talamban"))
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(talamban, 14f))

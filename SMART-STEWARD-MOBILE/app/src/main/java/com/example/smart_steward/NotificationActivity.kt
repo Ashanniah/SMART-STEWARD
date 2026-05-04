@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class NotificationActivity : AppCompatActivity() {
@@ -14,6 +16,10 @@ class NotificationActivity : AppCompatActivity() {
 
         findViewById<ImageView>(R.id.notificationBackButton).setOnClickListener {
             finish()
+        }
+
+        findViewById<TextView>(R.id.notificationMarkAllReadButton).setOnClickListener {
+            Toast.makeText(this, getString(R.string.notif_mark_all_read_done), Toast.LENGTH_SHORT).show()
         }
 
         findViewById<LinearLayout>(R.id.notificationNavHome).setOnClickListener {

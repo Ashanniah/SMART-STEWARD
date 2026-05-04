@@ -3,7 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/dashboardRoot"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/dashboardMap"
@@ -18,12 +20,16 @@
     <LinearLayout
         android:id="@+id/dashboardBottomNav"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="@dimen/bottom_nav_height"
+        android:layout_marginStart="@dimen/bottom_nav_horizontal_inset"
+        android:layout_marginEnd="@dimen/bottom_nav_horizontal_inset"
+        android:layout_marginBottom="@dimen/bottom_nav_bottom_inset"
         android:background="@drawable/bg_dashboard_bottom_nav"
+        android:elevation="10dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -36,17 +42,17 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/home"
-                app:tint="@color/auth_button_bg" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/home"
-                android:textColor="@color/auth_button_bg"
-                android:textSize="12sp" />
+                android:textColor="@color/register_button_green"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -58,21 +64,21 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/activity"
-                app:tint="@color/black" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/activity"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <Space
-            android:layout_width="74dp"
+            android:layout_width="@dimen/bottom_nav_fab_size"
             android:layout_height="1dp" />
 
         <LinearLayout
@@ -84,17 +90,17 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/notification"
-                app:tint="@color/black" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/notification"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:text="@string/nav_alerts"
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -106,39 +112,42 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/user"
-                app:tint="@color/black" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/profile"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
     <FrameLayout
         android:id="@+id/dashboardCameraFab"
-        android:layout_width="74dp"
-        android:layout_height="74dp"
+        android:layout_width="@dimen/bottom_nav_fab_size"
+        android:layout_height="@dimen/bottom_nav_fab_size"
+        android:layout_marginBottom="4dp"
         android:background="@drawable/bg_dashboard_camera_fab"
         android:clickable="true"
+        android:elevation="14dp"
         android:focusable="true"
         android:foreground="?attr/selectableItemBackgroundBorderless"
+        android:translationY="@dimen/bottom_nav_fab_lift"
         app:layout_constraintBottom_toBottomOf="@id/dashboardBottomNav"
         app:layout_constraintEnd_toEndOf="@id/dashboardBottomNav"
-        app:layout_constraintStart_toStartOf="@id/dashboardBottomNav"
-        app:layout_constraintTop_toTopOf="@id/dashboardBottomNav">
+        app:layout_constraintStart_toStartOf="@id/dashboardBottomNav">
 
         <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:layout_gravity="center"
+            android:contentDescription="@string/open_camera"
             android:src="@drawable/camera"
-            app:tint="@color/black" />
+            app:tint="@color/white" />
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

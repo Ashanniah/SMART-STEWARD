@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="bottom_nav_height">72dp</dimen>
+    <dimen name="bottom_nav_icon_size">22dp</dimen>
+    <dimen name="bottom_nav_horizontal_inset">10dp</dimen>
+    <dimen name="bottom_nav_bottom_inset">10dp</dimen>
+    <dimen name="bottom_nav_fab_size">58dp</dimen>
+    <dimen name="bottom_nav_fab_lift">-26dp</dimen>
+</resources>
