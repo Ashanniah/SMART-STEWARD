@@ -49,10 +49,14 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     private var afterAiAnalysis: (() -> Unit)? = null
 
+    /** Latest classification payload from [AiAnalysisActivity] (activity result). */
+    private var lastAnalysisResult: Intent? = null
+
     private val aiAnalysisLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        lastAnalysisResult = result.data
         val action = afterAiAnalysis
         afterAiAnalysis = null
         action?.invoke()
@@ -134,17 +138,17 @@ class IncidentFlowActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.confirmSubmitButton).setOnClickListener {
-            val incidentType = findViewById<TextView>(R.id.editIncidentTypeText).text.toString()
-            val agency = findViewById<TextView>(R.id.editAgencyText).text.toString()
             val description = descriptionInput.text.toString()
-            val locationLine = findViewById<TextView>(R.id.editLocationText).text.toString()
             afterAiAnalysis = {
+                lastAnalysisResult?.let { applyAnalysisExtrasToReviewScreen(it) }
                 findViewById<TextView>(R.id.detectedDescriptionText).text = description
                 submitReportAndShowSubmitted(
-                    incidentType,
-                    agency,
+                    findViewById<TextView>(R.id.detectedIncidentTypeText).text.toString(),
+                    findViewById<TextView>(R.id.detectedAgencyText).text.toString(),
                     description,
-                    formatLocationForSubmit(locationLine)
+                    formatLocationForSubmit(
+                        findViewById<TextView>(R.id.detectedLocationText).text.toString()
+                    )
                 )
             }
             aiAnalysisLauncher.launch(
@@ -197,68 +201,67 @@ class IncidentFlowActivity : AppCompatActivity() {
         return "Location: $t"
     }
 
-    private fun populateDetectedReviewUi() {
-        val pill = findViewById<TextView>(R.id.detectedMediaCountPill)
-        val main = findViewById<ImageView>(R.id.detectedPhotoMain)
-        val videoThumb = findViewById<ImageView>(R.id.detectedVideoThumb)
-        val imageThumb = findViewById<ImageView>(R.id.detectedImageThumbSmall)
-        val play = findViewById<ImageView>(R.id.detectedVideoPlayOverlay)
-        val placeholder = ContextCompat.getColor(this, R.color.register_field_fill)
+    private fun applyAnalysisExtrasToReviewScreen(data: Intent?) {
+        if (data == null) {
+            findViewById<TextView>(R.id.detectedIncidentTypeText).setText(R.string.review_detected_incident_default)
+            findViewById<TextView>(R.id.detectedIncidentSubtitle).setText(R.string.review_incident_subtitle_default)
+            findViewById<TextView>(R.id.detectedAgencyText).setText(R.string.review_detected_agency_title_default)
+            findViewById<TextView>(R.id.detectedAgencySubtitle).text = getString(
+                R.string.review_agency_subtitle_fmt,
+                getString(R.string.review_detected_agency_short_default)
+            )
+            findViewById<TextView>(R.id.detectedDescriptionText).setText(R.string.review_ai_description_default)
+            findViewById<TextView>(R.id.detectedLocationText).setText(R.string.review_location_short_default)
+            return
+        }
+        findViewById<TextView>(R.id.detectedIncidentTypeText).text =
+            data.getStringExtra(AiAnalysisActivity.EXTRA_INCIDENT_TITLE)
+                ?: getString(R.string.review_detected_incident_default)
+        findViewById<TextView>(R.id.detectedIncidentSubtitle).text =
+            data.getStringExtra(AiAnalysisActivity.EXTRA_INCIDENT_SUBTITLE)
+                ?: getString(R.string.review_incident_subtitle_default)
+        findViewById<TextView>(R.id.detectedAgencyText).text =
+            data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_TITLE)
+                ?: getString(R.string.review_detected_agency_title_default)
+        findViewById<TextView>(R.id.detectedAgencySubtitle).text =
+            data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_SUBLINE) ?: getString(
+                R.string.review_agency_subtitle_fmt,
+                getString(R.string.review_detected_agency_short_default)
+            )
+        findViewById<TextView>(R.id.detectedDescriptionText).text =
+            data.getStringExtra(AiAnalysisActivity.EXTRA_DESCRIPTION)
+                ?: getString(R.string.review_ai_description_default)
+        findViewById<TextView>(R.id.detectedLocationText).text =
+            data.getStringExtra(AiAnalysisActivity.EXTRA_LOCATION_SHORT)
+                ?: getString(R.string.review_location_short_default)
+    }
 
+    private fun populateDetectedReviewUi() {
+        applyAnalysisExtrasToReviewScreen(lastAnalysisResult)
+
+        val preview = findViewById<ImageView>(R.id.detectedSinglePreview)
+        val placeholder = ContextCompat.getColor(this, R.color.register_field_fill)
         val bitmap = CapturedMediaStore.capturedBitmap
         val videoUri = CapturedMediaStore.capturedVideoUri
 
         when {
-            bitmap != null && videoUri != null -> {
-                val vFrame = loadVideoFrame(videoUri)
-                main.setImageBitmap(bitmap)
-                imageThumb.setImageBitmap(bitmap)
-                imageThumb.background = null
-                if (vFrame != null) {
-                    videoThumb.setImageBitmap(vFrame)
-                    videoThumb.background = null
-                } else {
-                    videoThumb.setImageDrawable(null)
-                    videoThumb.setBackgroundColor(placeholder)
-                }
-                play.visibility = View.VISIBLE
-                pill.setText(R.string.review_media_badge_photo_video)
-            }
             bitmap != null -> {
-                main.setImageBitmap(bitmap)
-                imageThumb.setImageBitmap(bitmap)
-                imageThumb.background = null
-                videoThumb.setImageDrawable(null)
-                videoThumb.setBackgroundColor(placeholder)
-                play.visibility = View.GONE
-                pill.setText(R.string.review_media_badge_photo_only)
+                preview.setImageBitmap(bitmap)
+                preview.background = null
             }
             videoUri != null -> {
                 val frame = loadVideoFrame(videoUri)
                 if (frame != null) {
-                    main.setImageBitmap(frame)
-                    videoThumb.setImageBitmap(frame)
-                    videoThumb.background = null
+                    preview.setImageBitmap(frame)
+                    preview.background = null
                 } else {
-                    main.setImageDrawable(null)
-                    main.setBackgroundColor(placeholder)
-                    videoThumb.setImageDrawable(null)
-                    videoThumb.setBackgroundColor(placeholder)
+                    preview.setImageDrawable(null)
+                    preview.setBackgroundColor(placeholder)
                 }
-                imageThumb.setImageDrawable(null)
-                imageThumb.setBackgroundColor(placeholder)
-                play.visibility = View.VISIBLE
-                pill.setText(R.string.review_media_badge_video_only)
             }
             else -> {
-                main.setImageDrawable(null)
-                main.setBackgroundColor(placeholder)
-                videoThumb.setImageDrawable(null)
-                videoThumb.setBackgroundColor(placeholder)
-                imageThumb.setImageDrawable(null)
-                imageThumb.setBackgroundColor(placeholder)
-                play.visibility = View.GONE
-                pill.setText(R.string.review_media_badge_photo_only)
+                preview.setImageDrawable(null)
+                preview.setBackgroundColor(placeholder)
             }
         }
     }
@@ -302,7 +305,6 @@ class IncidentFlowActivity : AppCompatActivity() {
         locationLine: String
     ) {
         val photo = CapturedMediaStore.capturedBitmap
-        val hadLocalPhoto = photo != null
         ReportFirestore.submitReport(
             userId = currentUserId(),
             incidentType = incidentType,
@@ -310,15 +312,13 @@ class IncidentFlowActivity : AppCompatActivity() {
             description = description,
             locationLine = locationLine,
             photo = photo,
-            onSuccess = { docId, photoInCloud ->
+            onSuccess = { docId, _ ->
                 populateSubmittedSummary(
                     docId,
                     incidentType,
                     assignedAgency,
                     description,
-                    locationLine,
-                    hadLocalPhoto,
-                    photoInCloud
+                    locationLine
                 )
                 showState(ScreenState.SUBMITTED)
             },
@@ -336,9 +336,7 @@ class IncidentFlowActivity : AppCompatActivity() {
         incidentType: String,
         assignedAgency: String,
         description: String,
-        locationLine: String,
-        hadLocalPhoto: Boolean,
-        photoInCloud: Boolean
+        locationLine: String
     ) {
         val agencyShort = agencyShortName(assignedAgency)
         findViewById<TextView>(R.id.submittedSuccessSubtitle).text =
@@ -357,6 +355,7 @@ class IncidentFlowActivity : AppCompatActivity() {
             append(suffix)
         }
         findViewById<TextView>(R.id.submittedReceiptNumberText).text = ref
+        findViewById<TextView>(R.id.submittedReceiptReportIdValue).text = ref
 
         findViewById<TextView>(R.id.submittedReceiptTypeValue).text = incidentType
 
@@ -371,15 +370,43 @@ class IncidentFlowActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.submittedReceiptLocationValue).text =
             locationDisplay.ifBlank { "—" }
 
-        findViewById<TextView>(R.id.submittedReceiptAgencyValue).text = assignedAgency
+        val desc = description.trim()
+        findViewById<TextView>(R.id.submittedReceiptDescriptionValue).text =
+            desc.ifBlank { "—" }
 
-        val (severityLabel, severityColor) = severityForIncidentType(incidentType)
-        findViewById<TextView>(R.id.submittedReceiptSeverityValue).apply {
-            text = severityLabel
-            setTextColor(severityColor)
+        val thumb = findViewById<ImageView>(R.id.submittedReceiptMediaThumb)
+        val kindLabel = findViewById<TextView>(R.id.submittedReceiptMediaKind)
+        val bitmap = CapturedMediaStore.capturedBitmap
+        val videoUri = CapturedMediaStore.capturedVideoUri
+        val placeholder = ContextCompat.getColor(this, R.color.register_field_fill)
+        when {
+            bitmap != null -> {
+                thumb.setImageBitmap(bitmap)
+                thumb.visibility = View.VISIBLE
+                thumb.background = null
+                kindLabel.text = getString(R.string.receipt_attached_one_photo)
+            }
+            videoUri != null -> {
+                val frame = loadVideoFrame(videoUri)
+                if (frame != null) {
+                    thumb.setImageBitmap(frame)
+                    thumb.background = null
+                } else {
+                    thumb.setImageDrawable(null)
+                    thumb.setBackgroundColor(placeholder)
+                }
+                thumb.visibility = View.VISIBLE
+                kindLabel.text = getString(R.string.receipt_attached_one_video)
+            }
+            else -> {
+                thumb.setImageDrawable(null)
+                thumb.setBackgroundColor(placeholder)
+                thumb.visibility = View.VISIBLE
+                kindLabel.text = getString(R.string.receipt_attached_none)
+            }
         }
-        findViewById<TextView>(R.id.submittedReceiptStatusValue).text =
-            getString(R.string.receipt_status_pending)
+
+        findViewById<TextView>(R.id.submittedReceiptAgencyValue).text = assignedAgency
     }
 
     private fun agencyShortName(assignedAgency: String): String {
@@ -387,16 +414,6 @@ class IncidentFlowActivity : AppCompatActivity() {
         if (!inParens.isNullOrBlank()) return inParens
         val first = assignedAgency.split(",").firstOrNull()?.trim().orEmpty()
         return first.ifBlank { assignedAgency }
-    }
-
-    private fun severityForIncidentType(incidentType: String): Pair<String, Int> {
-        val t = incidentType.lowercase(Locale.getDefault())
-        val high = listOf("burn", "fire", "smoke", "blaze").any { it in t }
-        return if (high) {
-            getString(R.string.receipt_severity_high) to ContextCompat.getColor(this, R.color.red)
-        } else {
-            getString(R.string.receipt_severity_medium) to ContextCompat.getColor(this, R.color.hint_dark_gray)
-        }
     }
 
     private fun showState(state: ScreenState) {
@@ -431,10 +448,6 @@ class IncidentFlowActivity : AppCompatActivity() {
         }
 
         if (state == ScreenState.DETECTED) {
-            findViewById<TextView>(R.id.detectedAgencySubtitle).text = getString(
-                R.string.review_agency_subtitle_fmt,
-                getString(R.string.review_detected_agency_short_default)
-            )
             refreshDetectedTimestamp()
             populateDetectedReviewUi()
         }

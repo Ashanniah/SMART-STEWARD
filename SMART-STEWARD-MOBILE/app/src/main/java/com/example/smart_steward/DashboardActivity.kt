@@ -1,12 +1,14 @@
 package com.example.smart_steward
 
 import android.Manifest
+import android.app.Dialog
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Toast
@@ -45,6 +47,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         if (result.resultCode == RESULT_OK) {
             val capturedBitmap = result.data?.extras?.get("data") as? Bitmap
             if (capturedBitmap != null) {
+                CapturedMediaStore.capturedVideoUri = null
                 CapturedMediaStore.capturedBitmap = capturedBitmap
                 startActivity(Intent(this, IncidentFlowActivity::class.java))
             } else {
@@ -59,6 +62,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         if (result.resultCode == RESULT_OK) {
             val uri: Uri? = result.data?.data
             if (uri != null) {
+                CapturedMediaStore.capturedBitmap = null
                 CapturedMediaStore.capturedVideoUri = uri
             }
             startActivity(Intent(this, IncidentFlowActivity::class.java))
@@ -109,7 +113,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
         if (intent.getBooleanExtra(EXTRA_OPEN_CAMERA, false)) {
             findViewById<View>(R.id.dashboardRoot).post {
-                handleCameraAction(CameraAction.PHOTO)
+                showMediaCaptureDialog()
             }
         }
 
@@ -126,13 +130,36 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnClickListener {
-            handleCameraAction(CameraAction.PHOTO)
+            showMediaCaptureDialog()
+        }
+    }
+
+    private fun showMediaCaptureDialog() {
+        val dialog = Dialog(this, R.style.Theme_MediaCaptureDialog)
+        dialog.setContentView(R.layout.dialog_media_capture)
+        dialog.window?.apply {
+            setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundDrawableResource(android.R.color.transparent)
         }
 
-        findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnLongClickListener {
-            handleCameraAction(CameraAction.VIDEO)
-            true
+        dialog.findViewById<View>(R.id.mediaCaptureDimRoot).setOnClickListener {
+            dialog.dismiss()
         }
+        dialog.findViewById<View>(R.id.mediaCaptureCard).setOnClickListener { }
+
+        dialog.findViewById<View>(R.id.capturePhotoRow).setOnClickListener {
+            dialog.dismiss()
+            handleCameraAction(CameraAction.PHOTO)
+        }
+        dialog.findViewById<View>(R.id.captureVideoRow).setOnClickListener {
+            dialog.dismiss()
+            handleCameraAction(CameraAction.VIDEO)
+        }
+
+        dialog.show()
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
@@ -190,6 +217,11 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun launchCameraAction(action: CameraAction) {
+        when (action) {
+            CameraAction.PHOTO -> CapturedMediaStore.capturedVideoUri = null
+            CameraAction.VIDEO -> CapturedMediaStore.capturedBitmap = null
+        }
+
         val captureIntent = when (action) {
             CameraAction.PHOTO -> Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
             CameraAction.VIDEO -> Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE)

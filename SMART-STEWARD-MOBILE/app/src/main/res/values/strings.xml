@@ -60,6 +60,8 @@ Talamban</string>
     <string name="notification">Notification</string>
     <string name="nav_alerts">Notifications</string>
     <string name="open_camera">Open camera</string>
+    <string name="take_a_photo">Take a Photo</string>
+    <string name="take_a_video">Take a Video</string>
     <string name="send_ai_title">Send AI</string>
     <string name="send_to_ai">Send To AI</string>
     <string name="incident_title_analyzing">AI analyzing incident</string>
@@ -70,15 +72,16 @@ Talamban</string>
     <string name="submitted_success_headline">Report submitted!</string>
     <string name="submitted_success_subtitle">Your report has been sent to %1$s. You\'ll be notified when action is taken.</string>
     <string name="report_receipt_banner">REPORT RECEIPT</string>
-    <string name="receipt_label_type">Type</string>
-    <string name="receipt_label_submitted">Submitted</string>
+    <string name="receipt_label_report_id">Report Id</string>
+    <string name="receipt_label_report_type">Report Type</string>
+    <string name="receipt_label_date_submitted">Date Submitted</string>
     <string name="receipt_label_location">Location</string>
-    <string name="receipt_label_agency">Agency</string>
-    <string name="receipt_label_severity">Severity</string>
-    <string name="receipt_label_status">Status</string>
-    <string name="receipt_status_pending">Pending review</string>
-    <string name="receipt_severity_high">High</string>
-    <string name="receipt_severity_medium">Medium</string>
+    <string name="receipt_label_description">Description</string>
+    <string name="receipt_label_attached_media">Attached Photo/Video</string>
+    <string name="receipt_label_assigned_to">Assigned To</string>
+    <string name="receipt_attached_one_photo">1 photo</string>
+    <string name="receipt_attached_one_video">1 video</string>
+    <string name="receipt_attached_none">None</string>
     <string name="back_to_dashboard">Back to Dashboard</string>
     <string name="profile">Profile</string>
     <string name="profile_section_account">ACCOUNT</string>
@@ -208,9 +211,22 @@ Talamban</string>
     <string name="review_detected_agency_short_default">BFP</string>
     <string name="review_location_short_default">Brgy. Lahug, Cebu City</string>
     <string name="review_location_line_submit">Location: Brgy. Lahug, Cebu City</string>
+
+    <string name="ai_result_desc_photo">Photo shows open burning of waste in a public area. This matches an environmental disturbance consistent with RA 9003.</string>
+    <string name="ai_result_desc_video">Video shows sustained combustion in an open area with visible smoke. Routed as an environmental violation.</string>
+    <string name="ai_result_desc_mixed">Photo and video evidence together indicate open burning of waste in a public area — an environmental violation under RA 9003.</string>
+    <string name="ai_result_desc_reanalyze">Classification updated using your edited description. Incident remains categorized as open burning with environmental impact.</string>
+    <string name="ai_result_title_video_focus">Open Burning (video-led)</string>
+    <string name="ai_result_subtitle_transport">Environmental violation · mobility corridor</string>
     <string name="cd_evidence_preview">Evidence preview</string>
     <string name="cd_video_thumbnail">Video thumbnail</string>
     <string name="ai_step_media_sub_running">Scanning captured media…</string>
+    <string name="ai_step_media_sub_running_photo">Scanning captured photo…</string>
+    <string name="ai_step_media_sub_running_video">Scanning captured video…</string>
+    <string name="ai_step_media_done_photo">1 photo scanned · evidence indexed</string>
+    <string name="ai_step_media_done_video">1 video scanned · evidence indexed</string>
+    <string name="ai_report_title_reanalyze">Updated classification (your edits)</string>
+    <string name="ai_report_title_video_evidence">Incident pattern (video evidence)</string>
     <string name="ai_step_queued_generic">Waiting for prior steps…</string>
     <string name="ai_step_location_sub_running">Pinpointing location…</string>
 </resources>

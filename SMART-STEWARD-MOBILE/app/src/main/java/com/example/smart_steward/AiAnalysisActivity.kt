@@ -15,16 +15,22 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.ceil
-import kotlin.math.max
 
 class AiAnalysisActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_REANALYZE = "reanalyze"
+        const val EXTRA_INCIDENT_TITLE = "extra_incident_title"
+        const val EXTRA_INCIDENT_SUBTITLE = "extra_incident_subtitle"
+        const val EXTRA_AGENCY_TITLE = "extra_agency_title"
+        const val EXTRA_AGENCY_SUBLINE = "extra_agency_subline"
+        const val EXTRA_DESCRIPTION = "extra_description"
+        const val EXTRA_LOCATION_SHORT = "extra_location_short"
     }
 
     private val handler = Handler(Looper.getMainLooper())
-    private val totalMs = 14_000L
+    private val totalMs = 5_000L
+    private val countdownSeconds = 5
     private val tickMs = 50L
     private var elapsed = 0L
     private var reanalyze = false
@@ -34,6 +40,7 @@ class AiAnalysisActivity : AppCompatActivity() {
     private lateinit var headline: TextView
     private lateinit var subheadline: TextView
     private lateinit var reportMeta: TextView
+    private lateinit var reportIncidentTitle: TextView
 
     private lateinit var step1Card: View
     private lateinit var step1Icon: ImageView
@@ -87,6 +94,7 @@ class AiAnalysisActivity : AppCompatActivity() {
         headline = findViewById(R.id.aiHeadline)
         subheadline = findViewById(R.id.aiSubheadline)
         reportMeta = findViewById(R.id.aiReportMeta)
+        reportIncidentTitle = findViewById(R.id.aiReportIncidentTitle)
 
         step1Card = findViewById(R.id.aiStep1Card)
         step1Icon = findViewById(R.id.aiStep1Icon)
@@ -136,17 +144,34 @@ class AiAnalysisActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    /** Photos shown in UI (demo uses 3 when a still image was captured). */
-    private fun photoCountForUi(): Int =
-        if (CapturedMediaStore.capturedBitmap != null) 3 else 1
-
     private fun mediaLabel(): String =
         if (CapturedMediaStore.capturedBitmap != null) {
-            val n = photoCountForUi()
-            if (n == 1) getString(R.string.ai_media_photo_one)
-            else getString(R.string.ai_media_photos_fmt, n)
+            getString(R.string.ai_media_photo_one)
         } else {
             getString(R.string.ai_media_video_one)
+        }
+
+    private fun mediaScanDoneSubtitle(): String =
+        when {
+            CapturedMediaStore.capturedBitmap != null -> getString(R.string.ai_step_media_done_photo)
+            CapturedMediaStore.capturedVideoUri != null -> getString(R.string.ai_step_media_done_video)
+            else -> getString(R.string.ai_step_media_done_photo)
+        }
+
+    private fun mediaRunningSubtitle(): String =
+        when {
+            CapturedMediaStore.capturedBitmap != null -> getString(R.string.ai_step_media_sub_running_photo)
+            CapturedMediaStore.capturedVideoUri != null -> getString(R.string.ai_step_media_sub_running_video)
+            else -> getString(R.string.ai_step_media_sub_running)
+        }
+
+    /** Card headline driven by re-analysis vs image vs video capture. */
+    private fun preliminaryReportTitle(): String =
+        when {
+            reanalyze -> getString(R.string.ai_report_title_reanalyze)
+            CapturedMediaStore.capturedVideoUri != null && CapturedMediaStore.capturedBitmap == null ->
+                getString(R.string.ai_report_title_video_evidence)
+            else -> getString(R.string.ai_report_plausible_title)
         }
 
     private fun bindStaticCopy() {
@@ -154,6 +179,8 @@ class AiAnalysisActivity : AppCompatActivity() {
         step2Title.setText(R.string.ai_step_location_title)
         step3Title.setText(R.string.ai_step_classify_title)
         step4Title.setText(R.string.ai_step_route_title)
+
+        reportIncidentTitle.text = preliminaryReportTitle()
 
         val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
         reportMeta.text = getString(
@@ -166,17 +193,16 @@ class AiAnalysisActivity : AppCompatActivity() {
 
     private fun applyPipelineUi(t: Float) {
         overallProgress.progress = (t * 100).toInt().coerceIn(0, 100)
-        val secLeft = ceil((1f - t.coerceIn(0f, 1f)) * 15.0).toInt().coerceAtLeast(0)
+        val secLeft = ceil((1f - t.coerceIn(0f, 1f)) * countdownSeconds.toDouble()).toInt().coerceAtLeast(0)
         timeRemaining.text = getString(R.string.ai_time_remaining_fmt, secLeft)
 
-        val n = max(photoCountForUi(), 1)
-        val mediaDoneSubtitle = getString(R.string.ai_step_media_sub_done, n)
+        val mediaDoneSubtitle = mediaScanDoneSubtitle()
 
         when {
             t < 0.18f -> {
                 stepRunning(
                     step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar,
-                    getString(R.string.ai_step_media_sub_running),
+                    mediaRunningSubtitle(),
                     activeCard = false
                 )
                 stepQueued(
@@ -325,8 +351,74 @@ class AiAnalysisActivity : AppCompatActivity() {
         badge.setTextColor(ContextCompat.getColor(this, R.color.ai_badge_queued_text))
     }
 
+    private fun buildAnalysisResultIntent(): Intent {
+        val hasPhoto = CapturedMediaStore.capturedBitmap != null
+        val hasVideo = CapturedMediaStore.capturedVideoUri != null
+        return Intent().apply {
+            if (reanalyze) {
+                putExtra(EXTRA_INCIDENT_TITLE, getString(R.string.review_detected_incident_default))
+                putExtra(EXTRA_INCIDENT_SUBTITLE, getString(R.string.review_incident_subtitle_default))
+                putExtra(EXTRA_AGENCY_TITLE, getString(R.string.review_detected_agency_title_default))
+                putExtra(
+                    EXTRA_AGENCY_SUBLINE,
+                    getString(
+                        R.string.review_agency_subtitle_fmt,
+                        getString(R.string.review_detected_agency_short_default)
+                    )
+                )
+                putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_reanalyze))
+                putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+            } else {
+                when {
+                    hasPhoto && hasVideo -> {
+                        putExtra(EXTRA_INCIDENT_TITLE, getString(R.string.review_detected_incident_default))
+                        putExtra(EXTRA_INCIDENT_SUBTITLE, getString(R.string.review_incident_subtitle_default))
+                        putExtra(EXTRA_AGENCY_TITLE, getString(R.string.review_detected_agency_title_default))
+                        putExtra(
+                            EXTRA_AGENCY_SUBLINE,
+                            getString(
+                                R.string.review_agency_subtitle_fmt,
+                                getString(R.string.review_detected_agency_short_default)
+                            )
+                        )
+                        putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_mixed))
+                        putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+                    }
+                    hasVideo && !hasPhoto -> {
+                        putExtra(EXTRA_INCIDENT_TITLE, getString(R.string.ai_result_title_video_focus))
+                        putExtra(EXTRA_INCIDENT_SUBTITLE, getString(R.string.ai_result_subtitle_transport))
+                        putExtra(EXTRA_AGENCY_TITLE, getString(R.string.review_detected_agency_title_default))
+                        putExtra(
+                            EXTRA_AGENCY_SUBLINE,
+                            getString(
+                                R.string.review_agency_subtitle_fmt,
+                                getString(R.string.review_detected_agency_short_default)
+                            )
+                        )
+                        putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_video))
+                        putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+                    }
+                    else -> {
+                        putExtra(EXTRA_INCIDENT_TITLE, getString(R.string.review_detected_incident_default))
+                        putExtra(EXTRA_INCIDENT_SUBTITLE, getString(R.string.review_incident_subtitle_default))
+                        putExtra(EXTRA_AGENCY_TITLE, getString(R.string.review_detected_agency_title_default))
+                        putExtra(
+                            EXTRA_AGENCY_SUBLINE,
+                            getString(
+                                R.string.review_agency_subtitle_fmt,
+                                getString(R.string.review_detected_agency_short_default)
+                            )
+                        )
+                        putExtra(EXTRA_DESCRIPTION, getString(R.string.ai_result_desc_photo))
+                        putExtra(EXTRA_LOCATION_SHORT, getString(R.string.review_location_short_default))
+                    }
+                }
+            }
+        }
+    }
+
     private fun completeOk() {
-        setResult(Activity.RESULT_OK)
+        setResult(Activity.RESULT_OK, buildAnalysisResultIntent())
         finish()
     }
 }

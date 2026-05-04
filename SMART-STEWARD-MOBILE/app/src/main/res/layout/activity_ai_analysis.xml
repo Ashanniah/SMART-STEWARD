@@ -101,12 +101,13 @@
                     android:background="@drawable/bg_ai_hero_circle" />
 
                 <ImageView
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
+                    android:id="@+id/aiHeroIcon"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
                     android:layout_gravity="center"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_ai_monitor"
-                    app:tint="@color/ai_secondary" />
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ai_icon" />
             </FrameLayout>
 
             <TextView
@@ -258,7 +259,7 @@
                             android:layout_marginTop="4dp"
                             android:textColor="@color/ai_muted"
                             android:textSize="12sp"
-                            tools:text="Brgy. Labangon · Apr 25, 2025 · 3 photos" />
+                            tools:text="Brgy. Labangon · May 4, 2026 · 1 photo" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
