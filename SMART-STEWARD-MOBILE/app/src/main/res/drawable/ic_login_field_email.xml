@@ -3,6 +3,6 @@
     <item
         android:width="22dp"
         android:height="22dp"
-        android:drawable="@drawable/email"
+        android:drawable="@drawable/mail"
         android:gravity="center" />
 </layer-list>

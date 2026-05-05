@@ -5,12 +5,16 @@ import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.RoundedCornersTransformation
 import com.google.android.material.card.MaterialCardView
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -56,12 +60,39 @@ class MyActivityReportsAdapter(
             card.findViewById<TextView>(R.id.reportLocationDate).text = "$loc • $dateStr"
 
             val (emoji, tileColorRes) = typeVisuals(report.incidentType)
-            val icon = card.findViewById<TextView>(R.id.reportTypeIcon)
-            icon.text = emoji
-            icon.background = roundedRect(
+            val thumb = card.findViewById<ImageView>(R.id.reportThumbnail)
+            val emojiFallback = card.findViewById<TextView>(R.id.reportTypeEmojiFallback)
+            val cornerPx = dp(ctx, 10f)
+            emojiFallback.text = emoji
+            emojiFallback.background = roundedRect(
                 ContextCompat.getColor(ctx, tileColorRes),
-                dp(ctx, 10f)
+                cornerPx
             )
+            val url = report.photoUrl.trim()
+            if (url.isNotEmpty()) {
+                thumb.visibility = View.VISIBLE
+                emojiFallback.visibility = View.GONE
+                thumb.load(url) {
+                    crossfade(true)
+                    transformations(RoundedCornersTransformation(cornerPx))
+                    listener(
+                        onError = { _, _ ->
+                            thumb.setImageDrawable(null)
+                            thumb.visibility = View.GONE
+                            emojiFallback.visibility = View.VISIBLE
+                        },
+                        onCancel = {
+                            thumb.setImageDrawable(null)
+                            thumb.visibility = View.GONE
+                            emojiFallback.visibility = View.VISIBLE
+                        }
+                    )
+                }
+            } else {
+                thumb.setImageDrawable(null)
+                thumb.visibility = View.GONE
+                emojiFallback.visibility = View.VISIBLE
+            }
 
             val statusTag = card.findViewById<TextView>(R.id.reportStatusTag)
             when (report.status) {

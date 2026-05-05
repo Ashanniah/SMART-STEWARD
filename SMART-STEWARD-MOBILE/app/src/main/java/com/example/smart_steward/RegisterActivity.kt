@@ -47,8 +47,8 @@ class RegisterActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            if (firstName.isBlank() || middleName.isBlank() || lastName.isBlank()) {
-                FormValidation.toast(this, "Please enter your full name.")
+            if (firstName.isBlank() || lastName.isBlank()) {
+                FormValidation.toast(this, "Please enter your first and last name.")
                 return@setOnClickListener
             }
 
@@ -82,7 +82,9 @@ class RegisterActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            val fullName = "$firstName $middleName $lastName"
+            val fullName = listOf(firstName, middleName, lastName)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
 
             FormValidation.toast(this, "Creating account...")
             ApiProvider.auth.call(
@@ -139,7 +141,7 @@ class RegisterActivity : AppCompatActivity() {
                         }
 
                         input.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                            R.drawable.ic_login_field_padlock,
+                            R.drawable.register_ic_lock,
                             0,
                             if (isVisible) R.drawable.ic_hide_sized else R.drawable.ic_eye_sized,
                             0

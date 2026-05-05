@@ -1,20 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/incidentRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white">
+    android:background="@color/activity_page_bg"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/incidentHeader"
         android:layout_width="0dp"
         android:layout_height="56dp"
-        android:background="#FFEDEDED"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:background="@color/notif_header_bg"
+        android:elevation="4dp"
         android:paddingStart="12dp"
-        android:paddingEnd="12dp"
+        android:paddingEnd="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -23,27 +25,33 @@
             android:id="@+id/incidentBackButton"
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:src="@android:drawable/ic_media_previous" />
+            android:contentDescription="@string/cd_back"
+            android:src="@drawable/ic_chevron_left"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/register_button_green" />
 
         <TextView
             android:id="@+id/incidentFlowTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="Send AI"
+            android:layout_marginStart="10dp"
+            android:text="@string/send_ai_title"
             android:textColor="@color/black"
             android:textSize="18sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/incidentBackButton"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <FrameLayout
         android:id="@+id/contentFrame"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:paddingStart="16dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="90dp"
+        android:paddingBottom="108dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -62,41 +70,41 @@
                 android:background="@android:color/black"
                 android:scaleType="centerCrop" />
 
-            <TextView
-                android:layout_width="136dp"
-                android:layout_height="136dp"
-                android:layout_gravity="center"
-                android:gravity="center"
-                android:text="[]\n  ()\n[]"
-                android:textColor="@color/black"
-                android:textSize="34sp"
-                android:textStyle="bold" />
-
             <Button
                 android:id="@+id/sendToAiButton"
-                android:layout_width="126dp"
-                android:layout_height="42dp"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
                 android:layout_gravity="bottom|end"
-                android:layout_marginEnd="10dp"
-                android:layout_marginBottom="12dp"
-                android:backgroundTint="@color/white"
-                android:text="Send To AI"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_incident_send_to_ai"
+                android:elevation="6dp"
+                android:minWidth="148dp"
+                android:paddingStart="22dp"
+                android:paddingEnd="22dp"
+                android:text="@string/send_to_ai"
                 android:textAllCaps="false"
-                android:textColor="@color/black" />
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:backgroundTint="@null" />
         </FrameLayout>
 
         <LinearLayout
             android:id="@+id/analyzingContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="@color/white"
             android:gravity="center"
             android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
             android:visibility="gone">
 
             <ImageView
                 android:layout_width="120dp"
                 android:layout_height="120dp"
-                android:src="@drawable/ai" />
+                android:src="@drawable/ai_icon" />
 
             <TextView
                 android:id="@+id/analyzingHeadline"
@@ -114,7 +122,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="22dp"
                 android:text="✓ Media Analysis"
-                android:textColor="@color/auth_button_bg"
+                android:textColor="@color/register_button_green"
                 android:textSize="16sp" />
 
             <TextView
@@ -123,7 +131,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:text="✓ Location Detection"
-                android:textColor="@color/auth_button_bg"
+                android:textColor="@color/register_button_green"
                 android:textSize="16sp" />
 
             <TextView
@@ -132,7 +140,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:text="✓ Activity Classification"
-                android:textColor="@color/auth_button_bg"
+                android:textColor="@color/register_button_green"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -140,98 +148,97 @@
             android:id="@+id/detectedContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="@color/register_sheet_bg"
             android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingStart="18dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="28dp">
 
-                <ImageView
-                    android:id="@+id/imagePreviewSmall"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:layout_gravity="center_horizontal"
-                    android:background="@android:color/black"
-                    android:scaleType="centerCrop" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="Incident Type"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/detectedIncidentTypeText"
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_code_box"
-                    android:gravity="center"
-                    android:text="Burning" />
+                    android:layout_height="220dp"
+                    android:background="@drawable/bg_review_field_box">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="[!] This information was generated by AI and may be incorrect."
-                    android:textColor="@color/hint_dark_gray"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Assigned Agency"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/detectedAgencyText"
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_code_box"
-                    android:gravity="center"
-                    android:text="Bureau of Fire Protection (BFP)" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Incident Description"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/detectedDescriptionText"
-                    android:layout_width="match_parent"
-                    android:layout_height="80dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_code_box"
-                    android:padding="10dp"
-                    android:text="The captured photo/video shows an open burning of trash in a public area. This is burning-related environmental disturbance." />
+                    <ImageView
+                        android:id="@+id/detectedSinglePreview"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/cd_evidence_preview"
+                        android:scaleType="centerCrop"
+                        tools:src="@tools:sample/backgrounds/scenic" />
+                </FrameLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_review_status_bar"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="10dp">
+
+                    <View
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="@drawable/bg_review_dot_green" />
 
                     <TextView
-                        android:id="@+id/detectedLocationText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
                         android:layout_weight="1"
-                        android:text="Location: Bgy Lahug, Cebu City"
-                        android:textColor="@color/hint_dark_gray"
-                        android:textSize="12sp" />
+                        android:text="@string/review_classification_complete"
+                        android:textColor="@color/register_button_green"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:letterSpacing="0.06"
+                    android:text="@string/review_incident_type_label"
+                    android:textAllCaps="true"
+                    android:textColor="@color/profile_section_label"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_review_field_box"
+                    android:orientation="vertical"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="12dp">
 
                     <TextView
-                        android:id="@+id/detectedTimestampText"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/detectedIncidentTypeText"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="04/24/2026 10:32 AM"
+                        android:text="@string/review_detected_incident_default"
+                        android:textColor="@color/black"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/detectedIncidentSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/review_incident_subtitle_default"
                         android:textColor="@color/hint_dark_gray"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -240,30 +247,170 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_review_disclaimer"
+                    android:gravity="top"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_review_warning" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:lineSpacingMultiplier="1.15"
+                        android:text="@string/review_ai_disclaimer"
+                        android:textColor="@color/hint_dark_gray"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:letterSpacing="0.06"
+                    android:text="@string/review_assigned_agency_label"
+                    android:textAllCaps="true"
+                    android:textColor="@color/profile_section_label"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_review_field_box"
+                    android:orientation="vertical"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/detectedAgencyText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/review_detected_agency_title_default"
+                        android:textColor="@color/black"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/detectedAgencySubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/hint_dark_gray"
+                        android:textSize="12sp"
+                        tools:text="PNP" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:letterSpacing="0.06"
+                    android:text="@string/review_ai_description_label"
+                    android:textAllCaps="true"
+                    android:textColor="@color/profile_section_label"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/detectedDescriptionText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_review_field_box"
+                    android:lineSpacingMultiplier="1.2"
+                    android:minHeight="96dp"
+                    android:padding="14dp"
+                    android:text="@string/review_ai_description_default"
+                    android:textColor="@color/black"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/detectedLocationText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_review_meta_pill"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_review_pin"
+                        android:gravity="center_vertical"
+                        android:paddingStart="12dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="10dp"
+                        android:text="@string/review_location_short_default"
+                        android:textColor="@color/hint_dark_gray"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/detectedTimestampText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_review_meta_pill"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_review_calendar"
+                        android:gravity="center_vertical"
+                        android:paddingStart="12dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="10dp"
+                        android:textColor="@color/hint_dark_gray"
+                        android:textSize="12sp"
+                        tools:text="Apr 24, 2025 · 10:32 AM" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
                     android:gravity="center"
                     android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/editButton"
                         android:layout_width="0dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="10dp"
                         android:layout_weight="1"
-                        android:backgroundTint="@color/code_box_bg"
-                        android:text="Edit"
+                        android:background="@drawable/bg_review_edit_outline"
+                        android:text="@string/profile_edit"
                         android:textAllCaps="false"
-                        android:textColor="@color/black" />
+                        android:textColor="@color/register_button_green"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@null" />
 
                     <Button
                         android:id="@+id/submitDetectedButton"
                         android:layout_width="0dp"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="8dp"
+                        android:layout_height="52dp"
+                        android:layout_marginStart="10dp"
                         android:layout_weight="1"
-                        android:backgroundTint="#FF00F01A"
-                        android:text="Submit"
+                        android:background="@drawable/bg_review_submit_pill"
+                        android:text="@string/submit"
                         android:textAllCaps="false"
-                        android:textColor="@color/white" />
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@null" />
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
@@ -272,109 +419,245 @@
             android:id="@+id/editContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="@color/register_sheet_bg"
             android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp">
+                android:paddingStart="18dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="24dp">
 
-                <ImageView
-                    android:id="@+id/imagePreviewEdit"
-                    android:layout_width="132dp"
-                    android:layout_height="176dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="8dp"
-                    android:background="@android:color/black"
-                    android:scaleType="centerCrop" />
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="220dp"
+                    android:background="@drawable/bg_review_field_box">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="Incident Type"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/editIncidentTypeText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_incident_ai_value"
-                    android:gravity="center"
-                    android:minWidth="192dp"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp"
-                    android:text="Burning(Confidence: 100%)"
-                    android:textColor="@color/black" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="Assigned Agency"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/editAgencyText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_incident_ai_value"
-                    android:gravity="center"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp"
-                    android:text="Bureau of Fire Protection (BFP)"
-                    android:textColor="@color/black" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Incident Description"
-                    android:textStyle="bold" />
-
-                <EditText
-                    android:id="@+id/incidentDescriptionInput"
-                    android:layout_width="200dp"
-                    android:layout_height="84dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_incident_ai_value"
-                    android:gravity="top|start"
-                    android:inputType="textMultiLine"
-                    android:padding="8dp"
-                    android:text="The Capture photo/video shows an open burning of trash in a public area, This is burning - related to environmental violation"
-                    android:textColor="@color/black"
-                    android:textSize="11sp" />
+                    <ImageView
+                        android:id="@+id/imagePreviewEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/cd_evidence_preview"
+                        android:scaleType="centerCrop" />
+                </FrameLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_review_status_bar"
                     android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="10dp">
+
+                    <View
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="@drawable/bg_review_dot_green" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:text="@string/review_classification_complete"
+                        android:textColor="@color/register_button_green"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:letterSpacing="0.06"
+                    android:text="@string/review_incident_type_label"
+                    android:textAllCaps="true"
+                    android:textColor="@color/profile_section_label"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_review_field_box"
+                    android:orientation="vertical"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/editIncidentTypeText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/review_detected_incident_default"
+                        android:textColor="@color/black"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/editIncidentSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/review_incident_subtitle_default"
+                        android:textColor="@color/hint_dark_gray"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_review_disclaimer"
+                    android:gravity="top"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_review_warning" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:lineSpacingMultiplier="1.15"
+                        android:text="@string/review_ai_disclaimer"
+                        android:textColor="@color/hint_dark_gray"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:letterSpacing="0.06"
+                    android:text="@string/review_assigned_agency_label"
+                    android:textAllCaps="true"
+                    android:textColor="@color/profile_section_label"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_review_field_box"
+                    android:orientation="vertical"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/editAgencyText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/review_detected_agency_title_default"
+                        android:textColor="@color/black"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/editAgencySubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/hint_dark_gray"
+                        android:textSize="12sp"
+                        android:visibility="gone"
+                        tools:text="PNP"
+                        tools:visibility="visible" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:letterSpacing="0.06"
+                    android:text="@string/review_ai_description_label"
+                    android:textAllCaps="true"
+                    android:textColor="@color/profile_section_label"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_review_field_box"
+                    android:orientation="vertical"
+                    android:paddingStart="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="12dp">
+
+                    <EditText
+                        android:id="@+id/incidentDescriptionInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:gravity="top|start"
+                        android:inputType="textMultiLine"
+                        android:minHeight="80dp"
+                        android:text="@string/review_ai_description_default"
+                        android:textColor="@color/black"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
                     android:orientation="horizontal">
 
                     <TextView
                         android:id="@+id/editLocationText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
                         android:layout_weight="1"
-                        android:text="Location: Banilad, Cebu City"
+                        android:background="@drawable/bg_review_meta_pill"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_review_pin"
+                        android:gravity="center_vertical"
+                        android:paddingStart="12dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="10dp"
+                        android:text="@string/review_location_short_default"
                         android:textColor="@color/hint_dark_gray"
-                        android:textSize="10sp" />
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/editTimestampText"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="04/24/2026 10:32 AM"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_review_meta_pill"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@drawable/ic_review_calendar"
+                        android:gravity="center_vertical"
+                        android:paddingStart="12dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="10dp"
                         android:textColor="@color/hint_dark_gray"
-                        android:textSize="10sp" />
+                        android:textSize="12sp"
+                        tools:text="May 4, 2026 · 11:29 PM" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -386,25 +669,31 @@
 
                     <Button
                         android:id="@+id/editAgainButton"
-                        android:layout_width="104dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="@drawable/bg_incident_button_gray"
-                        android:text="Edit Again"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="10dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_review_edit_outline"
+                        android:text="@string/incident_edit_again"
                         android:textAllCaps="false"
-                        android:textColor="@color/black" />
+                        android:textColor="@color/register_button_green"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@null" />
 
                     <Button
                         android:id="@+id/confirmSubmitButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="8dp"
-                        android:background="@drawable/bg_incident_ai_value"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:text="Confirm &amp; Submit"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_review_submit_pill"
+                        android:text="@string/incident_confirm_submit"
                         android:textAllCaps="false"
-                        android:textColor="@color/white" />
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@null" />
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
@@ -413,127 +702,394 @@
             android:id="@+id/submittedContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="@color/white"
             android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_horizontal"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="24dp">
 
                 <TextView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_marginTop="18dp"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:layout_marginTop="12dp"
                     android:background="@drawable/bg_submitted_check"
                     android:gravity="center"
                     android:text="✓"
                     android:textColor="@color/white"
-                    android:textSize="72sp" />
+                    android:textSize="56sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="Report Submitted"
-                    android:textColor="@color/black"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/submitted_success_headline"
+                    android:textColor="@color/register_button_green"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/submittedSuccessSubtitle"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:gravity="center"
-                    android:text="Your Report has been successfully\nsubmitted"
-                    android:textColor="@color/black"
-                    android:textSize="17sp" />
+                    android:lineSpacingMultiplier="1.15"
+                    android:textColor="@color/activity_muted"
+                    android:textSize="14sp"
+                    tools:text="Your report has been sent to BFP." />
 
                 <LinearLayout
-                    android:layout_width="250dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:background="#D4D4D4"
-                    android:orientation="vertical"
-                    android:padding="12dp">
+                    android:layout_marginTop="22dp"
+                    android:background="@drawable/bg_receipt_card_shell"
+                    android:orientation="vertical">
 
-                    <TextView
-                        android:id="@+id/submittedReportIdText"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Report ID: —" />
+                        android:background="@drawable/bg_receipt_header_strip"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="14dp"
+                        android:paddingTop="12dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="12dp">
 
-                    <TextView
-                        android:id="@+id/submittedReportTypeText"
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:letterSpacing="0.06"
+                            android:text="@string/report_receipt_banner"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/submittedReceiptNumberText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            tools:text="#REP-20250424-001" />
+                    </LinearLayout>
+
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Report Type: —" />
+                        android:orientation="vertical"
+                        android:paddingBottom="4dp">
 
-                    <TextView
-                        android:id="@+id/submittedDateText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Date Submitted: —" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
 
-                    <TextView
-                        android:id="@+id/submittedLocationText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Location: —" />
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/receipt_label_report_id"
+                                android:textColor="@color/activity_muted"
+                                android:textSize="13sp" />
 
-                    <TextView
-                        android:id="@+id/submittedDescriptionText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Description: —" />
+                            <TextView
+                                android:id="@+id/submittedReceiptReportIdValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="end"
+                                android:textColor="@color/black"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                tools:text="#REP-20260504-DPW" />
+                        </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/submittedMediaText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Attach Photo/Video: —" />
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="14dp"
+                            android:layout_marginEnd="14dp"
+                            android:background="@color/activity_chip_bg" />
 
-                    <TextView
-                        android:id="@+id/submittedAgencyText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Assigned to: —" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/receipt_label_report_type"
+                                android:textColor="@color/activity_muted"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/submittedReceiptTypeValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="end"
+                                android:textColor="@color/black"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                tools:text="Open Burning" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="14dp"
+                            android:layout_marginEnd="14dp"
+                            android:background="@color/activity_chip_bg" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/receipt_label_date_submitted"
+                                android:textColor="@color/activity_muted"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/submittedReceiptDateValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="end"
+                                android:textColor="@color/black"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                tools:text="May 4, 2026 - 4:09 PM" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="14dp"
+                            android:layout_marginEnd="14dp"
+                            android:background="@color/activity_chip_bg" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/receipt_label_location"
+                                android:textColor="@color/activity_muted"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/submittedReceiptLocationValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="end"
+                                android:textColor="@color/black"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                tools:text="Brgy. Lahug, Cebu City" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="14dp"
+                            android:layout_marginEnd="14dp"
+                            android:background="@color/activity_chip_bg" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/receipt_label_description"
+                                android:textColor="@color/activity_muted"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/submittedReceiptDescriptionValue"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:textColor="@color/black"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                tools:text="AI-classified open burning with visible smoke plume." />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="14dp"
+                            android:layout_marginEnd="14dp"
+                            android:background="@color/activity_chip_bg" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="top"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/receipt_label_attached_media"
+                                android:textColor="@color/activity_muted"
+                                android:textSize="13sp" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="end"
+                                android:orientation="vertical">
+
+                                <ImageView
+                                    android:id="@+id/submittedReceiptMediaThumb"
+                                    android:layout_width="72dp"
+                                    android:layout_height="72dp"
+                                    android:layout_gravity="end"
+                                    android:background="@color/register_field_fill"
+                                    android:contentDescription="@string/receipt_label_attached_media"
+                                    android:scaleType="centerCrop"
+                                    tools:src="@color/register_button_green" />
+
+                                <TextView
+                                    android:id="@+id/submittedReceiptMediaKind"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="end"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/activity_muted"
+                                    android:textSize="12sp"
+                                    tools:text="1 photo" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginStart="14dp"
+                            android:layout_marginEnd="14dp"
+                            android:background="@color/activity_chip_bg" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="14dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/receipt_label_assigned_to"
+                                android:textColor="@color/activity_muted"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/submittedReceiptAgencyValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="end"
+                                android:textColor="@color/register_button_green"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                tools:text="Bureau of Fire Protection" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="32dp"
+                    android:layout_marginTop="24dp"
                     android:gravity="center"
                     android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/trackReportButton"
-                        android:layout_width="128dp"
-                        android:layout_height="58dp"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
                         android:layout_marginEnd="8dp"
-                        android:background="@drawable/bg_incident_action_green"
-                        android:text="Track Report"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_track_report_outline"
+                        android:text="@string/my_activity_track"
                         android:textAllCaps="false"
-                        android:textColor="@color/black"
-                        android:textStyle="bold" />
+                        android:textColor="@color/register_button_green"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@null" />
 
                     <Button
                         android:id="@+id/backToDashboardButton"
-                        android:layout_width="128dp"
-                        android:layout_height="58dp"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
                         android:layout_marginStart="8dp"
-                        android:background="@drawable/bg_incident_action_green"
-                        android:text="Back to Dashboard"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_notif_btn_primary"
+                        android:text="@string/back_to_dashboard"
                         android:textAllCaps="false"
-                        android:textColor="@color/black"
-                        android:textStyle="bold" />
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@null" />
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
@@ -542,17 +1098,22 @@
     <LinearLayout
         android:id="@+id/incidentBottomNav"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="@dimen/bottom_nav_height"
+        android:layout_marginStart="@dimen/bottom_nav_horizontal_inset"
+        android:layout_marginEnd="@dimen/bottom_nav_horizontal_inset"
+        android:layout_marginBottom="@dimen/bottom_nav_bottom_inset"
         android:background="@drawable/bg_dashboard_bottom_nav"
+        android:elevation="10dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
         <LinearLayout
+            android:id="@+id/incidentNavHome"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -560,20 +1121,21 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/home"
-                app:tint="@color/black" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/home"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/incidentNavActivity"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -581,24 +1143,25 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/activity"
-                app:tint="@color/black" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/activity"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <Space
-            android:layout_width="74dp"
+            android:layout_width="@dimen/bottom_nav_fab_size"
             android:layout_height="1dp" />
 
         <LinearLayout
+            android:id="@+id/incidentNavNotification"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -606,20 +1169,21 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/notification"
-                app:tint="@color/black" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/notification"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:text="@string/nav_alerts"
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/incidentNavProfile"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -627,35 +1191,42 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
                 android:src="@drawable/user"
-                app:tint="@color/black" />
+                app:tint="@color/register_button_green" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/profile"
-                android:textColor="@color/black"
-                android:textSize="12sp" />
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
     <FrameLayout
-        android:layout_width="74dp"
-        android:layout_height="74dp"
+        android:id="@+id/incidentCameraFab"
+        android:layout_width="@dimen/bottom_nav_fab_size"
+        android:layout_height="@dimen/bottom_nav_fab_size"
+        android:layout_marginBottom="4dp"
         android:background="@drawable/bg_dashboard_camera_fab"
+        android:clickable="true"
+        android:elevation="14dp"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackgroundBorderless"
+        android:translationY="@dimen/bottom_nav_fab_lift"
         app:layout_constraintBottom_toBottomOf="@id/incidentBottomNav"
         app:layout_constraintEnd_toEndOf="@id/incidentBottomNav"
-        app:layout_constraintStart_toStartOf="@id/incidentBottomNav"
-        app:layout_constraintTop_toTopOf="@id/incidentBottomNav">
+        app:layout_constraintStart_toStartOf="@id/incidentBottomNav">
 
         <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:layout_gravity="center"
+            android:contentDescription="@string/open_camera"
             android:src="@drawable/camera"
-            app:tint="@color/black" />
+            app:tint="@color/white" />
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

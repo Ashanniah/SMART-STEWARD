@@ -23,14 +23,28 @@
             android:gravity="top"
             android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/reportTypeIcon"
+            <FrameLayout
                 android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/bg_activity_type_tile"
-                android:gravity="center"
-                android:textSize="22sp"
-                tools:text="🔥" />
+                android:layout_height="44dp">
+
+                <ImageView
+                    android:id="@+id/reportThumbnail"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cd_report_thumbnail"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/reportTypeEmojiFallback"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_activity_type_tile"
+                    android:gravity="center"
+                    android:textSize="22sp"
+                    tools:text="🔥" />
+            </FrameLayout>
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -135,7 +149,7 @@
                 android:textColor="@color/white"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                tools:text="Track Report ↗" />
+                tools:text="Track Report" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
