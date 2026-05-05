@@ -44,29 +44,19 @@ export default function ReportStatusUpdate() {
   const navigate = useNavigate();
   const id = reportId ? decodeURIComponent(reportId) : '';
 
-  const { reports, loading, reportByDocId } = useReportsData();
-
-  const detail = useMemo(() => {
-    const row = id ? reportByDocId(id) : null;
-    return row ? normalizedToDetailView(row) : null;
-  }, [id, reportByDocId, reports]);
-
+  const { loading, reportByDocId } = useReportsData();
+  const row = id ? reportByDocId(id) : null;
+  const detail = useMemo(() => (row ? normalizedToDetailView(row) : null), [row]);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [remarks, setRemarks] = useState('');
 
   const currentKey = detail?.status ?? 'pending';
   const currentIndex = workflowStatusIndex(currentKey);
 
-  if (!id) {
-    return <Navigate to="/reports" replace />;
-  }
-
-  if (loading && !detail) {
+  if (loading && !row) {
     return (
       <div className="status-update fade-in">
-        <p className="denr-dashboard__muted" style={{ padding: '2rem' }}>
-          Loading report…
-        </p>
+        <p className="reports-table__loading">Loading report…</p>
       </div>
     );
   }

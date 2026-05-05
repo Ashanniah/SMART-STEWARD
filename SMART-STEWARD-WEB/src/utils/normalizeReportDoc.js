@@ -1,3 +1,8 @@
+/**
+ * Maps Firestore `reports` documents to the web dashboard shape.
+ * Mobile / backend can use any of the alternate field names below.
+ */
+
 const DEFAULT_CENTER = { lat: 10.3547, lng: 123.8986 };
 const PLACEHOLDER_MEDIA =
   'https://images.unsplash.com/photo-1448375240586-882707db8887?w=960&q=80&fit=crop';
@@ -58,6 +63,9 @@ export function formatRelativeTime(d) {
   return `${Math.floor(sec / 86400)} days ago`;
 }
 
+/**
+ * @returns Normalized report row used across Reports, Dashboard, History, Map, Notifications
+ */
 export function normalizeReportDocument(docId, data) {
   const d = data && typeof data === 'object' ? data : {};
 
@@ -81,15 +89,9 @@ export function normalizeReportDocument(docId, data) {
     if (typeof d.location.longitude === 'number') lng = d.location.longitude;
   }
 
-  const rawLocation = String(
-    d.locationName ??
-      d.locationLine ??
-      d.address ??
-      (typeof d.location === 'string' ? d.location : '') ??
-      ''
-  ).trim();
   const location =
-    rawLocation.replace(/^\s*location:\s*/i, '').trim() || 'Location not specified';
+    String(d.locationName ?? d.address ?? (typeof d.location === 'string' ? d.location : '') ?? '').trim() ||
+    'Location not specified';
 
   const activity = String(
     d.activity ?? d.incidentType ?? d.title ?? d.category ?? d.type ?? 'Environmental report'
@@ -134,9 +136,7 @@ export function normalizeReportDocument(docId, data) {
     assignedAgency,
     confidence,
     priority,
-    deptReportId: d.deptReportId
-      ? String(d.deptReportId)
-      : `DEPT – ${createdAt?.getFullYear() ?? new Date().getFullYear()} – ${numericTail}`,
+    deptReportId: d.deptReportId ? String(d.deptReportId) : `DEPT – ${createdAt?.getFullYear() ?? new Date().getFullYear()} – ${numericTail}`,
     categoryLabel: String(d.categoryLabel ?? 'Environment'),
     raw: d,
     mapCenter:
@@ -148,6 +148,9 @@ export function normalizeReportDocument(docId, data) {
   };
 }
 
+/**
+ * Full detail object for Report Detail page (matches prior getReportDetail shape)
+ */
 export function normalizedToDetailView(n) {
   if (!n) return null;
   return {
@@ -167,62 +170,17 @@ export function normalizedToDetailView(n) {
   };
 }
 
-function mapReportSummary(r) {
-  const createdAtMs = r.createdAt instanceof Date ? r.createdAt.getTime() : 0;
-  return {
-    docId: r.docId,
-    displayId: r.id,
-    activity: r.activity,
-    location: r.location,
-    date: r.date,
-    status: r.status,
-    imageUrl: r.imageUrl || '',
-    createdAtMs,
-  };
-}
-
-/**
- * Map markers for the dashboard: uses coordinates when present; otherwise supplies
- * `geocodeAddress` so the map can resolve a pin from the report location text.
- */
 export function reportsToMapIncidents(reports) {
   return reports
-    .map((r) => {
-      const hasCoords =
-        r.lat != null &&
-        r.lng != null &&
-        Number.isFinite(r.lat) &&
-        Number.isFinite(r.lng);
-      const addr = String(r.location ?? '').trim();
-      const canGeocode = addr.length > 2 && addr !== 'Location not specified';
-      const reportSummary = mapReportSummary(r);
-
-      if (hasCoords) {
-        return {
-          id: r.docId,
-          lat: r.lat,
-          lng: r.lng,
-          title: r.activity,
-          type: r.activity,
-          markerStatus: r.status,
-          reportSummary,
-        };
-      }
-      if (canGeocode) {
-        return {
-          id: r.docId,
-          lat: null,
-          lng: null,
-          geocodeAddress: addr,
-          title: r.activity,
-          type: r.activity,
-          markerStatus: r.status,
-          reportSummary,
-        };
-      }
-      return null;
-    })
-    .filter(Boolean);
+    .filter((r) => r.lat != null && r.lng != null && Number.isFinite(r.lat) && Number.isFinite(r.lng))
+    .map((r) => ({
+      id: r.docId,
+      lat: r.lat,
+      lng: r.lng,
+      title: r.activity,
+      type: r.activity,
+      status: r.status === 'resolved' ? 'resolved' : 'pending',
+    }));
 }
 
 const STATUS_LABEL = {

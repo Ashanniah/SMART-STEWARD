@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import GoogleMapComponent from '../components/GoogleMap';
 import { useReportsData } from '../context/ReportsDataContext';
-import { normalizedToDetailView, reportsToMapIncidents } from '../utils/normalizeReportDoc';
+import { normalizedToDetailView } from '../utils/normalizeReportDoc';
 
 function StatusHeaderBadge({ status }) {
   const map = {
@@ -29,25 +29,39 @@ export default function ReportDetail() {
   const navigate = useNavigate();
   const id = reportId ? decodeURIComponent(reportId) : '';
 
-  const { loading, error, reportByDocId } = useReportsData();
-
+  const { loading, reportByDocId } = useReportsData();
   const row = id ? reportByDocId(id) : null;
+
   const detail = useMemo(() => (row ? normalizedToDetailView(row) : null), [row]);
 
-  const mapIncidents = useMemo(() => (row ? reportsToMapIncidents([row]) : []), [row]);
+  const mapIncidents = useMemo(() => {
+    if (detail?.lat == null || detail?.lng == null) return [];
+    return [
+      {
+        id: detail.docId ?? id,
+        lat: detail.lat,
+        lng: detail.lng,
+        title: detail.reportTypeLabel,
+        type: detail.reportTypeLabel,
+        status: detail.status === 'resolved' ? 'resolved' : 'pending',
+      },
+    ];
+  }, [detail, id]);
 
   if (!id) {
     return <Navigate to="/reports" replace />;
   }
 
-  if (loading && !detail) {
+  if (loading && !row) {
     return (
       <div className="report-detail fade-in">
-        <p className="denr-dashboard__muted" style={{ padding: '2rem' }}>
-          Loading report…
-        </p>
+        <p className="reports-table__loading">Loading report…</p>
       </div>
     );
+  }
+
+  if (!loading && !row) {
+    return <Navigate to="/reports" replace />;
   }
 
   if (!detail) {
@@ -164,8 +178,6 @@ export default function ReportDetail() {
                 zoom={detail.mapZoom}
                 center={detail.mapCenter}
                 incidents={mapIncidents}
-                enableFullscreenControl={false}
-                clustering={false}
               />
             </div>
           </section>

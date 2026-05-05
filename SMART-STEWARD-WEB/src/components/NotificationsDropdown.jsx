@@ -8,21 +8,22 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/solid';
 import { useReportsData } from '../context/ReportsDataContext';
-import { formatRelativeTime, statusToLabel } from '../utils/normalizeReportDoc';
+import { formatRelativeTime } from '../utils/normalizeReportDoc';
 
-const READ_IDS_KEY = 'ss-notif-read-ids';
+const READ_IDS_KEY = 'smartsteward-notif-read-doc-ids';
 
-function loadReadIds() {
+function loadReadSet() {
   try {
     const raw = sessionStorage.getItem(READ_IDS_KEY);
-    const arr = JSON.parse(raw || '[]');
-    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
   } catch {
     return new Set();
   }
 }
 
-function saveReadIds(set) {
+function saveReadSet(set) {
   try {
     sessionStorage.setItem(READ_IDS_KEY, JSON.stringify([...set]));
   } catch {
@@ -85,23 +86,33 @@ function dotForReport(status) {
 
 export default function NotificationsDropdown() {
   const { reports } = useReportsData();
-  const [readIds, setReadIds] = useState(() => loadReadIds());
   const [open, setOpen] = useState(false);
+  const [readIds, setReadIds] = useState(() => loadReadSet());
   const wrapRef = useRef(null);
 
+  useEffect(() => {
+    saveReadSet(readIds);
+  }, [readIds]);
+
   const items = useMemo(() => {
-    return reports.slice(0, 25).map((r) => {
-      const kind = kindForReport(r.status);
-      const dot = dotForReport(r.status);
-      const unread = !readIds.has(r.docId);
+    const slice = reports.slice(0, 25);
+    return slice.map((r) => {
+      const kind =
+        r.status === 'resolved'
+          ? 'status_update'
+          : r.status === 'review'
+            ? 'new_report_blue'
+            : 'new_report';
+      const dot =
+        r.status === 'resolved' ? 'green' : r.status === 'review' ? 'yellow' : 'red';
       return {
         id: r.docId,
         kind,
-        dot,
-        unread,
-        title: `Report: ${r.activity}`,
-        body: `${r.location} · ${statusToLabel(r.status)}`,
+        title: 'New report submitted',
+        body: `${r.activity} — ${r.location}`,
         timeLabel: formatRelativeTime(r.createdAt),
+        dot,
+        unread: !readIds.has(r.docId),
       };
     });
   }, [reports, readIds]);
@@ -110,21 +121,12 @@ export default function NotificationsDropdown() {
   const unreadCount = useMemo(() => items.filter((n) => n.unread).length, [items]);
 
   const markAllRead = useCallback(() => {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      items.forEach((n) => next.add(n.id));
-      saveReadIds(next);
-      return next;
-    });
-  }, [items]);
+    const ids = reports.slice(0, 25).map((r) => r.docId);
+    setReadIds((prev) => new Set([...prev, ...ids]));
+  }, [reports]);
 
   const markOneRead = useCallback((id) => {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      saveReadIds(next);
-      return next;
-    });
+    setReadIds((prev) => new Set([...prev, id]));
   }, []);
 
   useEffect(() => {
@@ -182,11 +184,7 @@ export default function NotificationsDropdown() {
 
           <ul className="notifications-list notifications-dropdown__list">
             {items.length === 0 ? (
-              <li>
-                <p className="denr-dashboard__muted" style={{ padding: '1rem 1.25rem', margin: 0 }}>
-                  No notifications right now.
-                </p>
-              </li>
+              <li className="notifications-dropdown__empty">No reports yet.</li>
             ) : (
               items.map((n) => (
                 <li key={n.id}>
