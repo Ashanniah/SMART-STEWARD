@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import {
-  ArrowLeftIcon,
   SparklesIcon,
   ClipboardDocumentListIcon,
   VideoCameraIcon,
@@ -13,7 +13,16 @@ import {
   workflowStatusIndex,
 } from '../data/reportsMock';
 import { useReportsData } from '../context/ReportsDataContext';
+import { useAgencyUser } from '../context/AgencyUserContext';
+import { writeAgencyNotification } from '../utils/writeAgencyNotification';
+import {
+  AGENCY_NOTIFICATION_KINDS,
+  AGENCY_NOTIFICATION_SEVERITY,
+} from '../constants/agencyNotificationKinds';
 import { normalizedToDetailView } from '../utils/normalizeReportDoc';
+import { workflowKeyToFirestoreStatus } from '../utils/workflowStatusFirestore';
+import { getFirestoreDb, isFirebaseConfigured } from '../firebase/config';
+import { REPORTS_COLLECTION } from '../constants/reportsCollection';
 
 const STATUS_DOT_CLASS = {
   pending: 'status-update-legend__dot--pending',
@@ -39,12 +48,15 @@ const TIMELINE_DOT_CLASS = {
   rejected: 'status-update-timeline__marker--rejected',
 };
 
+const STATUS_UPDATE_KEYS = WORKFLOW_STATUS_ORDER.filter((key) => key !== 'review');
+
 export default function ReportStatusUpdate() {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const id = reportId ? decodeURIComponent(reportId) : '';
 
   const { reports, loading, reportByDocId } = useReportsData();
+  const { viewerAgencyKey } = useAgencyUser();
 
   const detail = useMemo(() => {
     const row = id ? reportByDocId(id) : null;
@@ -53,9 +65,64 @@ export default function ReportStatusUpdate() {
 
   const [selectedStatus, setSelectedStatus] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
-  const currentKey = detail?.status ?? 'pending';
+  const rawCurrentKey = detail?.status ?? 'pending';
+  const currentKey = rawCurrentKey === 'review' ? 'in_progress' : rawCurrentKey;
   const currentIndex = workflowStatusIndex(currentKey);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitError(null);
+    if (!selectedStatus) {
+      setSubmitError('Please select a status.');
+      return;
+    }
+    if (!isFirebaseConfigured) {
+      setSubmitError('Firebase is not configured.');
+      return;
+    }
+    const db = getFirestoreDb();
+    if (!db) {
+      setSubmitError('Could not connect to the database.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const ref = doc(db, REPORTS_COLLECTION, id);
+      const payload = {
+        status: workflowKeyToFirestoreStatus(selectedStatus),
+        statusUpdatedAt: serverTimestamp(),
+      };
+      const trimmed = remarks.trim();
+      if (trimmed) payload.lastStatusNote = trimmed;
+      await updateDoc(ref, payload);
+
+      if (viewerAgencyKey && detail) {
+        try {
+          const label = WORKFLOW_STATUS_META[selectedStatus]?.label ?? selectedStatus;
+          await writeAgencyNotification({
+            targetAgency: viewerAgencyKey,
+            title: 'Report status updated',
+            body: `${label}: ${detail.reportTypeLabel ?? detail.activity} — ${detail.locationDisplay ?? detail.location}`,
+            kind: AGENCY_NOTIFICATION_KINDS.STATUS_CHANGED,
+            reportDocId: id,
+            severity: AGENCY_NOTIFICATION_SEVERITY.INFO,
+          });
+        } catch (notifyErr) {
+          console.warn('Could not record inbox notification:', notifyErr);
+        }
+      }
+
+      navigate(`/reports/${encodeURIComponent(id)}`, { replace: false });
+    } catch (err) {
+      console.error(err);
+      setSubmitError(err.message || 'Could not update status. Check permissions and try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (!id) {
     return <Navigate to="/reports" replace />;
@@ -75,21 +142,11 @@ export default function ReportStatusUpdate() {
     return <Navigate to="/reports" replace />;
   }
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    navigate(`/reports/${encodeURIComponent(id)}`, { replace: false });
-  }
-
   return (
     <div className="status-update fade-in">
-      <button
-        type="button"
-        className="status-update__back"
-        onClick={() => navigate(`/reports/${encodeURIComponent(id)}`)}
-      >
-        <ArrowLeftIcon aria-hidden />
-        <span className="status-update__back-title">STATUS UPDATE PANEL</span>
-      </button>
+      <header className="status-update-header">
+        <h1 className="status-update__title">STATUS UPDATE PANEL</h1>
+      </header>
 
       <p className="status-update__lead">Update the status of this Report</p>
 
@@ -109,7 +166,7 @@ export default function ReportStatusUpdate() {
         <div className="status-update-timeline-wrap">
           <h2 className="status-update-timeline__heading">REPORT TIMELINE</h2>
           <ol className="status-update-timeline" aria-label="Report timeline">
-            {WORKFLOW_STATUS_ORDER.map((key, i) => {
+            {STATUS_UPDATE_KEYS.map((key, i) => {
               const meta = WORKFLOW_STATUS_META[key];
               const isDone = i < currentIndex;
               const isCurrent = i === currentIndex;
@@ -143,26 +200,38 @@ export default function ReportStatusUpdate() {
       <form className="status-update-form" onSubmit={handleSubmit}>
         <div className="status-update-form__grid">
           <div className="status-update-form__col">
-            <label className="status-update-label" htmlFor="new-status">
+            <p id="new-status-label" className="status-update-label">
               <SparklesIcon className="status-update-label__icon status-update-label__icon--green" aria-hidden />
               Select New Status
-            </label>
-            <select
-              id="new-status"
-              className="status-update-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              aria-label="Select new status"
+            </p>
+            <fieldset
+              className="status-update-radios"
+              aria-labelledby="new-status-label"
+              disabled={saving}
             >
-              <option value="">Select new status</option>
-              {WORKFLOW_STATUS_ORDER.map((key) => (
-                <option key={key} value={key}>
-                  {WORKFLOW_STATUS_META[key].label}
-                </option>
-              ))}
-            </select>
+              <legend className="status-update-radios__legend">Choose one</legend>
+              <div className="status-update-radios__list">
+                {STATUS_UPDATE_KEYS.map((key) => (
+                  <label key={key} className="status-update-radio-row">
+                    <input
+                      type="radio"
+                      name="new-status"
+                      value={key}
+                      checked={selectedStatus === key}
+                      onChange={() => setSelectedStatus(key)}
+                    />
+                    <span>{WORKFLOW_STATUS_META[key].label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            {submitError ? (
+              <p className="status-update-error" role="alert">
+                {submitError}
+              </p>
+            ) : null}
             <ul className="status-update-legend" aria-hidden>
-              {WORKFLOW_STATUS_ORDER.map((key) => (
+              {STATUS_UPDATE_KEYS.map((key) => (
                 <li key={key}>
                   <span
                     className={`status-update-legend__dot ${STATUS_DOT_CLASS[key] ?? ''}`}
@@ -188,6 +257,7 @@ export default function ReportStatusUpdate() {
               placeholder="Write Remarks/Note about this update.."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
+              disabled={saving}
             />
 
             <div className="status-update-action-block">
@@ -198,8 +268,8 @@ export default function ReportStatusUpdate() {
                 />
                 Update report status
               </p>
-              <button type="submit" className="status-update-submit">
-                Update Status
+              <button type="submit" className="status-update-submit" disabled={saving}>
+                {saving ? 'Saving…' : 'Update Status'}
               </button>
               <p className="status-update-footnote">
                 <LockClosedIcon aria-hidden />

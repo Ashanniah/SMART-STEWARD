@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ClipboardDocumentListIcon,
   ClockIcon,
-  MagnifyingGlassIcon,
+  ArrowPathIcon,
   CheckCircleIcon,
   FunnelIcon,
-  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { getDashboardConfig } from '../config/dashboardConfig';
+import { useAgencyUser } from '../context/AgencyUserContext';
 import SummaryStatCard from '../components/SummaryStatCard';
 import RecentReportRow from '../components/RecentReportRow';
 import GoogleMapComponent from '../components/GoogleMap';
+import MediaLightbox from '../components/MediaLightbox';
 import { useReportsData } from '../context/ReportsDataContext';
 import { reportsToMapIncidents, statusToLabel } from '../utils/normalizeReportDoc';
 
@@ -19,14 +20,17 @@ const MAP_DEFAULT_CENTER = { lat: 10.2979, lng: 123.8965 };
 
 const SUMMARY_CONFIG = [
   { key: 'total', Icon: ClipboardDocumentListIcon, label: 'Total Reports', accent: 'green' },
-  { key: 'pending', Icon: ClockIcon, label: 'Pending Reports', accent: 'orange' },
-  { key: 'review', Icon: MagnifyingGlassIcon, label: 'Under Review', accent: 'blue' },
+  { key: 'pending', Icon: ClockIcon, label: 'Pending Reports', accent: 'slate' },
+  { key: 'review', Icon: ArrowPathIcon, label: 'In Progress', accent: 'amber' },
   { key: 'resolved', Icon: CheckCircleIcon, label: 'Resolved Reports', accent: 'teal' },
 ];
 
 export default function Dashboard() {
-  const cfg = useMemo(() => getDashboardConfig('default'), []);
+  const [searchParams] = useSearchParams();
+  const { viewerAgencyKey } = useAgencyUser();
+  const cfg = useMemo(() => getDashboardConfig(viewerAgencyKey), [viewerAgencyKey]);
   const { reports, loading, error, counts } = useReportsData();
+  const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
   const [filterType, setFilterType] = useState('All Types');
   const [filterStatus, setFilterStatus] = useState('All Status');
   const [filterAgency] = useState(cfg.filterAgencyDefault);
@@ -50,6 +54,7 @@ export default function Dashboard() {
   const recentSlice = useMemo(() => reports.slice(0, 6), [reports]);
 
   const mapIncidents = useMemo(() => reportsToMapIncidents(reports), [reports]);
+  const focusedReportId = searchParams.get('focusReport') || '';
 
   const mapCenter = useMemo(() => {
     const first = mapIncidents.find(
@@ -119,6 +124,14 @@ export default function Dashboard() {
                   location={r.location}
                   dateTime={r.date}
                   imageUrl={r.imageUrl || undefined}
+                  hasVideo={Boolean(r.hasVideo)}
+                  onMediaClick={() =>
+                    setMediaPreview({
+                      open: true,
+                      type: r.hasVideo && r.videoUrl ? 'video' : 'image',
+                      src: (r.hasVideo && r.videoUrl) ? r.videoUrl : (r.imageUrl || r.mediaUrl || ''),
+                    })
+                  }
                   statusLabel={statusToLabel(r.status)}
                   statusKey={r.status}
                 />
@@ -153,11 +166,12 @@ export default function Dashboard() {
               center={mapCenter}
               incidents={mapIncidents}
               enableFullscreenControl={false}
+              focusIncidentId={focusedReportId}
             />
           </div>
           <div className="denr-map-legend">
             <span><i className="denr-dot denr-dot--pending" /> Pending</span>
-            <span><i className="denr-dot denr-dot--review" /> Under Review</span>
+            <span><i className="denr-dot denr-dot--review" /> In Progress</span>
             <span><i className="denr-dot denr-dot--resolved" /> Resolved</span>
             <span><i className="denr-dot denr-dot--rejected" /> Rejected</span>
           </div>
@@ -180,7 +194,7 @@ export default function Dashboard() {
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
               <option>All Status</option>
               <option>Pending</option>
-              <option>Under Review</option>
+              <option>In Progress</option>
               <option>Resolved</option>
             </select>
           </label>
@@ -209,6 +223,12 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+      <MediaLightbox
+        open={mediaPreview.open}
+        type={mediaPreview.type}
+        src={mediaPreview.src}
+        onClose={() => setMediaPreview({ open: false, type: 'image', src: '' })}
+      />
     </div>
   );
 }

@@ -1,5 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { PROFILE_CONFIG } from '../config/profileConfig';
+import { USERS_COLLECTION } from '../constants/agencyAuth';
+import { getFirebaseAuth, getFirestoreDb } from '../firebase/config';
+import { useAgencyUser } from '../context/AgencyUserContext';
 import avatarDefault from '../assets/avatar_icon.png';
 
 const TABS = [
@@ -30,12 +34,18 @@ function Toggle({ id, label, checked, onChange }) {
 }
 
 export default function Profile() {
+  const { displayName, roleLabel, email: accountEmail } = useAgencyUser();
   const [activeTab, setActiveTab] = useState('account');
-  const [fullName, setFullName] = useState(PROFILE_CONFIG.fullName);
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState(PROFILE_CONFIG.email);
   const [notifEmail, setNotifEmail] = useState(PROFILE_CONFIG.notifications.emailPending);
   const [notifPush, setNotifPush] = useState(PROFILE_CONFIG.notifications.pushUrgent);
   const [notifWeekly, setNotifWeekly] = useState(PROFILE_CONFIG.notifications.weeklySummary);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageKind, setMessageKind] = useState('info');
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -43,18 +53,173 @@ export default function Profile() {
 
   const [emailDigest, setEmailDigest] = useState(true);
   const [compactTable, setCompactTable] = useState(false);
+  const [initialAccount, setInitialAccount] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    email: PROFILE_CONFIG.email,
+    notifEmail: PROFILE_CONFIG.notifications.emailPending,
+    notifPush: PROFILE_CONFIG.notifications.pushUrgent,
+    notifWeekly: PROFILE_CONFIG.notifications.weeklySummary,
+  });
+
+  const profileDisplayName = useMemo(() => {
+    const joined = [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
+    return joined || displayName || PROFILE_CONFIG.displayName;
+  }, [firstName, middleName, lastName, displayName]);
+
+  useEffect(() => {
+    const auth = getFirebaseAuth();
+    const db = getFirestoreDb();
+    const uid = auth?.currentUser?.uid;
+    if (!db || !uid) {
+      const fallbackName = String(displayName || PROFILE_CONFIG.fullName || '').trim();
+      const parts = fallbackName.split(/\s+/).filter(Boolean);
+      const fallbackFirst = parts[0] ?? '';
+      const fallbackLast = parts.length > 1 ? parts[parts.length - 1] : '';
+      const fallbackMiddle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
+      const fallback = {
+        firstName: fallbackFirst,
+        middleName: fallbackMiddle,
+        lastName: fallbackLast,
+        email: accountEmail || PROFILE_CONFIG.email,
+        notifEmail: PROFILE_CONFIG.notifications.emailPending,
+        notifPush: PROFILE_CONFIG.notifications.pushUrgent,
+        notifWeekly: PROFILE_CONFIG.notifications.weeklySummary,
+      };
+      setFirstName(fallback.firstName);
+      setMiddleName(fallback.middleName);
+      setLastName(fallback.lastName);
+      setEmail(fallback.email);
+      setNotifEmail(fallback.notifEmail);
+      setNotifPush(fallback.notifPush);
+      setNotifWeekly(fallback.notifWeekly);
+      setInitialAccount(fallback);
+      return;
+    }
+
+    let alive = true;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, USERS_COLLECTION, uid));
+        const data = snap.exists() ? snap.data() || {} : {};
+        const candidateName = String(
+          data.displayName ?? data.name ?? data.fullName ?? displayName ?? PROFILE_CONFIG.fullName
+        ).trim();
+        const parts = candidateName.split(/\s+/).filter(Boolean);
+        const derivedFirst = parts[0] ?? '';
+        const derivedLast = parts.length > 1 ? parts[parts.length - 1] : '';
+        const derivedMiddle = parts.length > 2 ? parts.slice(1, -1).join(' ') : '';
+        const next = {
+          firstName: String(data.firstName ?? derivedFirst),
+          middleName: String(data.middleName ?? derivedMiddle),
+          lastName: String(data.lastName ?? derivedLast),
+          email: String(data.email ?? accountEmail ?? PROFILE_CONFIG.email),
+          notifEmail: Boolean(
+            data.notifications?.emailPending ?? PROFILE_CONFIG.notifications.emailPending
+          ),
+          notifPush: Boolean(
+            data.notifications?.pushUrgent ?? PROFILE_CONFIG.notifications.pushUrgent
+          ),
+          notifWeekly: Boolean(
+            data.notifications?.weeklySummary ?? PROFILE_CONFIG.notifications.weeklySummary
+          ),
+        };
+        if (!alive) return;
+        setFirstName(next.firstName);
+        setMiddleName(next.middleName);
+        setLastName(next.lastName);
+        setEmail(next.email);
+        setNotifEmail(next.notifEmail);
+        setNotifPush(next.notifPush);
+        setNotifWeekly(next.notifWeekly);
+        setInitialAccount(next);
+      } catch {
+        /* keep current fallback values */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [accountEmail, displayName]);
 
   const resetForm = useCallback(() => {
-    setFullName(PROFILE_CONFIG.fullName);
-    setEmail(PROFILE_CONFIG.email);
-    setNotifEmail(PROFILE_CONFIG.notifications.emailPending);
-    setNotifPush(PROFILE_CONFIG.notifications.pushUrgent);
-    setNotifWeekly(PROFILE_CONFIG.notifications.weeklySummary);
-  }, []);
+    setFirstName(initialAccount.firstName);
+    setMiddleName(initialAccount.middleName);
+    setLastName(initialAccount.lastName);
+    setEmail(initialAccount.email);
+    setNotifEmail(initialAccount.notifEmail);
+    setNotifPush(initialAccount.notifPush);
+    setNotifWeekly(initialAccount.notifWeekly);
+    setMessage('');
+  }, [initialAccount]);
 
   const handleSave = useCallback(() => {
-    // Placeholder for API
-  }, []);
+    const auth = getFirebaseAuth();
+    const db = getFirestoreDb();
+    const uid = auth?.currentUser?.uid;
+    if (!db || !uid) {
+      setMessageKind('error');
+      setMessage('Unable to save profile right now.');
+      return;
+    }
+    const first = firstName.trim();
+    const middle = middleName.trim();
+    const last = lastName.trim();
+    const mail = email.trim();
+    if (!first || !last || !mail) {
+      setMessageKind('error');
+      setMessage('First name, last name, and email are required.');
+      return;
+    }
+
+    const fullName = [first, middle, last].filter(Boolean).join(' ');
+    const payload = {
+      firstName: first,
+      middleName: middle,
+      lastName: last,
+      fullName,
+      displayName: fullName,
+      email: mail,
+      notifications: {
+        emailPending: Boolean(notifEmail),
+        pushUrgent: Boolean(notifPush),
+        weeklySummary: Boolean(notifWeekly),
+      },
+      updatedAt: serverTimestamp(),
+    };
+
+    setSaving(true);
+    setMessage('');
+    (async () => {
+      try {
+        const ref = doc(db, USERS_COLLECTION, uid);
+        const existing = await getDoc(ref);
+        if (existing.exists()) {
+          await updateDoc(ref, payload);
+        } else {
+          await setDoc(ref, payload, { merge: true });
+        }
+        const next = {
+          firstName: first,
+          middleName: middle,
+          lastName: last,
+          email: mail,
+          notifEmail: Boolean(notifEmail),
+          notifPush: Boolean(notifPush),
+          notifWeekly: Boolean(notifWeekly),
+        };
+        setInitialAccount(next);
+        setMessageKind('success');
+        setMessage('Profile updated successfully.');
+      } catch {
+        setMessageKind('error');
+        setMessage('Could not save profile. Please try again.');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  }, [email, firstName, middleName, lastName, notifEmail, notifPush, notifWeekly]);
 
   return (
     <div className="profile-page profile-page--fill fade-in">
@@ -70,8 +235,8 @@ export default function Profile() {
           <div className="profile-summary__avatar">
             <img src={avatarDefault} alt="" width={72} height={72} />
           </div>
-          <div className="profile-summary__name">{PROFILE_CONFIG.displayName}</div>
-          <div className="profile-summary__role">{PROFILE_CONFIG.roleLabel}</div>
+          <div className="profile-summary__name">{profileDisplayName}</div>
+          <div className="profile-summary__role">{roleLabel || PROFILE_CONFIG.roleLabel}</div>
           <hr className="profile-summary__rule" />
           <dl className="profile-summary__meta">
             <div>
@@ -118,14 +283,34 @@ export default function Profile() {
                 <section className="profile-section">
                   <h2 className="profile-section__title">Personal Information</h2>
                   <div className="profile-fields">
-                    <label className="profile-field" htmlFor="profile-fullname">
-                      <span className="profile-field__label">Full Name</span>
+                    <label className="profile-field" htmlFor="profile-firstname">
+                      <span className="profile-field__label">First Name</span>
                       <input
-                        id="profile-fullname"
+                        id="profile-firstname"
                         className="profile-input"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        autoComplete="name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        autoComplete="given-name"
+                      />
+                    </label>
+                    <label className="profile-field" htmlFor="profile-middlename">
+                      <span className="profile-field__label">Middle Name</span>
+                      <input
+                        id="profile-middlename"
+                        className="profile-input"
+                        value={middleName}
+                        onChange={(e) => setMiddleName(e.target.value)}
+                        autoComplete="additional-name"
+                      />
+                    </label>
+                    <label className="profile-field" htmlFor="profile-lastname">
+                      <span className="profile-field__label">Last Name</span>
+                      <input
+                        id="profile-lastname"
+                        className="profile-input"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        autoComplete="family-name"
                       />
                     </label>
                     <label className="profile-field" htmlFor="profile-email">
@@ -167,13 +352,26 @@ export default function Profile() {
                 </section>
 
                 <div className="profile-actions">
-                  <button type="button" className="profile-btn profile-btn--primary" onClick={handleSave}>
-                    Save Changes
+                  <button
+                    type="button"
+                    className="profile-btn profile-btn--primary"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                   <button type="button" className="profile-btn profile-btn--ghost" onClick={resetForm}>
                     Discard
                   </button>
                 </div>
+                {message ? (
+                  <p
+                    className={`profile-save-msg profile-save-msg--${messageKind}`}
+                    role={messageKind === 'error' ? 'alert' : 'status'}
+                  >
+                    {message}
+                  </p>
+                ) : null}
               </>
             )}
 

@@ -3,17 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import {
   ClipboardDocumentListIcon,
   ClockIcon,
-  MagnifyingGlassIcon,
+  ArrowPathIcon,
   CheckCircleIcon,
   ArrowDownTrayIcon,
   MapPinIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ArrowPathIcon,
-  EllipsisVerticalIcon,
 } from '@heroicons/react/24/outline';
-import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
+import { PlayIcon } from '@heroicons/react/24/solid';
 import { useReportsData } from '../context/ReportsDataContext';
+import MediaLightbox from '../components/MediaLightbox';
 
 const STAT_CONFIG = [
   {
@@ -27,15 +26,15 @@ const STAT_CONFIG = [
     key: 'pending',
     title: 'Pending Reports',
     Icon: ClockIcon,
-    accent: 'orange',
+    accent: 'slate',
     hint: 'Awaiting initial review',
   },
   {
     key: 'review',
-    title: 'Under Review',
-    Icon: MagnifyingGlassIcon,
-    accent: 'blue',
-    hint: 'Being reviewed by agency',
+    title: 'In Progress',
+    Icon: ArrowPathIcon,
+    accent: 'amber',
+    hint: 'Active agency work on reports',
   },
   {
     key: 'resolved',
@@ -66,7 +65,7 @@ function getPaginationRange(current, total, delta = 2) {
 function HistoryStatusPill({ status }) {
   const labels = {
     pending: 'Pending',
-    review: 'Under Review',
+    review: 'In Progress',
     resolved: 'Resolved',
     rejected: 'Rejected',
     in_progress: 'In Progress',
@@ -96,17 +95,52 @@ function PriorityLabel({ priority }) {
 export default function ReportHistory() {
   const navigate = useNavigate();
   const { reports, loading, error, counts } = useReportsData();
+  const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
+  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [agencyFilter, setAgencyFilter] = useState('');
+  const [dateSort, setDateSort] = useState('newest');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const totalCount = reports.length;
+  const typeOptions = useMemo(() => {
+    const set = new Set(reports.map((r) => String(r.activity || '').trim()).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [reports]);
+
+  const statusOptions = useMemo(() => {
+    const set = new Set(reports.map((r) => String(r.status || '').trim()).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [reports]);
+
+  const agencyOptions = useMemo(() => {
+    const set = new Set(reports.map((r) => String(r.assignedAgency || '').trim()).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [reports]);
+
+  const filteredReports = useMemo(() => {
+    const list = reports.filter((r) => {
+      const matchType = !typeFilter || String(r.activity || '').trim() === typeFilter;
+      const matchStatus = !statusFilter || String(r.status || '').trim() === statusFilter;
+      const matchAgency = !agencyFilter || String(r.assignedAgency || '').trim() === agencyFilter;
+      return matchType && matchStatus && matchAgency;
+    });
+    list.sort((a, b) => {
+      const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+      const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+      return dateSort === 'oldest' ? ta - tb : tb - ta;
+    });
+    return list;
+  }, [reports, typeFilter, statusFilter, agencyFilter, dateSort]);
+
+  const totalCount = filteredReports.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const effectivePage = Math.min(Math.max(1, page), totalPages);
 
   const rows = useMemo(() => {
     const start = (effectivePage - 1) * pageSize;
-    return reports.slice(start, start + pageSize);
-  }, [reports, effectivePage, pageSize]);
+    return filteredReports.slice(start, start + pageSize);
+  }, [filteredReports, effectivePage, pageSize]);
 
   const startIdx = (effectivePage - 1) * pageSize;
   const showingFrom = totalCount === 0 ? 0 : startIdx + 1;
@@ -116,8 +150,6 @@ export default function ReportHistory() {
     () => getPaginationRange(effectivePage, totalPages, 2),
     [effectivePage, totalPages]
   );
-
-  const dateRangeLabel = 'Newest first';
 
   return (
     <div className="report-history-page fade-in">
@@ -166,43 +198,90 @@ export default function ReportHistory() {
       <div className="history-filters">
         <label className="history-filters__field">
           <span className="history-filters__label">By Type</span>
-          <select className="history-filters__select" defaultValue="">
+          <select
+            className="history-filters__select"
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value);
+              setPage(1);
+            }}
+          >
             <option value="">All Types</option>
-            <option value="dumping">Illegal Dumping</option>
-            <option value="burning">Open Burning</option>
-            <option value="trees">Tree Cutting</option>
+            {typeOptions.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
         </label>
         <label className="history-filters__field">
           <span className="history-filters__label">By Status</span>
-          <select className="history-filters__select" defaultValue="">
+          <select
+            className="history-filters__select"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+          >
             <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="review">Under Review</option>
-            <option value="in_progress">In Progress</option>
-            <option value="resolved">Resolved</option>
-            <option value="rejected">Rejected</option>
+            {statusOptions.map((s) => (
+              <option key={s} value={s}>
+                {s === 'review' || s === 'in_progress'
+                  ? 'In Progress'
+                  : `${s.charAt(0).toUpperCase()}${s.slice(1)}`}
+              </option>
+            ))}
           </select>
         </label>
         <label className="history-filters__field">
           <span className="history-filters__label">By Agency</span>
-          <select className="history-filters__select" defaultValue="">
+          <select
+            className="history-filters__select"
+            value={agencyFilter}
+            onChange={(e) => {
+              setAgencyFilter(e.target.value);
+              setPage(1);
+            }}
+          >
             <option value="">All Agencies</option>
-            <option value="denr">DENR</option>
+            {agencyOptions.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
           </select>
         </label>
         <label className="history-filters__field history-filters__field--date">
           <span className="history-filters__label">By Date</span>
-          <div className="history-filters__range">{dateRangeLabel}</div>
+          <select
+            className="history-filters__select"
+            value={dateSort}
+            onChange={(e) => {
+              setDateSort(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
         </label>
         <div className="history-filters__actions">
-          <button type="button" className="history-btn history-btn--apply">
+          <button
+            type="button"
+            className="history-btn history-btn--apply"
+            onClick={() => setPage(1)}
+          >
             Apply Filters
           </button>
           <button
             type="button"
             className="history-btn history-btn--reset"
             onClick={() => {
+              setTypeFilter('');
+              setStatusFilter('');
+              setAgencyFilter('');
+              setDateSort('newest');
               setPage(1);
               setPageSize(10);
             }}
@@ -218,8 +297,7 @@ export default function ReportHistory() {
           <table className="history-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th aria-label="Thumbnail" />
+                <th>Media / Report ID</th>
                 <th>Report Type</th>
                 <th>Location</th>
                 <th>Date &amp; Time</th>
@@ -233,56 +311,76 @@ export default function ReportHistory() {
             <tbody>
               {loading && reports.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="reports-table__loading">
+                  <td colSpan={9} className="reports-table__loading">
                     Loading reports…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="reports-table__loading">
+                  <td colSpan={9} className="reports-table__loading">
                     No reports to display.
                   </td>
                 </tr>
               ) : (
                 rows.map((row) => (
                   <tr key={row.docId}>
-                    <td className="history-table__id">{row.id}</td>
-                    <td className="history-table__thumb-cell">
-                      <img
-                        src={
-                          row.imageUrl ||
-                          'https://images.unsplash.com/photo-1448375240586-882707db8887?w=120&h=120&fit=crop&q=80'
+                    <td>
+                      <div className="history-table__media-id">
+                      <button
+                        type="button"
+                        className="history-table__thumb-btn"
+                        onClick={() =>
+                          setMediaPreview({
+                            open: true,
+                            type: row.hasVideo && row.videoUrl ? 'video' : 'image',
+                            src:
+                              (row.hasVideo && row.videoUrl)
+                                ? row.videoUrl
+                                : (row.imageUrl ||
+                                  'https://images.unsplash.com/photo-1448375240586-882707db8887?w=120&h=120&fit=crop&q=80'),
+                          })
                         }
-                        alt=""
-                        className="history-table__thumb"
-                        width={48}
-                        height={48}
-                      />
+                        aria-label={row.hasVideo ? 'Open report video' : 'Open report image'}
+                      >
+                        <img
+                          src={
+                            row.imageUrl ||
+                            'https://images.unsplash.com/photo-1448375240586-882707db8887?w=120&h=120&fit=crop&q=80'
+                          }
+                          alt=""
+                          className="history-table__thumb"
+                          width={48}
+                          height={48}
+                        />
+                        {row.hasVideo ? (
+                          <span className="history-table__thumb-play" aria-hidden>
+                            <PlayIcon />
+                          </span>
+                        ) : null}
+                      </button>
+                        <span className="history-table__id">{row.id}</span>
+                      </div>
                     </td>
                     <td>
                       <div className="history-type">
-                        <CheckCircleSolidIcon
-                          className="history-type__check"
-                          aria-hidden
-                        />
                         <div>
                           <div className="history-type__title">{row.activity}</div>
-                          <div className="history-type__cat">{row.categoryLabel}</div>
                         </div>
                       </div>
                     </td>
                     <td>
                       <div className="history-loc">
                         <span>{row.location}</span>
-                        <a
+                        <button
+                          type="button"
                           className="history-map-link"
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
-                          target="_blank"
-                          rel="noreferrer"
+                          onClick={() =>
+                            navigate(`/dashboard?focusReport=${encodeURIComponent(row.docId)}`)
+                          }
                         >
                           <MapPinIcon aria-hidden />
                           View on Map
-                        </a>
+                        </button>
                       </div>
                     </td>
                     <td>{row.dateTime}</td>
@@ -304,13 +402,6 @@ export default function ReportHistory() {
                           }
                         >
                           View Details
-                        </button>
-                        <button
-                          type="button"
-                          className="history-btn-more"
-                          aria-label="More actions"
-                        >
-                          <EllipsisVerticalIcon aria-hidden />
                         </button>
                       </div>
                     </td>
@@ -388,6 +479,12 @@ export default function ReportHistory() {
           </div>
         </footer>
       </div>
+      <MediaLightbox
+        open={mediaPreview.open}
+        type={mediaPreview.type}
+        src={mediaPreview.src}
+        onClose={() => setMediaPreview({ open: false, type: 'image', src: '' })}
+      />
     </div>
   );
 }

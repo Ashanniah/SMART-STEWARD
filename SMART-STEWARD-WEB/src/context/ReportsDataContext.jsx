@@ -4,43 +4,56 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { getFirebaseAuth, getFirestoreDb, isFirebaseConfigured } from '../firebase/config';
 import { REPORTS_COLLECTION } from '../constants/reportsCollection';
 import { normalizeReportDocument } from '../utils/normalizeReportDoc';
+import { agenciesMatch } from '../utils/agencyScope';
+import { useAgencyUser } from './AgencyUserContext';
 
 const ReportsDataContext = createContext(null);
 
 export function ReportsDataProvider({ children }) {
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [rawReports, setRawReports] = useState([]);
+  const [rawLoading, setRawLoading] = useState(() => Boolean(isFirebaseConfigured));
+  const [firestoreError, setFirestoreError] = useState(null);
+
+  const {
+    agencyReady,
+    viewerAgencyKey,
+    profileError,
+    skipAgencyScope,
+  } = useAgencyUser();
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
-      setReports([]);
-      setLoading(false);
-      setError(null);
-      return;
+      queueMicrotask(() => {
+        setRawReports([]);
+        setRawLoading(false);
+        setFirestoreError(null);
+      });
+      return undefined;
     }
 
     const auth = getFirebaseAuth();
     const db = getFirestoreDb();
     if (!auth || !db) {
-      setReports([]);
-      setLoading(false);
-      setError(null);
-      return;
+      queueMicrotask(() => {
+        setRawReports([]);
+        setRawLoading(false);
+        setFirestoreError(null);
+      });
+      return undefined;
     }
 
     let unsubSnap = () => {};
 
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       unsubSnap();
-      setError(null);
+      setFirestoreError(null);
       if (!user) {
-        setReports([]);
-        setLoading(false);
+        setRawReports([]);
+        setRawLoading(false);
         return;
       }
 
-      setLoading(true);
+      setRawLoading(true);
       const colRef = collection(db, REPORTS_COLLECTION);
       unsubSnap = onSnapshot(
         colRef,
@@ -53,15 +66,15 @@ export function ReportsDataProvider({ children }) {
             const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
             return tb - ta;
           });
-          setReports(list);
-          setLoading(false);
-          setError(null);
+          setRawReports(list);
+          setRawLoading(false);
+          setFirestoreError(null);
         },
         (err) => {
           console.error(err);
-          setReports([]);
-          setLoading(false);
-          setError(
+          setRawReports([]);
+          setRawLoading(false);
+          setFirestoreError(
             err.code === 'permission-denied'
               ? 'You do not have access to view reports. Sign in with an authorized account or contact your administrator.'
               : err.message || 'Could not load reports. Please try again later.'
@@ -76,6 +89,24 @@ export function ReportsDataProvider({ children }) {
     };
   }, []);
 
+  const reports = useMemo(() => {
+    if (skipAgencyScope) return rawReports;
+    if (!agencyReady) return [];
+    if (profileError || !viewerAgencyKey) return [];
+    return rawReports.filter((r) => agenciesMatch(r.assignedAgency, viewerAgencyKey));
+  }, [
+    rawReports,
+    agencyReady,
+    viewerAgencyKey,
+    profileError,
+    skipAgencyScope,
+  ]);
+
+  const loading =
+    rawLoading || (!skipAgencyScope && !agencyReady);
+
+  const error = firestoreError || profileError || null;
+
   const value = useMemo(() => {
     const reportByDocId = (docId) => reports.find((r) => r.docId === docId);
 
@@ -83,7 +114,7 @@ export function ReportsDataProvider({ children }) {
       (acc, r) => {
         acc.total += 1;
         if (r.status === 'pending') acc.pending += 1;
-        else if (r.status === 'review') acc.review += 1;
+        else if (r.status === 'review' || r.status === 'in_progress') acc.review += 1;
         else if (r.status === 'resolved') acc.resolved += 1;
         else if (r.status === 'rejected') acc.rejected += 1;
         return acc;
@@ -103,6 +134,7 @@ export function ReportsDataProvider({ children }) {
   return <ReportsDataContext.Provider value={value}>{children}</ReportsDataContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with provider
 export function useReportsData() {
   const ctx = useContext(ReportsDataContext);
   if (!ctx) {

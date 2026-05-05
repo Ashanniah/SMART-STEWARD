@@ -16,7 +16,10 @@ function normalizeStatus(raw) {
     .toLowerCase()
     .replace(/\s+/g, '_');
   if (s === 'pending') return 'pending';
-  if (['review', 'under_review', 'under-review', 'in_progress', 'in-progress'].includes(s)) {
+  if (['in_progress', 'in-progress', 'investigating', 'progress'].includes(s)) {
+    return 'in_progress';
+  }
+  if (['review', 'under_review', 'under-review', 'reviewing'].includes(s)) {
     return 'review';
   }
   if (['resolved', 'closed', 'complete', 'completed'].includes(s)) return 'resolved';
@@ -51,11 +54,12 @@ export function formatReportDateTimeHistory(d) {
 export function formatRelativeTime(d) {
   if (!d) return '—';
   const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+  const unit = (value, singular, plural) => `${value} ${value === 1 ? singular : plural} ago`;
   if (sec < 10) return 'Just now';
-  if (sec < 60) return `${sec} secs ago`;
-  if (sec < 3600) return `${Math.floor(sec / 60)} mins ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)} hours ago`;
-  return `${Math.floor(sec / 86400)} days ago`;
+  if (sec < 60) return unit(sec, 'sec', 'secs');
+  if (sec < 3600) return unit(Math.floor(sec / 60), 'min', 'mins');
+  if (sec < 86400) return unit(Math.floor(sec / 3600), 'hour', 'hours');
+  return unit(Math.floor(sec / 86400), 'day', 'days');
 }
 
 export function normalizeReportDocument(docId, data) {
@@ -104,13 +108,31 @@ export function normalizeReportDocument(docId, data) {
     `Citizen report regarding ${activity} in ${location}.`;
 
   const imageUrl = String(d.imageUrl ?? d.photoUrl ?? d.mediaUrl ?? d.image ?? '').trim();
+  const videoUrl = String(d.videoUrl ?? '').trim();
+  const hasVideo =
+    d.hasVideo === true ||
+    (typeof d.hasVideo === 'string' && d.hasVideo.toLowerCase() === 'true') ||
+    videoUrl.length > 0;
 
   const reportedBy = String(d.reportedBy ?? d.userName ?? d.submitterName ?? 'Citizen').trim();
 
-  const assignedAgency = String(d.assignedAgency ?? d.agency ?? 'DENR').trim();
+  /** Must match the viewer's canonical agency (see `agencyScope.js`). Omit on older docs until backfilled. */
+  const assignedAgency = String(d.assignedAgency ?? d.agency ?? '').trim();
 
   const confidence =
     typeof d.confidence === 'number' && !Number.isNaN(d.confidence) ? Math.round(d.confidence) : 88;
+
+  /** Explicit AI score when present (avoid treating default confidence as AI). */
+  const aiConfidenceValue =
+    typeof d.aiConfidence === 'number' && !Number.isNaN(d.aiConfidence)
+      ? Math.round(d.aiConfidence)
+      : typeof d.aiClassificationConfidence === 'number' && !Number.isNaN(d.aiClassificationConfidence)
+        ? Math.round(d.aiClassificationConfidence)
+        : null;
+
+  const incidentSeverity = String(d.incidentSeverity ?? d.incidentPriority ?? '').toLowerCase();
+
+  const aiLabel = String(d.aiLabel ?? d.aiClassification ?? '').trim();
 
   const priorityRaw = String(d.priority ?? 'medium').toLowerCase();
   const priority = ['high', 'medium', 'low'].includes(priorityRaw) ? priorityRaw : 'medium';
@@ -130,9 +152,14 @@ export function normalizeReportDocument(docId, data) {
     createdAt,
     description,
     imageUrl,
+    videoUrl,
+    hasVideo,
     reportedBy,
     assignedAgency,
     confidence,
+    aiConfidenceValue,
+    aiLabel,
+    incidentSeverity,
     priority,
     deptReportId: d.deptReportId
       ? String(d.deptReportId)
@@ -161,6 +188,8 @@ export function normalizedToDetailView(n) {
     reportedBy: n.reportedBy,
     assignedAgency: n.assignedAgency,
     confidence: n.confidence,
+    hasVideo: n.hasVideo,
+    videoUrl: n.videoUrl,
     mediaUrl: n.mediaUrl,
     mapCenter: n.mapCenter,
     mapZoom: n.mapZoom,
@@ -177,6 +206,8 @@ function mapReportSummary(r) {
     date: r.date,
     status: r.status,
     imageUrl: r.imageUrl || '',
+    videoUrl: r.videoUrl || '',
+    hasVideo: Boolean(r.hasVideo),
     createdAtMs,
   };
 }
@@ -227,7 +258,8 @@ export function reportsToMapIncidents(reports) {
 
 const STATUS_LABEL = {
   pending: 'Pending',
-  review: 'Under Review',
+  review: 'In Progress',
+  in_progress: 'In Progress',
   resolved: 'Resolved',
   rejected: 'Rejected',
 };

@@ -1,11 +1,59 @@
 import { useMemo } from 'react';
-import { Bars3Icon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { useLocation } from 'react-router-dom';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import { getDashboardConfig } from '../config/dashboardConfig';
+import { useAgencyUser } from '../context/AgencyUserContext';
 import avatarDefault from '../assets/avatar_icon.png';
 import NotificationsDropdown from './NotificationsDropdown';
 
 export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
-  const cfg = useMemo(() => getDashboardConfig('default'), []);
+  const { pathname } = useLocation();
+  const { viewerAgencyKey, displayName, email } = useAgencyUser();
+  const cfg = useMemo(() => getDashboardConfig(viewerAgencyKey), [viewerAgencyKey]);
+  const avatarTitle = displayName || email || cfg.userDisplayName;
+
+  const pageMeta = useMemo(() => {
+    if (pathname === '/reports') {
+      return {
+        title: 'REPORTS',
+        subtitle: `Live report list assigned to ${cfg.userDisplayName}.`,
+      };
+    }
+    if (pathname.startsWith('/reports/') && pathname.endsWith('/update')) {
+      return {
+        title: 'REPORT STATUS',
+        subtitle: 'Update current status and add remarks for this report.',
+      };
+    }
+    if (pathname.startsWith('/reports/')) {
+      return {
+        title: 'REPORT DETAILS',
+        subtitle: 'View complete report information, evidence, and location.',
+      };
+    }
+    if (pathname === '/incident-analytics') {
+      return {
+        title: 'INCIDENT ANALYTICS',
+        subtitle: `Volume and type breakdown for reports assigned to ${cfg.userDisplayName}.`,
+      };
+    }
+    if (pathname === '/profile') {
+      return {
+        title: 'PROFILE',
+        subtitle: 'Manage your account information and preferences.',
+      };
+    }
+    if (pathname === '/report-history') {
+      return {
+        title: 'HISTORY OF REPORTS',
+        subtitle: `Historical reports assigned to ${cfg.userDisplayName}.`,
+      };
+    }
+    return {
+      title: cfg.pageTitle,
+      subtitle: cfg.pageSubtitle,
+    };
+  }, [pathname, cfg.pageTitle, cfg.pageSubtitle, cfg.userDisplayName]);
 
   return (
     <header className="topbar topbar--unified">
@@ -23,23 +71,20 @@ export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
           <Bars3Icon aria-hidden />
         </button>
         <div className="topbar-headings">
-          <h1 className="topbar-title">{cfg.pageTitle}</h1>
-          <p className="topbar-subtitle">{cfg.pageSubtitle}</p>
+          <h1 className="topbar-title">{pageMeta.title}</h1>
+          <p className="topbar-subtitle">{pageMeta.subtitle}</p>
         </div>
       </div>
       <div className="topbar-right">
         <NotificationsDropdown />
-        <div className="topbar-user">
-          <div className="topbar-user-avatar" aria-hidden>
+        <div
+          className="topbar-user topbar-user--avatar-only"
+          title={avatarTitle}
+          aria-label={avatarTitle ? `Signed in as ${avatarTitle}` : 'Account'}
+        >
+          <div className="topbar-user-avatar">
             <img src={avatarDefault} alt="" />
           </div>
-          <div className="topbar-user-text">
-            <span className="topbar-user-name">{cfg.userDisplayName}</span>
-            <span className="topbar-user-role">{cfg.userRole}</span>
-          </div>
-          <button type="button" className="topbar-chevron" aria-label="Account menu">
-            <ChevronDownIcon aria-hidden />
-          </button>
         </div>
       </div>
     </header>

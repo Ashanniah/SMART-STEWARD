@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import {
-  ArrowLeftIcon,
   FireIcon,
   MapPinIcon,
   DocumentTextIcon,
@@ -9,14 +8,17 @@ import {
   BuildingOffice2Icon,
   PhotoIcon,
 } from '@heroicons/react/24/outline';
+import { PlayIcon } from '@heroicons/react/24/solid';
 import GoogleMapComponent from '../components/GoogleMap';
 import { useReportsData } from '../context/ReportsDataContext';
 import { normalizedToDetailView, reportsToMapIncidents } from '../utils/normalizeReportDoc';
+import MediaLightbox from '../components/MediaLightbox';
 
 function StatusHeaderBadge({ status }) {
   const map = {
     pending: { label: 'PENDING', className: 'report-detail__pill report-detail__pill--pending' },
-    review: { label: 'UNDER REVIEW', className: 'report-detail__pill report-detail__pill--review' },
+    review: { label: 'IN PROGRESS', className: 'report-detail__pill report-detail__pill--review' },
+    in_progress: { label: 'IN PROGRESS', className: 'report-detail__pill report-detail__pill--in_progress' },
     resolved: { label: 'RESOLVED', className: 'report-detail__pill report-detail__pill--resolved' },
     rejected: { label: 'REJECTED', className: 'report-detail__pill report-detail__pill--rejected' },
   };
@@ -33,6 +35,7 @@ export default function ReportDetail() {
 
   const row = id ? reportByDocId(id) : null;
   const detail = useMemo(() => (row ? normalizedToDetailView(row) : null), [row]);
+  const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
 
   const mapIncidents = useMemo(() => (row ? reportsToMapIncidents([row]) : []), [row]);
 
@@ -62,24 +65,12 @@ export default function ReportDetail() {
         </p>
       ) : null}
 
-      <button
-        type="button"
-        className="report-detail__back"
-        onClick={() => navigate('/reports')}
-      >
-        <ArrowLeftIcon aria-hidden />
-        Back to reports
-      </button>
-
       <header className="report-detail__header">
         <div className="report-detail__header-main">
           <h1 className="report-detail__title">REPORT DETAILS (VIEW)</h1>
           <StatusHeaderBadge status={detail.status} />
         </div>
         <div className="report-detail__meta">
-          <span className="report-detail__meta-id">
-            Report ID: <strong>{detail.deptReportId}</strong>
-          </span>
           <span className="report-detail__meta-date">
             Submitted on {detail.submittedAt}
           </span>
@@ -90,6 +81,10 @@ export default function ReportDetail() {
         <section className="report-detail-card report-detail-card--info">
           <h2 className="report-detail-card__heading">REPORT INFORMATION</h2>
           <dl className="report-detail-info">
+            <div className="report-detail-info__row">
+              <dt>Report ID</dt>
+              <dd>{detail.docId}</dd>
+            </div>
             <div className="report-detail-info__row">
               <dt>
                 <FireIcon aria-hidden /> Report Type
@@ -149,7 +144,28 @@ export default function ReportDetail() {
               <PhotoIcon aria-hidden /> MEDIA EVIDENCE
             </h2>
             <div className="report-detail-media">
-              <img src={detail.mediaUrl} alt="" />
+              <button
+                type="button"
+                className="report-detail-media__btn"
+                onClick={() =>
+                  setMediaPreview({
+                    open: true,
+                    type: detail.hasVideo && detail.videoUrl ? 'video' : 'image',
+                    src:
+                      detail.hasVideo && detail.videoUrl
+                        ? detail.videoUrl
+                        : detail.mediaUrl,
+                  })
+                }
+                aria-label={detail.hasVideo ? 'Open report video' : 'Open report image'}
+              >
+                <img src={detail.mediaUrl} alt="" />
+                {detail.hasVideo ? (
+                  <span className="report-detail-media__play" aria-hidden>
+                    <PlayIcon />
+                  </span>
+                ) : null}
+              </button>
             </div>
           </section>
 
@@ -181,6 +197,12 @@ export default function ReportDetail() {
           Update
         </button>
       </footer>
+      <MediaLightbox
+        open={mediaPreview.open}
+        type={mediaPreview.type}
+        src={mediaPreview.src}
+        onClose={() => setMediaPreview({ open: false, type: 'image', src: '' })}
+      />
     </div>
   );
 }
