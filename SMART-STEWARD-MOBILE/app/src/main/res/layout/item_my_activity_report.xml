@@ -24,6 +24,7 @@
             android:orientation="horizontal">
 
             <FrameLayout
+                android:id="@+id/reportThumbContainer"
                 android:layout_width="44dp"
                 android:layout_height="44dp">
 
@@ -44,6 +45,20 @@
                     android:gravity="center"
                     android:textSize="22sp"
                     tools:text="🔥" />
+
+                <ImageView
+                    android:id="@+id/reportVideoPlay"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_play_circle"
+                    android:contentDescription="@string/play_video"
+                    android:padding="4dp"
+                    android:scaleType="fitCenter"
+                    android:src="@android:drawable/ic_media_play"
+                    android:tint="@color/white"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
             </FrameLayout>
 
             <LinearLayout
@@ -84,41 +99,6 @@
                 android:textStyle="bold"
                 tools:text="Pending" />
         </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/reportProgressLabel"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/activity_muted"
-                android:textSize="12sp"
-                tools:text="Awaiting DENR review" />
-
-            <TextView
-                android:id="@+id/reportProgressPercent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/activity_title_bar"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                tools:text="20%" />
-        </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/reportProgressBar"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="8dp"
-            android:layout_marginTop="6dp"
-            android:max="100"
-            tools:progress="25" />
 
         <LinearLayout
             android:layout_width="match_parent"

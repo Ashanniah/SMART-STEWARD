@@ -172,6 +172,20 @@
                         android:contentDescription="@string/cd_evidence_preview"
                         android:scaleType="centerCrop"
                         tools:src="@tools:sample/backgrounds/scenic" />
+
+                    <ImageView
+                        android:id="@+id/detectedVideoPlayOverlay"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/bg_play_circle"
+                        android:contentDescription="@string/play_video"
+                        android:padding="12dp"
+                        android:scaleType="fitCenter"
+                        android:src="@android:drawable/ic_media_play"
+                        android:tint="@color/white"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
                 </FrameLayout>
 
                 <LinearLayout
@@ -1168,11 +1182,33 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <ImageView
-                android:layout_width="@dimen/bottom_nav_icon_size"
-                android:layout_height="@dimen/bottom_nav_icon_size"
-                android:src="@drawable/notification"
-                app:tint="@color/register_button_green" />
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <ImageView
+                    android:layout_width="@dimen/bottom_nav_icon_size"
+                    android:layout_height="@dimen/bottom_nav_icon_size"
+                    android:src="@drawable/notification"
+                    app:tint="@color/register_button_green" />
+
+                <TextView
+                    android:id="@+id/incidentNavBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="16dp"
+                    android:layout_gravity="end|top"
+                    android:layout_marginTop="-2dp"
+                    android:layout_marginEnd="-4dp"
+                    android:background="@drawable/bg_notif_nav_badge_red"
+                    android:gravity="center"
+                    android:minWidth="16dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
 
             <TextView
                 android:layout_width="wrap_content"

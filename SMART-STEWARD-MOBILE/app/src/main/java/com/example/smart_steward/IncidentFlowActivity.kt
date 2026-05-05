@@ -114,6 +114,15 @@ class IncidentFlowActivity : AppCompatActivity() {
             finish()
         }
 
+        // Temporary camera content URIs may expire; copy to cache before AI / submit (stable path).
+        CapturedMediaStore.capturedVideoUri?.let { u ->
+            if (u.scheme == "content") {
+                MediaCapturePersistence.copyVideoToCache(this, u)?.let { persisted ->
+                    CapturedMediaStore.capturedVideoUri = persisted
+                }
+            }
+        }
+
         findViewById<Button>(R.id.sendToAiButton).setOnClickListener {
             afterAiAnalysis = { showState(ScreenState.DETECTED) }
             aiAnalysisLauncher.launch(Intent(this, AiAnalysisActivity::class.java))
@@ -184,6 +193,11 @@ class IncidentFlowActivity : AppCompatActivity() {
         showState(ScreenState.PREVIEW)
     }
 
+    override fun onResume() {
+        super.onResume()
+        updateNotificationBadge()
+    }
+
     private fun loadVideoFrame(uri: Uri): Bitmap? {
         val r = MediaMetadataRetriever()
         return try {
@@ -197,6 +211,23 @@ class IncidentFlowActivity : AppCompatActivity() {
             } catch (_: Exception) {
             }
         }
+    }
+
+    private fun updateNotificationBadge() {
+        val badge = findViewById<TextView>(R.id.incidentNavBadge)
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            badge.visibility = View.GONE
+            return
+        }
+        CitizenNotificationsRepository.countUnread(uid, onResult = { unread ->
+            runOnUiThread {
+                badge.visibility = if (unread > 0) View.VISIBLE else View.GONE
+                if (unread > 0) {
+                    badge.text = if (unread > 99) "99+" else unread.toString()
+                }
+            }
+        })
     }
 
     private fun formatLocationForSubmit(display: String): String {
@@ -251,14 +282,20 @@ class IncidentFlowActivity : AppCompatActivity() {
         applyAnalysisExtrasToReviewScreen(lastAnalysisResult)
 
         val preview = findViewById<ImageView>(R.id.detectedSinglePreview)
+        val playOverlay = findViewById<ImageView>(R.id.detectedVideoPlayOverlay)
         val placeholder = ContextCompat.getColor(this, R.color.register_field_fill)
         val bitmap = CapturedMediaStore.capturedBitmap
         val videoUri = CapturedMediaStore.capturedVideoUri
 
+        preview.setOnClickListener(null)
         when {
             bitmap != null -> {
                 preview.setImageBitmap(bitmap)
                 preview.background = null
+                playOverlay.visibility = View.GONE
+                preview.setOnClickListener {
+                    MediaPlayback.openBitmapZoom(this, bitmap)
+                }
             }
             videoUri != null -> {
                 val frame = loadVideoFrame(videoUri)
@@ -269,11 +306,27 @@ class IncidentFlowActivity : AppCompatActivity() {
                     preview.setImageDrawable(null)
                     preview.setBackgroundColor(placeholder)
                 }
+                playOverlay.visibility = View.VISIBLE
+                val play = View.OnClickListener { MediaPlayback.openLocalVideo(this, videoUri) }
+                playOverlay.setOnClickListener(play)
+                preview.setOnClickListener(play)
             }
             else -> {
                 preview.setImageDrawable(null)
                 preview.setBackgroundColor(placeholder)
+                playOverlay.visibility = View.GONE
             }
+        }
+
+        // Show the latest GPS reverse-geocode here (not only the value bundled from AI analysis).
+        refreshDetectedLocationFromGps()
+    }
+
+    /** Updates the review row from the current fused location so the label matches "where I am now". */
+    private fun refreshDetectedLocationFromGps() {
+        val locView = findViewById<TextView>(R.id.detectedLocationText)
+        LocationLabelHelper.resolveShortLabel(this) { label ->
+            locView.text = label
         }
     }
 
@@ -337,18 +390,59 @@ class IncidentFlowActivity : AppCompatActivity() {
         description: String,
         locationLine: String
     ) {
-        val photo = CapturedMediaStore.capturedBitmap
+        val bitmapCapture = CapturedMediaStore.capturedBitmap
+        val videoUri = CapturedMediaStore.capturedVideoUri
+        val thumbnail = bitmapCapture ?: videoUri?.let { loadVideoFrame(it) }
+        fun showSubmittedFromDraft(draftId: String) {
+            Toast.makeText(this, getString(R.string.submitted_saved_draft), Toast.LENGTH_LONG).show()
+            populateSubmittedSummary(
+                draftId,
+                incidentType,
+                assignedAgency,
+                description,
+                locationLine
+            )
+            showState(ScreenState.SUBMITTED)
+        }
+
+        fun saveOfflineDraft(lat: Double?, lng: Double?) {
+            val uid = currentUserId().orEmpty()
+            if (uid.isBlank()) {
+                Toast.makeText(this, "Sign in to save draft reports.", Toast.LENGTH_LONG).show()
+                return
+            }
+            val draft = OfflineReportDraftStore.addDraft(
+                context = this,
+                userId = uid,
+                incidentType = incidentType,
+                assignedAgency = assignedAgency,
+                description = description,
+                locationLine = locationLine,
+                photoBitmap = thumbnail,
+                videoUri = videoUri,
+                latitude = lat,
+                longitude = lng
+            )
+            showSubmittedFromDraft(draft.id)
+        }
+
         fun submitWithCoords(lat: Double?, lng: Double?) {
+            if (!OfflineDraftSyncManager.isOnline(this)) {
+                saveOfflineDraft(lat, lng)
+                return
+            }
             ReportFirestore.submitReport(
                 userId = currentUserId(),
                 incidentType = incidentType,
                 assignedAgency = assignedAgency,
                 description = description,
                 locationLine = locationLine,
-                photo = photo,
+                photo = thumbnail,
+                videoUri = videoUri,
                 latitude = lat,
                 longitude = lng,
                 onSuccess = { docId, _ ->
+                Toast.makeText(this, getString(R.string.submitted_success_toast), Toast.LENGTH_LONG).show()
                 populateSubmittedSummary(
                     docId,
                     incidentType,
@@ -359,7 +453,11 @@ class IncidentFlowActivity : AppCompatActivity() {
                 showState(ScreenState.SUBMITTED)
             },
             onError = { msg ->
-                Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                if (!OfflineDraftSyncManager.isOnline(this)) {
+                    saveOfflineDraft(lat, lng)
+                } else {
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                }
             },
             onWarning = { msg ->
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show()

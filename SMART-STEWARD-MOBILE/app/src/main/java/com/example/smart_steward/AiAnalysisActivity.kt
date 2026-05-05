@@ -53,6 +53,9 @@ class AiAnalysisActivity : AppCompatActivity() {
     private var apiError: String? = null
     private var finalized = false
 
+    /** True after [startAiRequest] has been scheduled (location resolved first so API gets real device label). */
+    private var aiRequestStarted = false
+
     /** Reverse-geocoded or coordinate label; used in UI and passed to the review screen. */
     @Volatile
     private var resolvedLocationShort: String? = null
@@ -160,6 +163,10 @@ class AiAnalysisActivity : AppCompatActivity() {
             resolvedLocationShort = label
             bindStaticCopy()
             applyPipelineUi(lastPipelineT)
+            if (!aiRequestStarted) {
+                aiRequestStarted = true
+                startAiRequest()
+            }
         }
         findViewById<ImageView>(R.id.aiBackButton).setOnClickListener {
             setResult(Activity.RESULT_CANCELED)
@@ -168,20 +175,22 @@ class AiAnalysisActivity : AppCompatActivity() {
 
         applyPipelineUi(0f)
         handler.post(tickRunnable)
+    }
 
+    /** Runs after device location label is ready so the AI request and UI show the user’s area (not a stale fallback). */
+    private fun startAiRequest() {
         executor.execute {
             try {
+                val locForApi = resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }
                 val result = SmartStewardAiClient.analyzeToResultIntent(
                     applicationContext,
                     BuildConfig.API_BASE_URL,
                     userMessage,
                     reanalyze,
-                    resolvedLocationShort
+                    locForApi
                 )
                 result.apply {
-                    resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }?.let { loc ->
-                        putExtra(EXTRA_LOCATION_SHORT, loc)
-                    }
+                    locForApi?.let { putExtra(EXTRA_LOCATION_SHORT, it) }
                 }
                 apiResultIntent = result
                 apiError = null

@@ -24,6 +24,17 @@ import java.util.concurrent.TimeUnit
  */
 object SmartStewardAiClient {
 
+    /** OkHttp requires an explicit http/https scheme (host:port alone throws). */
+    private fun normalizeApiBaseUrl(raw: String): String {
+        val t = raw.trim().trimEnd('/')
+        return when {
+            t.isEmpty() -> "http://10.0.2.2:3000"
+            t.startsWith("http://", ignoreCase = true) ||
+                t.startsWith("https://", ignoreCase = true) -> t
+            else -> "http://$t"
+        }
+    }
+
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -43,7 +54,7 @@ object SmartStewardAiClient {
         reanalyze: Boolean,
         deviceLocationShort: String?
     ): Intent {
-        val root = baseUrl.trim().trimEnd('/')
+        val root = normalizeApiBaseUrl(baseUrl)
         val url = "$root/ai"
 
         val bitmap = CapturedMediaStore.capturedBitmap

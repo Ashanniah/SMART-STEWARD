@@ -1,5 +1,11 @@
 package com.example.smart_steward
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.annotation.DrawableRes
+import androidx.core.content.ContextCompat
+import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import kotlin.math.abs
@@ -19,7 +25,9 @@ enum class DashboardTypeFilter {
     ALL,
     DUMPING,
     BURNING,
-    LOGGING
+    LOGGING,
+    /** Incident types that do not match dumping, burning, or logging (e.g. theft). */
+    OTHER
 }
 
 data class MapAgencyPin(
@@ -32,8 +40,24 @@ data class MapAgencyPin(
 val DEFAULT_AGENCY_PINS: List<MapAgencyPin> = listOf(
     MapAgencyPin("denr_cebu", "DENR — Cebu City", "DENR", LatLng(10.3157, 123.8854)),
     MapAgencyPin("denr_field", "DENR Field Office (Talamban)", "DENR", LatLng(10.3725, 123.9201)),
-    MapAgencyPin("bfp_cebu", "BFP Cebu City", "BFP", LatLng(10.2926, 123.9022))
+    MapAgencyPin("pnp_cebu", "PNP — Cebu City", "PNP", LatLng(10.3096, 123.8937)),
+    MapAgencyPin("bfp_cebu", "BFP Cebu City", "BFP", LatLng(10.2926, 123.9022)),
+    MapAgencyPin("barangay_lahug", "Barangay Lahug Office", "Barangay", LatLng(10.3386, 123.9001))
 )
+
+fun matchesAgencyFilter(pin: MapAgencyPin, selectedAgency: String?): Boolean {
+    if (selectedAgency.isNullOrBlank()) return true
+    return pin.shortLabel.equals(selectedAgency, ignoreCase = true)
+}
+
+fun matchesReportAgencyFilter(report: UserReport, selectedAgency: String?): Boolean {
+    if (selectedAgency.isNullOrBlank()) return true
+    val assigned = report.assignedAgency.trim()
+    if (assigned.isBlank()) return false
+    val target = selectedAgency.trim()
+    return assigned.equals(target, ignoreCase = true) ||
+        assigned.contains(target, ignoreCase = true)
+}
 
 fun UserReport.displayTitle(): String =
     incidentType.substringBefore("(").trim().ifBlank { incidentType }
@@ -61,30 +85,71 @@ private fun pseudoPositionForId(id: String, center: LatLng): LatLng {
 fun isIllegalActivityType(incidentType: String): Boolean {
     val t = incidentType.lowercase()
     return listOf(
-        "dump", "burn", "log", "poach", "illegal", "waste", "fire", "tree", "forest"
+        "dump", "burn", "log", "poach", "illegal", "waste", "fire", "tree", "forest",
+        "theft", "steal", "rob", "vandal"
     ).any { t.contains(it) }
+}
+
+private fun incidentTypePrimaryBucket(incidentType: String): DashboardTypeFilter {
+    val t = incidentType.lowercase()
+    val isDump = t.contains("dump") || t.contains("waste") || t.contains("trash")
+    val isBurn = t.contains("burn") || t.contains("fire") || t.contains("smoke")
+    val isLog = t.contains("log") || t.contains("tree") || t.contains("forest")
+    return when {
+        isDump -> DashboardTypeFilter.DUMPING
+        isBurn -> DashboardTypeFilter.BURNING
+        isLog -> DashboardTypeFilter.LOGGING
+        else -> DashboardTypeFilter.OTHER
+    }
 }
 
 fun matchesTypeFilter(report: UserReport, filter: DashboardTypeFilter): Boolean {
     if (filter == DashboardTypeFilter.ALL) return true
-    val t = report.incidentType.lowercase()
-    return when (filter) {
-        DashboardTypeFilter.DUMPING -> t.contains("dump") || t.contains("waste") || t.contains("trash")
-        DashboardTypeFilter.BURNING -> t.contains("burn") || t.contains("fire") || t.contains("smoke")
-        DashboardTypeFilter.LOGGING -> t.contains("log") || t.contains("tree") || t.contains("forest")
-        DashboardTypeFilter.ALL -> true
+    if (filter == DashboardTypeFilter.OTHER) {
+        return incidentTypePrimaryBucket(report.incidentType) == DashboardTypeFilter.OTHER
+    }
+    return incidentTypePrimaryBucket(report.incidentType) == filter
+}
+
+private var cachedPendingMarker: BitmapDescriptor? = null
+
+fun markerDescriptorForReport(context: Context, report: UserReport): BitmapDescriptor {
+    when (report.status) {
+        ReportStatusUi.PENDING -> {
+            if (cachedPendingMarker == null) {
+                val app = context.applicationContext
+                cachedPendingMarker = bitmapDescriptorFromVector(app, R.drawable.ic_map_marker_gray, 40f)
+            }
+            return cachedPendingMarker!!
+        }
+        ReportStatusUi.REJECTED ->
+            return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+        ReportStatusUi.IN_PROGRESS ->
+            return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
+        ReportStatusUi.RESOLVED ->
+            return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
     }
 }
 
-fun markerHueForReport(report: UserReport): Float {
-    val t = report.incidentType.lowercase()
-    return when {
-        t.contains("dump") || t.contains("waste") -> BitmapDescriptorFactory.HUE_RED
-        t.contains("burn") || t.contains("fire") -> BitmapDescriptorFactory.HUE_ORANGE
-        t.contains("log") || t.contains("tree") || t.contains("forest") -> BitmapDescriptorFactory.HUE_GREEN
-        t.contains("poach") || t.contains("wildlife") -> BitmapDescriptorFactory.HUE_VIOLET
-        else -> BitmapDescriptorFactory.HUE_AZURE
-    }
+fun markerSnippetStatus(status: ReportStatusUi): String = when (status) {
+    ReportStatusUi.PENDING -> "PENDING"
+    ReportStatusUi.IN_PROGRESS -> "IN PROGRESS"
+    ReportStatusUi.RESOLVED -> "RESOLVED"
+    ReportStatusUi.REJECTED -> "REJECTED"
+}
+
+private fun bitmapDescriptorFromVector(
+    context: Context,
+    @DrawableRes resId: Int,
+    sizeDp: Float
+): BitmapDescriptor {
+    val drawable = ContextCompat.getDrawable(context, resId)!!
+    val px = (sizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    drawable.setBounds(0, 0, px, px)
+    val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.draw(canvas)
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
 fun defaultMapCenter(): LatLng = REGION_CENTER

@@ -19,18 +19,12 @@ class ProfileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
-        val user = FirebaseAuth.getInstance().currentUser
-        val name = user?.displayName.takeUnless { it.isNullOrBlank() }
-            ?: getString(R.string.profile_name_placeholder)
-        findViewById<TextView>(R.id.profileName).text = name
-        findViewById<TextView>(R.id.profileEmail).text = user?.email.takeUnless { it.isNullOrBlank() }
-            ?: getString(R.string.profile_email_placeholder)
-        findViewById<TextView>(R.id.profileInitials).text = initialsFromDisplayName(name)
+        bindProfileHeader()
 
         findViewById<TextView>(R.id.profileAboutVersion).text = versionLabel()
 
         findViewById<TextView>(R.id.profileEditButton).setOnClickListener {
-            Toast.makeText(this, getString(R.string.profile_edit), Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, EditProfileActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.profileRowAccountSettings).setOnClickListener {
@@ -58,17 +52,24 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.logoutButton).setOnClickListener {
-            ApiProvider.auth.call(
-                route = AuthRoutes.SIGN_OUT,
-                onSuccess = {
-                    val intent = Intent(this, LoginActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
-                },
-                onError = { error ->
-                    Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.logout_confirm_title))
+                .setMessage(getString(R.string.logout_confirm_message))
+                .setNegativeButton(getString(R.string.logout_confirm_no), null)
+                .setPositiveButton(getString(R.string.logout_confirm_yes)) { _, _ ->
+                    ApiProvider.auth.call(
+                        route = AuthRoutes.SIGN_OUT,
+                        onSuccess = {
+                            val intent = Intent(this, LoginActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                        },
+                        onError = { error ->
+                            Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                        }
+                    )
                 }
-            )
+                .show()
         }
 
         findViewById<LinearLayout>(R.id.profileNavHome).setOnClickListener {
@@ -97,6 +98,22 @@ class ProfileActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        bindProfileHeader()
+        updateNotificationBadge()
+    }
+
+    private fun bindProfileHeader() {
+        val user = FirebaseAuth.getInstance().currentUser
+        val name = user?.displayName.takeUnless { it.isNullOrBlank() }
+            ?: getString(R.string.profile_name_placeholder)
+        findViewById<TextView>(R.id.profileName).text = name
+        findViewById<TextView>(R.id.profileEmail).text = user?.email.takeUnless { it.isNullOrBlank() }
+            ?: getString(R.string.profile_email_placeholder)
+        findViewById<TextView>(R.id.profileInitials).text = initialsFromDisplayName(name)
+    }
+
     private fun initialsFromDisplayName(displayName: String): String {
         val parts = displayName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
         if (parts.isEmpty()) return "?"
@@ -119,5 +136,22 @@ class ProfileActivity : AppCompatActivity() {
         } catch (_: Exception) {
             getString(R.string.profile_about_version_fmt, "1.0")
         }
+    }
+
+    private fun updateNotificationBadge() {
+        val badge = findViewById<TextView>(R.id.profileNavBadge)
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            badge.visibility = android.view.View.GONE
+            return
+        }
+        CitizenNotificationsRepository.countUnread(uid, onResult = { unread ->
+            runOnUiThread {
+                badge.visibility = if (unread > 0) android.view.View.VISIBLE else android.view.View.GONE
+                if (unread > 0) {
+                    badge.text = if (unread > 99) "99+" else unread.toString()
+                }
+            }
+        })
     }
 }

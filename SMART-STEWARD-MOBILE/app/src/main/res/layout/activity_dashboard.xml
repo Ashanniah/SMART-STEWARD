@@ -19,73 +19,72 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="0dp"
         android:layout_marginTop="10dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="0dp"
         android:orientation="vertical"
-        android:paddingEnd="0dp">
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
 
         <FrameLayout
-            android:id="@+id/autocomplete_container"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_dashboard_search" />
+            android:layout_height="wrap_content"
+            android:background="@color/white"
+            android:clipChildren="false"
+            android:elevation="3dp">
 
-        <ImageButton
-            android:id="@+id/dashboardLayerButton"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_dashboard_camera_fab"
-            android:contentDescription="Map filters"
-            android:padding="10dp"
-            android:src="@android:drawable/ic_menu_sort_by_size"
-            android:tint="@color/white" />
+            <androidx.fragment.app.FragmentContainerView
+                android:id="@+id/autocomplete_container"
+                android:name="com.google.android.libraries.places.widget.AutocompleteSupportFragment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </FrameLayout>
 
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:fillViewport="true"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
             android:scrollbars="none">
 
-            <LinearLayout
+            <com.google.android.material.chip.ChipGroup
                 android:id="@+id/dashboardMapScopeRow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                app:chipSpacingHorizontal="8dp"
+                app:chipSpacingVertical="0dp"
+                app:singleLine="true"
+                app:singleSelection="true">
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipScopeAll"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    style="@style/Widget.SMARTSTEWARD.FilterChip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="All" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipScopeIncidents"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    style="@style/Widget.SMARTSTEWARD.FilterChip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
                     android:text="Incidents" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipScopeIllegal"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    style="@style/Widget.SMARTSTEWARD.FilterChip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
                     android:text="Illegal Activities" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipScopeAgencies"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    style="@style/Widget.SMARTSTEWARD.FilterChip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
                     android:text="Agencies" />
-            </LinearLayout>
+            </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
     </LinearLayout>
 
@@ -95,7 +94,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="end|bottom"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="230dp"
+        android:layout_marginBottom="@dimen/dashboard_zoom_controls_margin_no_sheet"
         android:orientation="vertical">
 
         <ImageButton
@@ -104,8 +103,10 @@
             android:layout_height="42dp"
             android:background="@drawable/bg_dashboard_map_fab"
             android:contentDescription="Zoom in"
-            android:src="@android:drawable/ic_input_add"
-            android:tint="@color/activity_title_bar" />
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_map_plus"
+            app:tint="@color/activity_title_bar" />
 
         <ImageButton
             android:id="@+id/dashboardZoomOut"
@@ -140,20 +141,15 @@
         android:paddingTop="10dp"
         android:paddingEnd="16dp"
         android:paddingBottom="96dp"
-        app:behavior_hideable="false"
+        android:visibility="gone"
+        app:behavior_hideable="true"
         app:behavior_peekHeight="@dimen/dashboard_bottom_sheet_peek"
         app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
-
-        <View
-            android:layout_width="44dp"
-            android:layout_height="5dp"
-            android:layout_gravity="center_horizontal"
-            android:background="@drawable/bg_dashboard_search" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="4dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -180,45 +176,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
             android:scrollbars="none">
 
-            <LinearLayout
+            <com.google.android.material.chip.ChipGroup
                 android:id="@+id/dashboardTypeFilterRow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipTypeAll"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="All" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipTypeDumping"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="Dumping" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipTypeBurning"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="Burning" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipTypeLogging"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="Logging" />
-            </LinearLayout>
+                app:chipSpacingHorizontal="8dp"
+                app:chipSpacingVertical="0dp"
+                app:singleLine="true"
+                app:singleSelection="true" />
         </HorizontalScrollView>
 
         <androidx.recyclerview.widget.RecyclerView
@@ -239,9 +208,6 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/bottom_nav_height"
         android:layout_gravity="bottom"
-        android:layout_marginStart="@dimen/bottom_nav_horizontal_inset"
-        android:layout_marginEnd="@dimen/bottom_nav_horizontal_inset"
-        android:layout_marginBottom="@dimen/bottom_nav_bottom_inset"
         android:background="@drawable/bg_dashboard_bottom_nav"
         android:elevation="16dp"
         android:gravity="center_vertical"
@@ -304,11 +270,33 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <ImageView
-                android:layout_width="@dimen/bottom_nav_icon_size"
-                android:layout_height="@dimen/bottom_nav_icon_size"
-                android:src="@drawable/notification"
-                app:tint="@color/register_button_green" />
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <ImageView
+                    android:layout_width="@dimen/bottom_nav_icon_size"
+                    android:layout_height="@dimen/bottom_nav_icon_size"
+                    android:src="@drawable/notification"
+                    app:tint="@color/register_button_green" />
+
+                <TextView
+                    android:id="@+id/dashboardNavBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="16dp"
+                    android:layout_gravity="end|top"
+                    android:layout_marginTop="-2dp"
+                    android:layout_marginEnd="-4dp"
+                    android:background="@drawable/bg_notif_nav_badge_red"
+                    android:gravity="center"
+                    android:minWidth="16dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -364,38 +352,6 @@
             android:layout_gravity="center_horizontal"
             android:background="#D5DCD6" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/dashboardQuickType"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/bg_dashboard_quick_tag"
-                android:paddingStart="8dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="4dp"
-                android:text="Illegal Dumping"
-                android:textColor="@color/activity_title_bar"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <ImageButton
-                android:id="@+id/dashboardQuickDismiss"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
-                android:background="@drawable/bg_dashboard_map_fab"
-                android:contentDescription="Dismiss panel"
-                android:src="@android:drawable/ic_menu_delete"
-                android:tint="@color/activity_muted" />
-        </LinearLayout>
-
         <TextView
             android:id="@+id/dashboardQuickTitle"
             android:layout_width="match_parent"
@@ -429,7 +385,7 @@
                 android:layout_weight="1"
                 android:background="@drawable/bg_notif_btn_primary"
                 android:gravity="center"
-                android:text="Notify DENR"
+                android:text="@string/dashboard_notify_placeholder"
                 android:textColor="@color/white"
                 android:textSize="15sp"
                 android:textStyle="bold" />
