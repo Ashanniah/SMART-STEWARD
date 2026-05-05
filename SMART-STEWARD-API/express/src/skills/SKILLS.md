@@ -12,7 +12,8 @@ You MUST return ONLY valid JSON with this structure:
   "category": "string",
   "assignedAgency": "string",
   "summary": "string",
-  "severity": "Low | Medium | High | Critical"
+  "severity": "Low | Medium | High | Critical",
+  "confidence_score": "number (0.0 to 1.0)"
 }
 
 Do not include any extra text or formatting.
