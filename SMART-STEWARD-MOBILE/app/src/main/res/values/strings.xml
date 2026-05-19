@@ -64,6 +64,7 @@ Talamban</string>
     <string name="report_history">Report History</string>
     <string name="home">Home</string>
     <string name="activity">Activity</string>
+    <string name="nav_history">History</string>
     <string name="notification">Notification</string>
     <string name="nav_alerts">Notifications</string>
     <string name="open_camera">Open camera</string>
@@ -258,6 +259,11 @@ Talamban</string>
     <string name="my_activity_status_pending">Pending</string>
     <string name="my_activity_status_in_progress">In Progress</string>
     <string name="my_activity_status_resolved">Resolved</string>
+    <string name="my_activity_rejected">Rejected</string>
+    <string name="history_search_hint">Search by location, type, or ID</string>
+    <string name="history_sort_menu">Sort reports</string>
+    <string name="history_view_action">View &gt;</string>
+    <string name="history_reports_in_month">%1$d REPORTS</string>
     <string name="content_desc_filter">Sort order</string>
     <string name="content_desc_back">Back</string>
     <string name="remember_me">Remember me</string>

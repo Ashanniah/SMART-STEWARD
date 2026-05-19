@@ -190,6 +190,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             startActivity(Intent(this, MyActivityActivity::class.java))
         }
 
+        findViewById<LinearLayout>(R.id.dashboardNavHistory).setOnClickListener {
+            startActivity(Intent(this, ReportHistoryActivity::class.java))
+        }
+
         findViewById<LinearLayout>(R.id.dashboardNavNotification).setOnClickListener {
             startActivity(Intent(this, NotificationActivity::class.java))
         }
@@ -845,7 +849,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun showReportDetailsDialog(report: UserReport) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_report_receipt, null)
-        dialogView.findViewById<TextView>(R.id.receiptHeaderId).text = report.id
+        dialogView.findViewById<TextView>(R.id.receiptHeaderId).text = report.displayReportRef()
         val content = dialogView.findViewById<LinearLayout>(R.id.receiptContent)
 
         fun addRow(label: String, value: String, highlightAgency: Boolean = false) {
@@ -869,7 +873,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         val dateFmt = java.text.SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault())
         val submitted = report.submittedAt?.let { dateFmt.format(it) } ?: "—"
 
-        addRow(getString(R.string.my_activity_detail_report_id), report.id)
+        addRow(getString(R.string.my_activity_detail_report_id), report.displayReportRef())
         addRow(getString(R.string.my_activity_detail_report_type), report.incidentType.trim().ifBlank { "—" })
         addRow(getString(R.string.my_activity_detail_date_submitted), submitted)
         addRow(getString(R.string.my_activity_detail_location), report.locationDisplay())

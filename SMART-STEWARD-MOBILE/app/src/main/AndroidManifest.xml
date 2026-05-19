@@ -31,6 +31,9 @@
             android:name=".MyActivityActivity"
             android:exported="false" />
         <activity
+            android:name=".ReportHistoryActivity"
+            android:exported="false" />
+        <activity
             android:name=".NotificationActivity"
             android:exported="false" />
         <activity

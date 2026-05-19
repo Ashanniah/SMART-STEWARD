@@ -10,6 +10,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageException
 import com.google.firebase.storage.StorageReference
 import java.io.ByteArrayOutputStream
+import java.util.Date
 
 object ReportFirestore {
     private const val TAG = "ReportFirestore"
@@ -55,7 +56,9 @@ object ReportFirestore {
         fun writeDocument(photoUrl: String, videoUrl: String) {
             val hasPhoto = photoUrl.isNotEmpty()
             val hasVideo = videoUrl.isNotEmpty()
+            val publicReportId = ReportRef.format(docId, Date())
             val data = hashMapOf<String, Any>(
+                "publicReportId" to publicReportId,
                 "userId" to (userId ?: ""),
                 "incidentType" to incidentType,
                 "assignedAgency" to assignedAgency,

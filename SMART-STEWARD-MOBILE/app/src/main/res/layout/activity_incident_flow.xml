@@ -69,25 +69,6 @@
                 android:layout_height="match_parent"
                 android:background="@android:color/black"
                 android:scaleType="centerCrop" />
-
-            <Button
-                android:id="@+id/sendToAiButton"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:layout_gravity="bottom|end"
-                android:layout_marginEnd="16dp"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/bg_incident_send_to_ai"
-                android:elevation="6dp"
-                android:minWidth="148dp"
-                android:paddingStart="22dp"
-                android:paddingEnd="22dp"
-                android:text="@string/send_to_ai"
-                android:textAllCaps="false"
-                android:textColor="@color/black"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                app:backgroundTint="@null" />
         </FrameLayout>
 
         <LinearLayout
@@ -1166,6 +1147,28 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/activity"
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/incidentNavHistory"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
+                android:src="@drawable/ic_history"
+                app:tint="@color/register_button_green" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_history"
                 android:textColor="@color/bottom_nav_inactive"
                 android:textSize="11sp" />
         </LinearLayout>

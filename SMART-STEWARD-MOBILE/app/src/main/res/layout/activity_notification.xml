@@ -169,6 +169,28 @@
                 android:textSize="11sp" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/notificationNavHistory"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
+                android:src="@drawable/ic_history"
+                app:tint="@color/register_button_green" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nav_history"
+                android:textColor="@color/bottom_nav_inactive"
+                android:textSize="11sp" />
+        </LinearLayout>
+
         <Space
             android:layout_width="@dimen/bottom_nav_fab_size"
             android:layout_height="1dp" />

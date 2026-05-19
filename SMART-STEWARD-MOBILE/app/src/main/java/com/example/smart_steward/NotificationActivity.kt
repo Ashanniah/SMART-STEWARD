@@ -45,8 +45,8 @@ class NotificationActivity : AppCompatActivity() {
             CitizenNotificationsRepository.markRead(uid, item.id)
             if (item.reportId.isNotBlank()) {
                 startActivity(
-                    Intent(this, MyActivityActivity::class.java)
-                        .putExtra(MyActivityActivity.EXTRA_FOCUS_REPORT_ID, item.reportId)
+                    Intent(this, ReportHistoryActivity::class.java)
+                        .putExtra(ReportHistoryActivity.EXTRA_FOCUS_REPORT_ID, item.reportId)
                 )
             }
         }
@@ -89,6 +89,11 @@ class NotificationActivity : AppCompatActivity() {
 
         findViewById<LinearLayout>(R.id.notificationNavActivity).setOnClickListener {
             startActivity(Intent(this, MyActivityActivity::class.java))
+        }
+
+        findViewById<LinearLayout>(R.id.notificationNavHistory).setOnClickListener {
+            startActivity(Intent(this, ReportHistoryActivity::class.java))
+            finish()
         }
 
         findViewById<LinearLayout>(R.id.notificationNavNotification).setOnClickListener { }

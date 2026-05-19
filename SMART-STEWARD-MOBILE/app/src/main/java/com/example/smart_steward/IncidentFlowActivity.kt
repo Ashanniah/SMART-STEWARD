@@ -52,13 +52,22 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     private var afterAiAnalysis: (() -> Unit)? = null
 
+    /** When true, backing out of [AiAnalysisActivity] closes this screen (initial capture flow). */
+    private var finishOnAiCancel = false
+
     /** Latest classification payload from [AiAnalysisActivity] (activity result). */
     private var lastAnalysisResult: Intent? = null
 
     private val aiAnalysisLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        if (result.resultCode != RESULT_OK) {
+            afterAiAnalysis = null
+            if (finishOnAiCancel) finish()
+            finishOnAiCancel = false
+            return@registerForActivityResult
+        }
+        finishOnAiCancel = false
         lastAnalysisResult = result.data
         val action = afterAiAnalysis
         afterAiAnalysis = null
@@ -97,6 +106,11 @@ class IncidentFlowActivity : AppCompatActivity() {
             startActivity(Intent(this, MyActivityActivity::class.java))
         }
 
+        findViewById<LinearLayout>(R.id.incidentNavHistory).setOnClickListener {
+            startActivity(Intent(this, ReportHistoryActivity::class.java))
+            finish()
+        }
+
         findViewById<LinearLayout>(R.id.incidentNavNotification).setOnClickListener {
             startActivity(Intent(this, NotificationActivity::class.java))
         }
@@ -121,11 +135,6 @@ class IncidentFlowActivity : AppCompatActivity() {
                     CapturedMediaStore.capturedVideoUri = persisted
                 }
             }
-        }
-
-        findViewById<Button>(R.id.sendToAiButton).setOnClickListener {
-            afterAiAnalysis = { showState(ScreenState.DETECTED) }
-            aiAnalysisLauncher.launch(Intent(this, AiAnalysisActivity::class.java))
         }
 
         findViewById<Button>(R.id.editButton).setOnClickListener {
@@ -190,7 +199,22 @@ class IncidentFlowActivity : AppCompatActivity() {
             }
         }
 
-        showState(ScreenState.PREVIEW)
+        startInitialAiAnalysis()
+    }
+
+    private fun startInitialAiAnalysis() {
+        val hasMedia =
+            CapturedMediaStore.capturedBitmap != null || CapturedMediaStore.capturedVideoUri != null
+        if (!hasMedia) {
+            Toast.makeText(this, "No media captured.", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+        previewContainer.visibility = View.GONE
+        titleText.text = getString(R.string.incident_title_analyzing)
+        finishOnAiCancel = true
+        afterAiAnalysis = { showState(ScreenState.DETECTED) }
+        aiAnalysisLauncher.launch(Intent(this, AiAnalysisActivity::class.java))
     }
 
     override fun onResume() {
@@ -491,18 +515,7 @@ class IncidentFlowActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.submittedSuccessSubtitle).text =
             getString(R.string.submitted_success_subtitle, agencyShort)
 
-        val ref = buildString {
-            append("#REP-")
-            append(SimpleDateFormat("yyyyMMdd", Locale.US).format(Date()))
-            append("-")
-            val compact = docId.filter { it.isLetterOrDigit() }
-            val suffix = when {
-                compact.length >= 3 -> compact.takeLast(3).uppercase(Locale.US)
-                docId.length >= 3 -> docId.takeLast(3).uppercase(Locale.US)
-                else -> docId.uppercase(Locale.US).padEnd(3, 'X')
-            }
-            append(suffix)
-        }
+        val ref = ReportRef.format(docId, Date())
         findViewById<TextView>(R.id.submittedReceiptNumberText).text = ref
         findViewById<TextView>(R.id.submittedReceiptReportIdValue).text = ref
 

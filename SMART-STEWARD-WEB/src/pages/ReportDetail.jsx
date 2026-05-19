@@ -83,7 +83,7 @@ export default function ReportDetail() {
           <dl className="report-detail-info">
             <div className="report-detail-info__row">
               <dt>Report ID</dt>
-              <dd>{detail.docId}</dd>
+              <dd>{detail.id}</dd>
             </div>
             <div className="report-detail-info__row">
               <dt>

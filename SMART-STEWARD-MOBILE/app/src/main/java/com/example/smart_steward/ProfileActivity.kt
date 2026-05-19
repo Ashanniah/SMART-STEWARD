@@ -36,7 +36,7 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.profileRowPrivacy).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
+            startActivity(Intent(this, ReportHistoryActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.profileRowTerms).setOnClickListener {
@@ -82,6 +82,11 @@ class ProfileActivity : AppCompatActivity() {
 
         findViewById<LinearLayout>(R.id.profileNavActivity).setOnClickListener {
             startActivity(Intent(this, MyActivityActivity::class.java))
+        }
+
+        findViewById<LinearLayout>(R.id.profileNavHistory).setOnClickListener {
+            startActivity(Intent(this, ReportHistoryActivity::class.java))
+            finish()
         }
 
         findViewById<LinearLayout>(R.id.profileNavNotification).setOnClickListener {

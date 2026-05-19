@@ -62,6 +62,26 @@ export function formatRelativeTime(d) {
   return unit(Math.floor(sec / 86400), 'day', 'days');
 }
 
+/** Citizen-facing reference, e.g. REP-20260505-WY5 (matches mobile). */
+export function formatPublicReportId(docId, submittedAt) {
+  const id = String(docId ?? '').trim();
+  const date = submittedAt instanceof Date && !Number.isNaN(submittedAt.getTime()) ? submittedAt : new Date();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const ymd = `${y}${m}${day}`;
+  const compact = id.replace(/[^a-zA-Z0-9]/g, '');
+  let suffix;
+  if (compact.length >= 3) {
+    suffix = compact.slice(-3).toUpperCase();
+  } else if (id.length >= 3) {
+    suffix = id.slice(-3).toUpperCase();
+  } else {
+    suffix = id.toUpperCase().padEnd(3, 'X');
+  }
+  return `REP-${ymd}-${suffix}`;
+}
+
 export function normalizeReportDocument(docId, data) {
   const d = data && typeof data === 'object' ? data : {};
 
@@ -101,7 +121,12 @@ export function normalizeReportDocument(docId, data) {
 
   const status = normalizeStatus(d.status);
 
-  const displayId = String(d.reportId ?? d.publicReportId ?? d.reportNumber ?? docId);
+  const storedPublic = String(d.publicReportId ?? '').trim();
+  const legacyReportId = String(d.reportId ?? d.reportNumber ?? '').trim();
+  const displayId =
+    storedPublic ||
+    (legacyReportId.startsWith('REP-') ? legacyReportId : '') ||
+    formatPublicReportId(docId, createdAt);
 
   const description =
     String(d.description ?? d.details ?? d.notes ?? '').trim() ||
@@ -142,6 +167,7 @@ export function normalizeReportDocument(docId, data) {
   return {
     docId,
     id: displayId,
+    publicReportId: displayId,
     date: formatReportDateTime(createdAt),
     dateTime: formatReportDateTimeHistory(createdAt),
     location,

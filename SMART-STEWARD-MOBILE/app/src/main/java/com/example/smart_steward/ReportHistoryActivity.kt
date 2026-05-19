@@ -1,21 +1,23 @@
 package com.example.smart_steward
 
 import android.content.Intent
-import android.os.Bundle
 import android.graphics.Typeface
+import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.Spinner
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -24,95 +26,122 @@ import coil.load
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
-class MyActivityActivity : AppCompatActivity() {
+class ReportHistoryActivity : AppCompatActivity() {
 
     companion object {
-        /** When set, scrolls the report list to this report id after data loads. */
         const val EXTRA_FOCUS_REPORT_ID = "focus_report_id"
     }
 
-    private var pendingFocusReportId: String? = null
-
-    private enum class Filter {
+    private enum class StatusFilter {
         ALL,
+        RESOLVED,
         PENDING,
         IN_PROGRESS,
-        RESOLVED,
-        TRENDING
+        REJECTED
     }
 
-    private enum class FilterDimension {
-        STATUS,
-        DATE
-    }
-
+    private var pendingFocusReportId: String? = null
     private var allReports: List<UserReport> = emptyList()
-    private var filter = Filter.ALL
-    private var filterDimension = FilterDimension.STATUS
+    private var statusFilter = StatusFilter.ALL
+    private var searchQuery = ""
     private var newestFirst = true
-    private lateinit var adapter: MyActivityReportsAdapter
+    private lateinit var adapter: ReportHistoryAdapter
     private lateinit var recycler: RecyclerView
     private lateinit var empty: TextView
-    private lateinit var statTotal: TextView
-    private lateinit var statPending: TextView
-    private lateinit var statResolved: TextView
-    private lateinit var dimensionSpinner: Spinner
-    private lateinit var valueSpinner: Spinner
-    private var spinnerSkipCallback = false
+    private lateinit var searchInput: EditText
     private var reportsListener: ListenerRegistration? = null
+
+    private lateinit var chipAll: TextView
+    private lateinit var chipResolved: TextView
+    private lateinit var chipPending: TextView
+    private lateinit var chipInProgress: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_my_activity)
+        setContentView(R.layout.activity_report_history)
 
         pendingFocusReportId = intent.getStringExtra(EXTRA_FOCUS_REPORT_ID)?.trim()?.takeIf { it.isNotEmpty() }
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.myActivityRoot)) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.reportHistoryRoot)) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
         }
 
-        findViewById<ImageView>(R.id.myActivityBack).setOnClickListener { finish() }
+        findViewById<ImageView>(R.id.reportHistoryBack).setOnClickListener { finish() }
 
-        statTotal = findViewById(R.id.myActivityStatTotal)
-        statPending = findViewById(R.id.myActivityStatPending)
-        statResolved = findViewById(R.id.myActivityStatResolved)
-        empty = findViewById(R.id.myActivityEmpty)
-        dimensionSpinner = findViewById(R.id.myActivityFilterDimensionSpinner)
-        valueSpinner = findViewById(R.id.myActivityFilterValueSpinner)
+        bindStatCard(
+            R.id.reportHistoryStatTotalBlock,
+            accentColor = R.color.activity_accent_line,
+            label = getString(R.string.my_activity_total).uppercase(Locale.getDefault())
+        ) { statusFilter = StatusFilter.ALL; refreshChipSelection(); refreshList() }
 
-        recycler = findViewById(R.id.myActivityRecycler)
+        bindStatCard(
+            R.id.reportHistoryStatResolvedBlock,
+            accentColor = R.color.activity_resolved_green,
+            label = getString(R.string.my_activity_resolved).uppercase(Locale.getDefault())
+        ) { statusFilter = StatusFilter.RESOLVED; refreshChipSelection(); refreshList() }
+
+        bindStatCard(
+            R.id.reportHistoryStatPendingBlock,
+            accentColor = R.color.activity_progress_blue,
+            label = getString(R.string.my_activity_pending).uppercase(Locale.getDefault())
+        ) { statusFilter = StatusFilter.PENDING; refreshChipSelection(); refreshList() }
+
+        bindStatCard(
+            R.id.reportHistoryStatRejectedBlock,
+            accentColor = R.color.activity_rejected_gray,
+            label = getString(R.string.my_activity_rejected).uppercase(Locale.getDefault())
+        ) { statusFilter = StatusFilter.REJECTED; refreshChipSelection(); refreshList() }
+
+        empty = findViewById(R.id.reportHistoryEmpty)
+        searchInput = findViewById(R.id.reportHistorySearchInput)
+        searchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                searchQuery = s?.toString().orEmpty()
+                refreshList()
+            }
+        })
+
+        chipAll = findViewById(R.id.reportHistoryChipAll)
+        chipResolved = findViewById(R.id.reportHistoryChipResolved)
+        chipPending = findViewById(R.id.reportHistoryChipPending)
+        chipInProgress = findViewById(R.id.reportHistoryChipInProgress)
+        chipAll.setOnClickListener { applyChipFilter(StatusFilter.ALL) }
+        chipResolved.setOnClickListener { applyChipFilter(StatusFilter.RESOLVED) }
+        chipPending.setOnClickListener { applyChipFilter(StatusFilter.PENDING) }
+        chipInProgress.setOnClickListener { applyChipFilter(StatusFilter.IN_PROGRESS) }
+        refreshChipSelection()
+
+        findViewById<ImageView>(R.id.reportHistorySortButton).setOnClickListener { anchor ->
+            val menu = PopupMenu(this, anchor)
+            menu.menu.add(0, 0, 0, R.string.my_activity_newest_first)
+            menu.menu.add(0, 1, 1, R.string.my_activity_oldest_first)
+            menu.setOnMenuItemClickListener { item ->
+                newestFirst = item.itemId == 0
+                refreshList()
+                true
+            }
+            menu.show()
+        }
+
+        recycler = findViewById(R.id.reportHistoryRecycler)
         recycler.layoutManager = LinearLayoutManager(this)
-        adapter = MyActivityReportsAdapter(
-            onViewOnMap = { report ->
-                startActivity(
-                    Intent(this, DashboardActivity::class.java)
-                        .putExtra(DashboardActivity.EXTRA_FOCUS_REPORT_ID, report.id)
-                        .apply {
-                            report.latitude?.let { putExtra(DashboardActivity.EXTRA_FOCUS_LAT, it) }
-                            report.longitude?.let { putExtra(DashboardActivity.EXTRA_FOCUS_LNG, it) }
-                        }
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                )
-            },
-            onTrackReport = { showReportDetailsDialog(it) }
-        )
+        adapter = ReportHistoryAdapter(onViewReport = { showReportDetailsDialog(it) })
         recycler.adapter = adapter
 
-        setupFilterSpinners()
         setupBottomNav()
         startReportsWatcher()
     }
 
     override fun onResume() {
         super.onResume()
-        if (reportsListener == null) {
-            startReportsWatcher()
-        }
+        if (reportsListener == null) startReportsWatcher()
         updateNotificationBadge()
     }
 
@@ -122,80 +151,60 @@ class MyActivityActivity : AppCompatActivity() {
         reportsListener = null
     }
 
-    private fun setupFilterSpinners() {
-        val dimLabels = listOf(
-            getString(R.string.my_activity_filter_status),
-            getString(R.string.my_activity_filter_date)
-        )
-        dimensionSpinner.adapter = spinnerAdapter(dimLabels)
-        dimensionSpinner.setSelection(filterDimension.ordinal)
-
-        dimensionSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (spinnerSkipCallback) return
-                filterDimension = FilterDimension.values()[position]
-                bindValueSpinnerFromState()
-                refreshList()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-
-        valueSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (spinnerSkipCallback) return
-                when (filterDimension) {
-                    FilterDimension.STATUS -> {
-                        filter = Filter.entries[position]
-                    }
-                    FilterDimension.DATE -> {
-                        newestFirst = position == 0
-                    }
-                }
-                refreshList()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-
-        bindValueSpinnerFromState()
+    private fun bindStatCard(
+        includeId: Int,
+        accentColor: Int,
+        label: String,
+        onClick: () -> Unit
+    ) {
+        val root = findViewById<View>(includeId)
+        root.findViewById<TextView>(R.id.historyStatLabel).text = label
+        root.findViewById<View>(R.id.historyStatAccent)
+            .setBackgroundColor(ContextCompat.getColor(this, accentColor))
+        root.setOnClickListener { onClick() }
     }
 
-    private fun bindValueSpinnerFromState() {
-        spinnerSkipCallback = true
-        when (filterDimension) {
-            FilterDimension.STATUS -> {
-                val labels = listOf(
-                    getString(R.string.my_activity_chip_all),
-                    getString(R.string.my_activity_pending),
-                    getString(R.string.my_activity_in_progress),
-                    getString(R.string.my_activity_resolved),
-                    getString(R.string.my_activity_chip_trending)
-                )
-                valueSpinner.adapter = spinnerAdapter(labels)
-                valueSpinner.setSelection(filter.ordinal.coerceIn(0, Filter.values().lastIndex))
-            }
-            FilterDimension.DATE -> {
-                val labels = listOf(
-                    getString(R.string.my_activity_newest_first),
-                    getString(R.string.my_activity_oldest_first)
-                )
-                valueSpinner.adapter = spinnerAdapter(labels)
-                valueSpinner.setSelection(if (newestFirst) 0 else 1)
-            }
-        }
-        spinnerSkipCallback = false
+    private fun updateStatValues(list: List<UserReport>) {
+        setStatValue(R.id.reportHistoryStatTotalBlock, list.size.toString())
+        setStatValue(
+            R.id.reportHistoryStatResolvedBlock,
+            list.count { it.status == ReportStatusUi.RESOLVED }.toString()
+        )
+        setStatValue(
+            R.id.reportHistoryStatPendingBlock,
+            list.count { it.status == ReportStatusUi.PENDING }.toString()
+        )
+        setStatValue(
+            R.id.reportHistoryStatRejectedBlock,
+            list.count { it.status == ReportStatusUi.REJECTED }.toString()
+        )
     }
 
-    private fun spinnerAdapter(items: List<String>): ArrayAdapter<String> {
-        val adapter = ArrayAdapter(
-            this,
-            R.layout.spinner_item_my_activity,
-            android.R.id.text1,
-            items
-        )
-        adapter.setDropDownViewResource(R.layout.spinner_dropdown_my_activity)
-        return adapter
+    private fun setStatValue(includeId: Int, value: String) {
+        findViewById<View>(includeId).findViewById<TextView>(R.id.historyStatValue).text = value
+    }
+
+    private fun applyChipFilter(filter: StatusFilter) {
+        statusFilter = filter
+        refreshChipSelection()
+        refreshList()
+    }
+
+    private fun refreshChipSelection() {
+        val selectedBg = R.drawable.bg_history_chip_selected
+        val unselectedBg = R.drawable.bg_history_chip_unselected
+        val selectedText = ContextCompat.getColor(this, R.color.white)
+        val unselectedText = ContextCompat.getColor(this, R.color.register_button_green)
+
+        fun style(chip: TextView, selected: Boolean) {
+            chip.setBackgroundResource(if (selected) selectedBg else unselectedBg)
+            chip.setTextColor(if (selected) selectedText else unselectedText)
+        }
+
+        style(chipAll, statusFilter == StatusFilter.ALL)
+        style(chipResolved, statusFilter == StatusFilter.RESOLVED)
+        style(chipPending, statusFilter == StatusFilter.PENDING)
+        style(chipInProgress, statusFilter == StatusFilter.IN_PROGRESS)
     }
 
     private fun showReportDetailsDialog(report: UserReport) {
@@ -232,6 +241,7 @@ class MyActivityActivity : AppCompatActivity() {
         addRow(getString(R.string.my_activity_detail_report_type), reportTypeDisplay)
         addRow(getString(R.string.my_activity_detail_date_submitted), submitted)
         addRow(getString(R.string.my_activity_detail_location), location)
+        addRow(getString(R.string.my_activity_detail_status), report.statusLabel)
         addDescription(getString(R.string.my_activity_detail_description), report.description)
 
         val videoUrl = report.videoUrl.trim()
@@ -264,8 +274,7 @@ class MyActivityActivity : AppCompatActivity() {
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    val preview = photoUrl.ifBlank { videoUrl }
-                    load(preview)
+                    load(photoUrl.ifBlank { videoUrl })
                 }
                 val playSize = (44 * density).toInt()
                 val playPad = (8 * density).toInt()
@@ -283,25 +292,12 @@ class MyActivityActivity : AppCompatActivity() {
                     isFocusable = false
                 }
                 val openVideo = View.OnClickListener {
-                    MediaPlayback.openRemoteVideo(this@MyActivityActivity, videoUrl)
+                    MediaPlayback.openRemoteVideo(this@ReportHistoryActivity, videoUrl)
                 }
                 frame.setOnClickListener(openVideo)
                 frame.addView(thumb)
                 frame.addView(playOverlay)
                 content.addView(frame)
-                val caption = TextView(this).apply {
-                    text = getString(R.string.my_activity_attachment_video)
-                    setTextColor(getColor(R.color.activity_muted))
-                    textSize = 12f
-                    gravity = Gravity.CENTER_HORIZONTAL
-                    setPadding(
-                        (16 * density).toInt(),
-                        0,
-                        (16 * density).toInt(),
-                        (12 * density).toInt()
-                    )
-                }
-                content.addView(caption)
             }
             photoUrl.isNotEmpty() -> {
                 val img = ImageView(this).apply {
@@ -315,7 +311,7 @@ class MyActivityActivity : AppCompatActivity() {
                     scaleType = ImageView.ScaleType.CENTER_CROP
                     load(photoUrl)
                     setOnClickListener {
-                        MediaPlayback.openRemoteImage(this@MyActivityActivity, photoUrl)
+                        MediaPlayback.openRemoteImage(this@ReportHistoryActivity, photoUrl)
                     }
                 }
                 content.addView(img)
@@ -328,13 +324,8 @@ class MyActivityActivity : AppCompatActivity() {
             brandGreenValue = true
         )
 
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-
-        dialogView.findViewById<TextView>(R.id.receiptCloseButton).setOnClickListener {
-            dialog.dismiss()
-        }
+        val dialog = AlertDialog.Builder(this).setView(dialogView).create()
+        dialogView.findViewById<TextView>(R.id.receiptCloseButton).setOnClickListener { dialog.dismiss() }
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
     }
@@ -345,9 +336,7 @@ class MyActivityActivity : AppCompatActivity() {
             empty.text = getString(R.string.my_activity_sign_in)
             empty.visibility = View.VISIBLE
             recycler.visibility = View.GONE
-            statTotal.text = "0"
-            statPending.text = "0"
-            statResolved.text = "0"
+            updateStatValues(emptyList())
             allReports = emptyList()
             return
         }
@@ -356,7 +345,7 @@ class MyActivityActivity : AppCompatActivity() {
             uid,
             onUpdate = { list ->
                 allReports = list
-                updateStats(list)
+                updateStatValues(list)
                 refreshList()
             },
             onError = { msg ->
@@ -365,45 +354,49 @@ class MyActivityActivity : AppCompatActivity() {
         )
     }
 
-    private fun updateStats(list: List<UserReport>) {
-        statTotal.text = list.size.toString()
-        val open = list.count {
-            it.status == ReportStatusUi.PENDING || it.status == ReportStatusUi.IN_PROGRESS
-        }
-        statPending.text = open.toString()
-        statResolved.text = list.count { it.status == ReportStatusUi.RESOLVED }.toString()
-    }
-
     private fun refreshList() {
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid.isNullOrBlank()) return
 
-        var list = when (filterDimension) {
-            FilterDimension.DATE -> allReports
-            FilterDimension.STATUS -> when (filter) {
-                Filter.ALL -> allReports
-                Filter.PENDING -> allReports.filter { it.status == ReportStatusUi.PENDING }
-                Filter.IN_PROGRESS -> allReports.filter { it.status == ReportStatusUi.IN_PROGRESS }
-                Filter.RESOLVED -> allReports.filter { it.status == ReportStatusUi.RESOLVED }
-                Filter.TRENDING -> {
-                    val cal = Calendar.getInstance()
-                    cal.add(Calendar.DAY_OF_YEAR, -14)
-                    val cutoff = cal.timeInMillis
-                    allReports.filter { (it.submittedAt?.time ?: 0L) >= cutoff }
-                }
+        var list = when (statusFilter) {
+            StatusFilter.ALL -> allReports
+            StatusFilter.RESOLVED -> allReports.filter { it.status == ReportStatusUi.RESOLVED }
+            StatusFilter.PENDING -> allReports.filter { it.status == ReportStatusUi.PENDING }
+            StatusFilter.IN_PROGRESS -> allReports.filter { it.status == ReportStatusUi.IN_PROGRESS }
+            StatusFilter.REJECTED -> allReports.filter { it.status == ReportStatusUi.REJECTED }
+        }
+
+        val q = searchQuery.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            list = list.filter { report ->
+                val haystack = listOf(
+                    report.incidentType,
+                    report.locationLine,
+                    report.assignedAgency,
+                    report.description,
+                    report.statusLabel,
+                    report.id,
+                    report.displayReportRef()
+                ).joinToString(" ").lowercase(Locale.getDefault())
+                haystack.contains(q)
             }
         }
+
         list = if (newestFirst) {
             list.sortedByDescending { it.submittedAt?.time ?: 0L }
         } else {
             list.sortedBy { it.submittedAt?.time ?: 0L }
         }
-        adapter.submitList(list)
+
+        val grouped = buildGroupedList(list)
+        adapter.submitItems(grouped)
 
         pendingFocusReportId?.let { id ->
-            val pos = list.indexOfFirst { it.id == id }
-            if (pos >= 0) {
-                recycler.scrollToPosition(pos)
+            val index = grouped.indexOfFirst {
+                it is ReportHistoryListItem.ReportRow && it.report.id == id
+            }
+            if (index >= 0) {
+                recycler.scrollToPosition(index)
                 pendingFocusReportId = null
             }
         }
@@ -417,26 +410,49 @@ class MyActivityActivity : AppCompatActivity() {
         }
     }
 
+    private fun buildGroupedList(reports: List<UserReport>): List<ReportHistoryListItem> {
+        if (reports.isEmpty()) return emptyList()
+        val monthFmt = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+        val monthKeyFmt = SimpleDateFormat("yyyy-MM", Locale.US)
+        val byMonth = linkedMapOf<String, MutableList<UserReport>>()
+        val monthLabels = linkedMapOf<String, String>()
+
+        for (report in reports) {
+            val date = report.submittedAt ?: Date(0)
+            val key = monthKeyFmt.format(date)
+            monthLabels.getOrPut(key) { monthFmt.format(date).uppercase(Locale.getDefault()) }
+            byMonth.getOrPut(key) { mutableListOf() }.add(report)
+        }
+
+        val items = ArrayList<ReportHistoryListItem>()
+        for ((key, monthReports) in byMonth) {
+            val label = monthLabels[key].orEmpty()
+            items.add(ReportHistoryListItem.MonthHeader(label, monthReports.size))
+            monthReports.forEach { items.add(ReportHistoryListItem.ReportRow(it)) }
+        }
+        return items
+    }
+
     private fun setupBottomNav() {
-        findViewById<LinearLayout>(R.id.myActivityNavHome).setOnClickListener {
+        findViewById<LinearLayout>(R.id.reportHistoryNavHome).setOnClickListener {
             startActivity(
                 Intent(this, DashboardActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             )
             finish()
         }
-        findViewById<LinearLayout>(R.id.myActivityNavActivity).setOnClickListener { }
-        findViewById<LinearLayout>(R.id.myActivityNavHistory).setOnClickListener {
-            startActivity(Intent(this, ReportHistoryActivity::class.java))
+        findViewById<LinearLayout>(R.id.reportHistoryNavActivity).setOnClickListener {
+            startActivity(Intent(this, MyActivityActivity::class.java))
             finish()
         }
-        findViewById<LinearLayout>(R.id.myActivityNavNotification).setOnClickListener {
+        findViewById<LinearLayout>(R.id.reportHistoryNavHistory).setOnClickListener { }
+        findViewById<LinearLayout>(R.id.reportHistoryNavNotification).setOnClickListener {
             startActivity(Intent(this, NotificationActivity::class.java))
         }
-        findViewById<LinearLayout>(R.id.myActivityNavProfile).setOnClickListener {
+        findViewById<LinearLayout>(R.id.reportHistoryNavProfile).setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
-        findViewById<FrameLayout>(R.id.myActivityCameraFab).setOnClickListener {
+        findViewById<FrameLayout>(R.id.reportHistoryCameraFab).setOnClickListener {
             startActivity(
                 Intent(this, DashboardActivity::class.java)
                     .putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
@@ -447,7 +463,7 @@ class MyActivityActivity : AppCompatActivity() {
     }
 
     private fun updateNotificationBadge() {
-        val badge = findViewById<TextView>(R.id.myActivityNavBadge)
+        val badge = findViewById<TextView>(R.id.reportHistoryNavBadge)
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid.isNullOrBlank()) {
             badge.visibility = View.GONE

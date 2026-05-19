@@ -14,6 +14,8 @@ enum class ReportStatusUi {
 
 data class UserReport(
     val id: String,
+    /** Stored public reference, e.g. REP-20260505-WY5. Derived when missing on older docs. */
+    val publicReportId: String = "",
     val incidentType: String,
     val locationLine: String,
     val submittedAt: Date?,
@@ -104,8 +106,11 @@ data class UserReport(
                 latitude = null
                 longitude = null
             }
+            val publicReportId = doc.getString("publicReportId")?.trim().orEmpty()
+
             return UserReport(
                 id = id,
+                publicReportId = publicReportId,
                 incidentType = incidentType,
                 locationLine = locationLine,
                 submittedAt = submittedAt,
