@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid';
 import { LOGIN_MSG, performAgencyLogin } from '../services/agencyLogin';
 import { validateLoginForm } from '../utils/loginValidation';
@@ -79,7 +79,7 @@ export default function Login() {
       <div className="auth-form-body">
         <div className="auth-form-inner">
           <header className="auth-form-header">
-            <h1 className="auth-form-title">Welcome Back!</h1>
+            <h1 className="auth-form-title">Login</h1>
             <p className="auth-form-subtitle">
               Sign in to access your agency account.
             </p>
@@ -200,10 +200,6 @@ export default function Login() {
               </p>
             ) : null}
           </form>
-
-          <p className="auth-form-footer-link">
-            Need an account? <Link to="/signup">Sign up</Link>
-          </p>
         </div>
       </div>
 

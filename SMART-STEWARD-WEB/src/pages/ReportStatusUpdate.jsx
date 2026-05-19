@@ -204,27 +204,21 @@ export default function ReportStatusUpdate() {
               <SparklesIcon className="status-update-label__icon status-update-label__icon--green" aria-hidden />
               Select New Status
             </p>
-            <fieldset
-              className="status-update-radios"
+            <select
+              id="new-status"
+              className="status-update-select"
               aria-labelledby="new-status-label"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
               disabled={saving}
             >
-              <legend className="status-update-radios__legend">Choose one</legend>
-              <div className="status-update-radios__list">
-                {STATUS_UPDATE_KEYS.map((key) => (
-                  <label key={key} className="status-update-radio-row">
-                    <input
-                      type="radio"
-                      name="new-status"
-                      value={key}
-                      checked={selectedStatus === key}
-                      onChange={() => setSelectedStatus(key)}
-                    />
-                    <span>{WORKFLOW_STATUS_META[key].label}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+              <option value="">Select status</option>
+              {STATUS_UPDATE_KEYS.map((key) => (
+                <option key={key} value={key}>
+                  {WORKFLOW_STATUS_META[key].label}
+                </option>
+              ))}
+            </select>
             {submitError ? (
               <p className="status-update-error" role="alert">
                 {submitError}

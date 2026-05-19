@@ -7,6 +7,6 @@
     <dimen name="dashboard_zoom_controls_margin_with_sheet">230dp</dimen>
     <dimen name="dashboard_zoom_controls_margin_no_sheet">96dp</dimen>
     <dimen name="bottom_nav_fab_size">58dp</dimen>
-    <dimen name="bottom_nav_fab_lift">-26dp</dimen>
+    <dimen name="bottom_nav_fab_lift">-34dp</dimen>
     <dimen name="dashboard_bottom_sheet_peek">268dp</dimen>
 </resources>

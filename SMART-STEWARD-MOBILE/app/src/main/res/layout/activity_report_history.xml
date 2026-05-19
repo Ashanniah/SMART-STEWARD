@@ -260,6 +260,27 @@
                 android:textSize="11sp" />
         </LinearLayout>
 
+        <FrameLayout
+            android:id="@+id/reportHistoryCameraFab"
+            android:layout_width="@dimen/bottom_nav_fab_size"
+            android:layout_height="@dimen/bottom_nav_fab_size"
+            android:layout_gravity="center_vertical"
+            android:background="@drawable/bg_dashboard_camera_fab"
+            android:clickable="true"
+            android:elevation="14dp"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackgroundBorderless"
+            android:translationY="@dimen/bottom_nav_fab_lift">
+
+            <ImageView
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/open_camera"
+                android:src="@drawable/camera"
+                app:tint="@color/white" />
+        </FrameLayout>
+
         <LinearLayout
             android:id="@+id/reportHistoryNavHistory"
             android:layout_width="0dp"
@@ -281,10 +302,6 @@
                 android:textColor="@color/register_button_green"
                 android:textSize="11sp" />
         </LinearLayout>
-
-        <Space
-            android:layout_width="@dimen/bottom_nav_fab_size"
-            android:layout_height="1dp" />
 
         <LinearLayout
             android:id="@+id/reportHistoryNavNotification"
@@ -352,29 +369,5 @@
                 android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
-
-    <FrameLayout
-        android:id="@+id/reportHistoryCameraFab"
-        android:layout_width="@dimen/bottom_nav_fab_size"
-        android:layout_height="@dimen/bottom_nav_fab_size"
-        android:layout_marginBottom="4dp"
-        android:background="@drawable/bg_dashboard_camera_fab"
-        android:clickable="true"
-        android:elevation="14dp"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackgroundBorderless"
-        android:translationY="@dimen/bottom_nav_fab_lift"
-        app:layout_constraintBottom_toBottomOf="@id/reportHistoryBottomNav"
-        app:layout_constraintEnd_toEndOf="@id/reportHistoryBottomNav"
-        app:layout_constraintStart_toStartOf="@id/reportHistoryBottomNav">
-
-        <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:layout_gravity="center"
-            android:contentDescription="@string/open_camera"
-            android:src="@drawable/camera"
-            app:tint="@color/white" />
-    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
