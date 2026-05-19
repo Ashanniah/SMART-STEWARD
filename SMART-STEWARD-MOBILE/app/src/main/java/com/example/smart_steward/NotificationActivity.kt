@@ -36,7 +36,7 @@ class NotificationActivity : AppCompatActivity() {
             insets
         }
 
-        navBadge = findViewById(R.id.notificationNavBadge)
+        navBadge = findViewById(R.id.bottomNavBadge)
         recycler = findViewById(R.id.notificationRecycler)
         empty = findViewById(R.id.notificationEmpty)
 
@@ -79,37 +79,12 @@ class NotificationActivity : AppCompatActivity() {
             )
         }
 
-        findViewById<LinearLayout>(R.id.notificationNavHome).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
+        MainBottomNav.setup(this, MainBottomNavTab.NOTIFICATIONS)
+    }
 
-        findViewById<LinearLayout>(R.id.notificationNavActivity).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.notificationNavHistory).setOnClickListener {
-            startActivity(Intent(this, ReportHistoryActivity::class.java))
-            finish()
-        }
-
-        findViewById<LinearLayout>(R.id.notificationNavNotification).setOnClickListener { }
-
-        findViewById<LinearLayout>(R.id.notificationNavProfile).setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
-
-        findViewById<FrameLayout>(R.id.notificationCameraFab).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
+    override fun onResume() {
+        super.onResume()
+        MainBottomNav.updateBadge(this)
     }
 
     override fun onStart() {

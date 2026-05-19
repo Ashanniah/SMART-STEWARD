@@ -95,38 +95,7 @@ class IncidentFlowActivity : AppCompatActivity() {
             finish()
         }
 
-        findViewById<LinearLayout>(R.id.incidentNavHome).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
-
-        findViewById<LinearLayout>(R.id.incidentNavActivity).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.incidentNavHistory).setOnClickListener {
-            startActivity(Intent(this, ReportHistoryActivity::class.java))
-            finish()
-        }
-
-        findViewById<LinearLayout>(R.id.incidentNavNotification).setOnClickListener {
-            startActivity(Intent(this, NotificationActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.incidentNavProfile).setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
-
-        findViewById<FrameLayout>(R.id.incidentCameraFab).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
+        MainBottomNav.setup(this, selected = null)
 
         // Temporary camera content URIs may expire; copy to cache before AI / submit (stable path).
         CapturedMediaStore.capturedVideoUri?.let { u ->
@@ -219,7 +188,7 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        updateNotificationBadge()
+        MainBottomNav.updateBadge(this)
     }
 
     private fun loadVideoFrame(uri: Uri): Bitmap? {
@@ -235,23 +204,6 @@ class IncidentFlowActivity : AppCompatActivity() {
             } catch (_: Exception) {
             }
         }
-    }
-
-    private fun updateNotificationBadge() {
-        val badge = findViewById<TextView>(R.id.incidentNavBadge)
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-        if (uid.isNullOrBlank()) {
-            badge.visibility = View.GONE
-            return
-        }
-        CitizenNotificationsRepository.countUnread(uid, onResult = { unread ->
-            runOnUiThread {
-                badge.visibility = if (unread > 0) View.VISIBLE else View.GONE
-                if (unread > 0) {
-                    badge.text = if (unread > 99) "99+" else unread.toString()
-                }
-            }
-        })
     }
 
     private fun formatLocationForSubmit(display: String): String {

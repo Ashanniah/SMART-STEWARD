@@ -30,7 +30,10 @@ data class UserReport(
     /** Non-empty when the report includes uploaded video (preview image is in [photoUrl] when available). */
     val videoUrl: String = "",
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    /** Latest agency/admin note from a status update on the web panel (`lastStatusNote`). */
+    val lastStatusNote: String = "",
+    val statusUpdatedAt: Date? = null
 ) {
     val progressPercent: Int
         get() = when (status) {
@@ -107,6 +110,17 @@ data class UserReport(
                 longitude = null
             }
             val publicReportId = doc.getString("publicReportId")?.trim().orEmpty()
+            val lastStatusNote = sequenceOf(
+                doc.getString("lastStatusNote"),
+                doc.getString("statusNote"),
+                doc.getString("adminRemarks"),
+                doc.getString("remarks")
+            ).mapNotNull { it?.trim()?.takeIf { s -> s.isNotEmpty() } }.firstOrNull().orEmpty()
+            val statusUpdatedAt = when (val ts = doc.get("statusUpdatedAt")) {
+                is Timestamp -> ts.toDate()
+                is Date -> ts
+                else -> null
+            }
 
             return UserReport(
                 id = id,
@@ -122,7 +136,9 @@ data class UserReport(
                 photoUrl = doc.getString("photoUrl").orEmpty(),
                 videoUrl = doc.getString("videoUrl").orEmpty(),
                 latitude = latitude,
-                longitude = longitude
+                longitude = longitude,
+                lastStatusNote = lastStatusNote,
+                statusUpdatedAt = statusUpdatedAt
             )
         }
 

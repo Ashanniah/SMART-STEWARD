@@ -26,6 +26,7 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnLayout
+import androidx.core.view.updatePadding
 import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -162,9 +163,13 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.dashboardRoot)) { view, insets ->
+        val topBar = findViewById<LinearLayout>(R.id.dashboardTopBar)
+        val bottomNav = findViewById<LinearLayout>(R.id.mainBottomNav)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.dashboardRoot)) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            topBar.updatePadding(top = 10 + systemBars.top)
+            bottomNav.updatePadding(bottom = 6 + systemBars.bottom)
+            topBar.doOnLayout { applyMapPadding() }
             insets
         }
 
@@ -180,31 +185,13 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         setupSearch()
         setupQuickCard()
 
-        if (intent.getBooleanExtra(EXTRA_OPEN_CAMERA, false)) {
-            findViewById<View>(R.id.dashboardRoot).post {
-                showMediaCaptureDialog()
-            }
-        }
+        maybeShowMediaCaptureFromIntent(intent)
 
-        findViewById<LinearLayout>(R.id.dashboardNavActivity).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.dashboardNavHistory).setOnClickListener {
-            startActivity(Intent(this, ReportHistoryActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.dashboardNavNotification).setOnClickListener {
-            startActivity(Intent(this, NotificationActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.dashboardNavProfile).setOnClickListener {
+        findViewById<View>(R.id.dashboardHeaderProfile).setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
 
-        findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnClickListener {
-            showMediaCaptureDialog()
-        }
+        MainBottomNav.setup(this, MainBottomNavTab.HOME)
 
         watchReports()
         updateZoomControlsPosition()
@@ -212,7 +199,21 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onResume() {
         super.onResume()
-        updateNotificationBadge()
+        MainBottomNav.updateBadge(this)
+        ProfileInitials.bind(findViewById(R.id.dashboardHeaderProfileInitials))
+    }
+
+    fun openMediaCaptureChooser() {
+        findViewById<View>(R.id.dashboardRoot).post {
+            showMediaCaptureDialog()
+        }
+    }
+
+    private fun maybeShowMediaCaptureFromIntent(source: Intent?) {
+        if (source?.getBooleanExtra(EXTRA_OPEN_CAMERA, false) != true) return
+        findViewById<View>(R.id.dashboardRoot).post {
+            showMediaCaptureDialog()
+        }
     }
 
     private fun showMediaCaptureDialog() {
@@ -249,7 +250,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.uiSettings.isMapToolbarEnabled = false
         googleMap.uiSettings.isMyLocationButtonEnabled = false
         googleMap.uiSettings.isCompassEnabled = false
-        findViewById<LinearLayout>(R.id.dashboardBottomNav).doOnLayout { applyMapPadding() }
+        findViewById<LinearLayout>(R.id.dashboardTopBar).doOnLayout { applyMapPadding() }
+        findViewById<LinearLayout>(R.id.mainBottomNav).doOnLayout { applyMapPadding() }
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(talamban, 14f))
         googleMap.setOnInfoWindowClickListener { marker ->
             val report = marker.tag as? UserReport ?: return@setOnInfoWindowClickListener
@@ -272,6 +274,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         setIntent(intent)
         captureFocusIntent(intent)
         applyFiltersAndRender()
+        maybeShowMediaCaptureFromIntent(intent)
     }
 
     private fun captureFocusIntent(i: Intent?) {
@@ -338,7 +341,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
         adapter = DashboardNearIncidentsAdapter { report ->
             focusReport(report, openSheet = false)
-            showReportDetailsDialog(report)
+            ReportReceiptDialog.show(this, report)
         }
         findViewById<RecyclerView>(R.id.dashboardNearRecycler).apply {
             layoutManager = LinearLayoutManager(this@DashboardActivity)
@@ -847,130 +850,18 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         activeQuickCardReport = null
     }
 
-    private fun showReportDetailsDialog(report: UserReport) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_report_receipt, null)
-        dialogView.findViewById<TextView>(R.id.receiptHeaderId).text = report.displayReportRef()
-        val content = dialogView.findViewById<LinearLayout>(R.id.receiptContent)
-
-        fun addRow(label: String, value: String, highlightAgency: Boolean = false) {
-            val row = layoutInflater.inflate(R.layout.item_receipt_row, content, false)
-            row.findViewById<TextView>(R.id.receiptRowLabel).text = label
-            val valueView = row.findViewById<TextView>(R.id.receiptRowValue)
-            valueView.text = value.ifBlank { "—" }
-            if (highlightAgency) {
-                valueView.setTextColor(getColor(R.color.register_button_green))
-            }
-            content.addView(row)
-        }
-
-        fun addDescription(label: String, body: String) {
-            val block = layoutInflater.inflate(R.layout.item_receipt_description, content, false)
-            block.findViewById<TextView>(R.id.receiptDescLabel).text = label
-            block.findViewById<TextView>(R.id.receiptDescBody).text = body.ifBlank { "—" }
-            content.addView(block)
-        }
-
-        val dateFmt = java.text.SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault())
-        val submitted = report.submittedAt?.let { dateFmt.format(it) } ?: "—"
-
-        addRow(getString(R.string.my_activity_detail_report_id), report.displayReportRef())
-        addRow(getString(R.string.my_activity_detail_report_type), report.incidentType.trim().ifBlank { "—" })
-        addRow(getString(R.string.my_activity_detail_date_submitted), submitted)
-        addRow(getString(R.string.my_activity_detail_location), report.locationDisplay())
-        addDescription(getString(R.string.my_activity_detail_description), report.description)
-
-        val videoUrl = report.videoUrl.trim()
-        val photoUrl = report.photoUrl.trim()
-        val attachmentSummary = when {
-            videoUrl.isNotEmpty() -> getString(R.string.my_activity_attachment_video)
-            photoUrl.isNotEmpty() -> getString(R.string.my_activity_attachment_photo)
-            else -> getString(R.string.my_activity_attachment_none)
-        }
-        addRow(getString(R.string.my_activity_detail_attachment), attachmentSummary)
-
-        val density = resources.displayMetrics.density
-        when {
-            videoUrl.isNotEmpty() -> {
-                val frame = FrameLayout(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        (180 * density).toInt()
-                    ).apply {
-                        val m = (16 * density).toInt()
-                        setMargins(m, 0, m, (8 * density).toInt())
-                    }
-                    isClickable = true
-                    isFocusable = true
-                }
-                val thumb = ImageView(this).apply {
-                    layoutParams = FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT
-                    )
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    val preview = photoUrl.ifBlank { videoUrl }
-                    load(preview)
-                }
-                val playOverlay = ImageView(this).apply {
-                    layoutParams = FrameLayout.LayoutParams(
-                        (44 * density).toInt(),
-                        (44 * density).toInt()
-                    ).apply { gravity = android.view.Gravity.CENTER }
-                    setBackgroundResource(R.drawable.bg_play_circle)
-                    setImageResource(android.R.drawable.ic_media_play)
-                    imageTintList = ColorStateList.valueOf(getColor(R.color.white))
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    val p = (8 * density).toInt()
-                    setPadding(p, p, p, p)
-                }
-                frame.setOnClickListener { MediaPlayback.openRemoteVideo(this, videoUrl) }
-                frame.addView(thumb)
-                frame.addView(playOverlay)
-                content.addView(frame)
-            }
-            photoUrl.isNotEmpty() -> {
-                val image = ImageView(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        (180 * density).toInt()
-                    ).apply {
-                        val m = (16 * density).toInt()
-                        setMargins(m, 0, m, (8 * density).toInt())
-                    }
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    load(photoUrl)
-                    setOnClickListener { MediaPlayback.openRemoteImage(this@DashboardActivity, photoUrl) }
-                }
-                content.addView(image)
-            }
-        }
-
-        addRow(
-            getString(R.string.my_activity_detail_assigned),
-            report.assignedAgency.trim().ifBlank { "—" },
-            highlightAgency = true
-        )
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-        dialogView.findViewById<TextView>(R.id.receiptCloseButton).setOnClickListener {
-            dialog.dismiss()
-        }
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        dialog.show()
-    }
-
     private fun applyMapPadding() {
         val gMap = map ?: return
-        val nav = findViewById<LinearLayout>(R.id.dashboardBottomNav)
+        val topBar = findViewById<LinearLayout>(R.id.dashboardTopBar)
+        val nav = findViewById<LinearLayout>(R.id.mainBottomNav)
         val fabLift = abs(resources.getDimensionPixelSize(R.dimen.bottom_nav_fab_lift))
         val sheetPad = if (::bottomSheet.isInitialized && bottomSheet.visibility == View.VISIBLE) {
             resources.getDimensionPixelSize(R.dimen.dashboard_bottom_sheet_peek)
         } else {
             0
         }
-        gMap.setPadding(0, 180, 0, nav.height + fabLift + sheetPad + 24)
+        val topPad = if (topBar.height > 0) topBar.height else (180 * resources.displayMetrics.density).toInt()
+        gMap.setPadding(0, topPad, 0, nav.height + fabLift + sheetPad + 24)
     }
 
     override fun onDestroy() {
@@ -979,20 +870,4 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onDestroy()
     }
 
-    private fun updateNotificationBadge() {
-        val badge = findViewById<TextView>(R.id.dashboardNavBadge)
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-        if (uid.isNullOrBlank()) {
-            badge.visibility = View.GONE
-            return
-        }
-        CitizenNotificationsRepository.countUnread(uid, onResult = { unread ->
-            runOnUiThread {
-                badge.visibility = if (unread > 0) View.VISIBLE else View.GONE
-                if (unread > 0) {
-                    badge.text = if (unread > 99) "99+" else unread.toString()
-                }
-            }
-        })
-    }
 }

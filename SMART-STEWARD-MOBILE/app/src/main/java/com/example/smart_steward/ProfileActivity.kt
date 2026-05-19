@@ -12,7 +12,6 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.smart_steward.api.ApiProvider
 import com.example.smart_steward.api.routes.AuthRoutes
 import com.google.firebase.auth.FirebaseAuth
-import java.util.Locale
 
 class ProfileActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,41 +71,13 @@ class ProfileActivity : AppCompatActivity() {
                 .show()
         }
 
-        findViewById<LinearLayout>(R.id.profileNavHome).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
-
-        findViewById<LinearLayout>(R.id.profileNavActivity).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.profileNavHistory).setOnClickListener {
-            startActivity(Intent(this, ReportHistoryActivity::class.java))
-            finish()
-        }
-
-        findViewById<LinearLayout>(R.id.profileNavNotification).setOnClickListener {
-            startActivity(Intent(this, NotificationActivity::class.java))
-        }
-
-        findViewById<FrameLayout>(R.id.profileCameraFab).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
+        MainBottomNav.setup(this, selected = null)
     }
 
     override fun onResume() {
         super.onResume()
         bindProfileHeader()
-        updateNotificationBadge()
+        MainBottomNav.updateBadge(this)
     }
 
     private fun bindProfileHeader() {
@@ -116,14 +87,7 @@ class ProfileActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.profileName).text = name
         findViewById<TextView>(R.id.profileEmail).text = user?.email.takeUnless { it.isNullOrBlank() }
             ?: getString(R.string.profile_email_placeholder)
-        findViewById<TextView>(R.id.profileInitials).text = initialsFromDisplayName(name)
-    }
-
-    private fun initialsFromDisplayName(displayName: String): String {
-        val parts = displayName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return "?"
-        if (parts.size == 1) return parts[0].take(2).uppercase(Locale.getDefault())
-        return (parts[0].first().toString() + parts[1].first().toString()).uppercase(Locale.getDefault())
+        findViewById<TextView>(R.id.profileInitials).text = ProfileInitials.fromDisplayName(name)
     }
 
     private fun versionLabel(): String {
@@ -143,20 +107,4 @@ class ProfileActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateNotificationBadge() {
-        val badge = findViewById<TextView>(R.id.profileNavBadge)
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-        if (uid.isNullOrBlank()) {
-            badge.visibility = android.view.View.GONE
-            return
-        }
-        CitizenNotificationsRepository.countUnread(uid, onResult = { unread ->
-            runOnUiThread {
-                badge.visibility = if (unread > 0) android.view.View.VISIBLE else android.view.View.GONE
-                if (unread > 0) {
-                    badge.text = if (unread > 99) "99+" else unread.toString()
-                }
-            }
-        })
-    }
 }

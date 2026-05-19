@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mainBottomNav"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/bottom_nav_height"
+    android:background="@drawable/bg_dashboard_bottom_nav"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:elevation="16dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="6dp">
+
+    <LinearLayout
+        android:id="@+id/bottomNavHome"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <ImageView
+            android:id="@+id/bottomNavHomeIcon"
+            android:layout_width="@dimen/bottom_nav_icon_size"
+            android:layout_height="@dimen/bottom_nav_icon_size"
+            android:contentDescription="@string/home"
+            android:src="@drawable/home"
+            app:tint="@color/bottom_nav_inactive" />
+
+        <TextView
+            android:id="@+id/bottomNavHomeLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/home"
+            android:textColor="@color/bottom_nav_inactive"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/bottomNavActivity"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <ImageView
+            android:id="@+id/bottomNavActivityIcon"
+            android:layout_width="@dimen/bottom_nav_icon_size"
+            android:layout_height="@dimen/bottom_nav_icon_size"
+            android:contentDescription="@string/activity"
+            android:src="@drawable/activity"
+            app:tint="@color/bottom_nav_inactive" />
+
+        <TextView
+            android:id="@+id/bottomNavActivityLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/activity"
+            android:textColor="@color/bottom_nav_inactive"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/bottomNavCameraFab"
+        android:layout_width="@dimen/bottom_nav_fab_size"
+        android:layout_height="@dimen/bottom_nav_fab_size"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_dashboard_camera_fab"
+        android:clickable="true"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:contentDescription="@string/open_camera"
+        android:elevation="18dp"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackgroundBorderless"
+        android:translationY="@dimen/bottom_nav_fab_lift">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:scaleType="fitCenter"
+            android:src="@drawable/camera"
+            app:tint="@color/white" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/bottomNavHistory"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <ImageView
+            android:id="@+id/bottomNavHistoryIcon"
+            android:layout_width="@dimen/bottom_nav_icon_size"
+            android:layout_height="@dimen/bottom_nav_icon_size"
+            android:contentDescription="@string/nav_history"
+            android:src="@drawable/ic_nav_history"
+            app:tint="@color/bottom_nav_inactive" />
+
+        <TextView
+            android:id="@+id/bottomNavHistoryLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_history"
+            android:textColor="@color/bottom_nav_inactive"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/bottomNavNotification"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <ImageView
+                android:id="@+id/bottomNavNotificationIcon"
+                android:layout_width="@dimen/bottom_nav_icon_size"
+                android:layout_height="@dimen/bottom_nav_icon_size"
+                android:contentDescription="@string/nav_alerts"
+                android:src="@drawable/notification"
+                app:tint="@color/bottom_nav_inactive" />
+
+            <TextView
+                android:id="@+id/bottomNavBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="16dp"
+                android:layout_gravity="end|top"
+                android:layout_marginTop="-2dp"
+                android:layout_marginEnd="-4dp"
+                android:background="@drawable/bg_notif_nav_badge_red"
+                android:gravity="center"
+                android:minWidth="16dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:textColor="@color/white"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="3"
+                tools:visibility="visible" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/bottomNavNotificationLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_alerts"
+            android:textColor="@color/bottom_nav_inactive"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+</LinearLayout>

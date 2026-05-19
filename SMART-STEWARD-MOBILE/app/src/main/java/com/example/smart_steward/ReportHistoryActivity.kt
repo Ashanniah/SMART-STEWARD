@@ -132,17 +132,17 @@ class ReportHistoryActivity : AppCompatActivity() {
 
         recycler = findViewById(R.id.reportHistoryRecycler)
         recycler.layoutManager = LinearLayoutManager(this)
-        adapter = ReportHistoryAdapter(onViewReport = { showReportDetailsDialog(it) })
+        adapter = ReportHistoryAdapter(onViewReport = { ReportReceiptDialog.show(this, it) })
         recycler.adapter = adapter
 
-        setupBottomNav()
+        MainBottomNav.setup(this, MainBottomNavTab.HISTORY)
         startReportsWatcher()
     }
 
     override fun onResume() {
         super.onResume()
         if (reportsListener == null) startReportsWatcher()
-        updateNotificationBadge()
+        MainBottomNav.updateBadge(this)
     }
 
     override fun onStop() {
@@ -205,129 +205,6 @@ class ReportHistoryActivity : AppCompatActivity() {
         style(chipResolved, statusFilter == StatusFilter.RESOLVED)
         style(chipPending, statusFilter == StatusFilter.PENDING)
         style(chipInProgress, statusFilter == StatusFilter.IN_PROGRESS)
-    }
-
-    private fun showReportDetailsDialog(report: UserReport) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_report_receipt, null)
-        dialogView.findViewById<TextView>(R.id.receiptHeaderId).text = report.displayReportRef()
-        val content = dialogView.findViewById<LinearLayout>(R.id.receiptContent)
-
-        fun addRow(label: String, value: String, brandGreenValue: Boolean = false) {
-            val row = layoutInflater.inflate(R.layout.item_receipt_row, content, false)
-            row.findViewById<TextView>(R.id.receiptRowLabel).text = label
-            val tv = row.findViewById<TextView>(R.id.receiptRowValue)
-            tv.text = value.ifBlank { "—" }
-            if (brandGreenValue) {
-                tv.setTextColor(getColor(R.color.register_button_green))
-                tv.setTypeface(tv.typeface, Typeface.NORMAL)
-                tv.textSize = 14f
-            }
-            content.addView(row)
-        }
-
-        fun addDescription(label: String, body: String) {
-            val block = layoutInflater.inflate(R.layout.item_receipt_description, content, false)
-            block.findViewById<TextView>(R.id.receiptDescLabel).text = label
-            block.findViewById<TextView>(R.id.receiptDescBody).text = body.ifBlank { "—" }
-            content.addView(block)
-        }
-
-        val reportTypeDisplay = report.incidentType.trim().ifBlank { "—" }
-        val dateFmt = SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault())
-        val submitted = report.submittedAt?.let { dateFmt.format(it) } ?: "—"
-        val location = report.locationLine.removePrefix("Location:").trim().ifBlank { "—" }
-
-        addRow(getString(R.string.my_activity_detail_report_id), report.displayReportRef())
-        addRow(getString(R.string.my_activity_detail_report_type), reportTypeDisplay)
-        addRow(getString(R.string.my_activity_detail_date_submitted), submitted)
-        addRow(getString(R.string.my_activity_detail_location), location)
-        addRow(getString(R.string.my_activity_detail_status), report.statusLabel)
-        addDescription(getString(R.string.my_activity_detail_description), report.description)
-
-        val videoUrl = report.videoUrl.trim()
-        val photoUrl = report.photoUrl.trim()
-        val attachmentSummary = when {
-            videoUrl.isNotEmpty() -> getString(R.string.my_activity_attachment_video)
-            photoUrl.isNotEmpty() -> getString(R.string.my_activity_attachment_photo)
-            else -> getString(R.string.my_activity_attachment_none)
-        }
-        addRow(getString(R.string.my_activity_detail_attachment), attachmentSummary)
-
-        val density = resources.displayMetrics.density
-        when {
-            videoUrl.isNotEmpty() -> {
-                val thumbHeight = (180 * density).toInt()
-                val hMargin = (16 * density).toInt()
-                val frame = FrameLayout(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        thumbHeight
-                    ).apply {
-                        setMargins(hMargin, 0, hMargin, (8 * density).toInt())
-                    }
-                    isClickable = true
-                    isFocusable = true
-                }
-                val thumb = ImageView(this).apply {
-                    layoutParams = FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    load(photoUrl.ifBlank { videoUrl })
-                }
-                val playSize = (44 * density).toInt()
-                val playPad = (8 * density).toInt()
-                val playOverlay = ImageView(this).apply {
-                    layoutParams = FrameLayout.LayoutParams(playSize, playSize).apply {
-                        gravity = Gravity.CENTER
-                    }
-                    setBackgroundResource(R.drawable.bg_play_circle)
-                    setImageResource(android.R.drawable.ic_media_play)
-                    imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.white))
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    setPadding(playPad, playPad, playPad, playPad)
-                    contentDescription = getString(R.string.play_video)
-                    isClickable = false
-                    isFocusable = false
-                }
-                val openVideo = View.OnClickListener {
-                    MediaPlayback.openRemoteVideo(this@ReportHistoryActivity, videoUrl)
-                }
-                frame.setOnClickListener(openVideo)
-                frame.addView(thumb)
-                frame.addView(playOverlay)
-                content.addView(frame)
-            }
-            photoUrl.isNotEmpty() -> {
-                val img = ImageView(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        (180 * density).toInt()
-                    ).apply {
-                        val m = (16 * density).toInt()
-                        setMargins(m, 0, m, (8 * density).toInt())
-                    }
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    load(photoUrl)
-                    setOnClickListener {
-                        MediaPlayback.openRemoteImage(this@ReportHistoryActivity, photoUrl)
-                    }
-                }
-                content.addView(img)
-            }
-        }
-
-        addRow(
-            getString(R.string.my_activity_detail_assigned),
-            report.assignedAgency.trim().ifBlank { "—" },
-            brandGreenValue = true
-        )
-
-        val dialog = AlertDialog.Builder(this).setView(dialogView).create()
-        dialogView.findViewById<TextView>(R.id.receiptCloseButton).setOnClickListener { dialog.dismiss() }
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        dialog.show()
     }
 
     private fun startReportsWatcher() {
@@ -433,49 +310,4 @@ class ReportHistoryActivity : AppCompatActivity() {
         return items
     }
 
-    private fun setupBottomNav() {
-        findViewById<LinearLayout>(R.id.reportHistoryNavHome).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
-        findViewById<LinearLayout>(R.id.reportHistoryNavActivity).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
-            finish()
-        }
-        findViewById<LinearLayout>(R.id.reportHistoryNavHistory).setOnClickListener { }
-        findViewById<LinearLayout>(R.id.reportHistoryNavNotification).setOnClickListener {
-            startActivity(Intent(this, NotificationActivity::class.java))
-        }
-        findViewById<LinearLayout>(R.id.reportHistoryNavProfile).setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
-        findViewById<FrameLayout>(R.id.reportHistoryCameraFab).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
-    }
-
-    private fun updateNotificationBadge() {
-        val badge = findViewById<TextView>(R.id.reportHistoryNavBadge)
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-        if (uid.isNullOrBlank()) {
-            badge.visibility = View.GONE
-            return
-        }
-        CitizenNotificationsRepository.countUnread(uid, onResult = { unread ->
-            runOnUiThread {
-                badge.visibility = if (unread > 0) View.VISIBLE else View.GONE
-                if (unread > 0) {
-                    badge.text = if (unread > 99) "99+" else unread.toString()
-                }
-            }
-        })
-    }
 }

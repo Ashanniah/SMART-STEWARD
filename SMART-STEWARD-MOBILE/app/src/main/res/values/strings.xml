@@ -244,6 +244,7 @@ Talamban</string>
     <string name="my_activity_detail_date_submitted">Date Submitted:</string>
     <string name="my_activity_detail_location">Location:</string>
     <string name="my_activity_detail_status">Status:</string>
+    <string name="my_activity_detail_admin_remarks">Agency Remarks:</string>
     <string name="my_activity_detail_description">Description:</string>
     <string name="my_activity_detail_attachment">Attached Photo/Video:</string>
     <string name="my_activity_detail_assigned">Assigned To:</string>
@@ -266,6 +267,7 @@ Talamban</string>
     <string name="history_reports_in_month">%1$d REPORTS</string>
     <string name="content_desc_filter">Sort order</string>
     <string name="content_desc_back">Back</string>
+    <string name="content_desc_open_profile">Open profile</string>
     <string name="remember_me">Remember me</string>
 
     <string name="ai_analysis_title">AI Analyzing Incident</string>

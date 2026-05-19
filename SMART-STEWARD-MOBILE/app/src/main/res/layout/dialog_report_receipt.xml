@@ -18,29 +18,25 @@
         android:paddingBottom="14dp">
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:text="@string/report_receipt_banner"
             android:textAllCaps="true"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/receiptHeaderId"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/white"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            tools:text="#REP-001" />
     </LinearLayout>
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/receiptScroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fillViewport="true">
+        android:clipToPadding="false"
+        android:fadeScrollbars="false"
+        android:fillViewport="false"
+        android:maxHeight="@dimen/report_receipt_scroll_max_height"
+        android:overScrollMode="ifContentScrolls"
+        android:scrollbars="vertical">
 
         <LinearLayout
             android:id="@+id/receiptContent"
@@ -48,7 +44,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingBottom="8dp" />
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
     <TextView
         android:id="@+id/receiptCloseButton"
