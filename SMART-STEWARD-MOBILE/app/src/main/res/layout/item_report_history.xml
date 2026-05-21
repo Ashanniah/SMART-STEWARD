@@ -4,15 +4,13 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:clipChildren="false"
-    android:clipToPadding="false"
     android:orientation="horizontal"
     android:paddingBottom="12dp">
 
     <FrameLayout
-        android:layout_width="20dp"
+        android:layout_width="22dp"
         android:layout_height="match_parent"
-        android:layout_marginEnd="8dp">
+        android:layout_marginEnd="10dp">
 
         <View
             android:id="@+id/historyTimelineLine"
@@ -26,7 +24,7 @@
             android:layout_width="10dp"
             android:layout_height="10dp"
             android:layout_gravity="center_horizontal|top"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="22dp"
             android:background="@drawable/bg_history_timeline_dot" />
     </FrameLayout>
 
@@ -37,8 +35,7 @@
         app:cardBackgroundColor="@color/activity_card_bg"
         app:cardCornerRadius="14dp"
         app:cardElevation="2dp"
-        app:strokeColor="#12000000"
-        app:strokeWidth="1dp">
+        app:strokeWidth="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -54,15 +51,17 @@
 
                 <FrameLayout
                     android:id="@+id/historyThumbContainer"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp">
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:background="@drawable/bg_history_thumb"
+                    android:clipToOutline="true">
 
                     <TextView
                         android:id="@+id/historyTypeIcon"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:gravity="center"
-                        android:textSize="18sp"
+                        android:textSize="20sp"
                         tools:text="🔥" />
 
                     <ImageView
@@ -77,7 +76,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -94,14 +93,14 @@
                         android:id="@+id/historyLocation"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:drawablePadding="4dp"
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:textColor="@color/activity_muted"
                         android:textSize="12sp"
                         app:drawableStartCompat="@drawable/ic_review_pin"
-                        tools:text="Brgy. Lahug" />
+                        tools:text="CebuIT, 3rd Floor, AS Building, UP..." />
                 </LinearLayout>
 
                 <LinearLayout
@@ -116,7 +115,7 @@
                         android:layout_height="wrap_content"
                         android:textColor="@color/activity_muted"
                         android:textSize="11sp"
-                        tools:text="May 14" />
+                        tools:text="May 21" />
 
                     <TextView
                         android:id="@+id/historyStatusBadge"
@@ -129,7 +128,7 @@
                         android:paddingBottom="4dp"
                         android:textSize="10sp"
                         android:textStyle="bold"
-                        tools:text="Resolved" />
+                        tools:text="Pending" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -165,7 +164,7 @@
                     android:paddingBottom="4dp"
                     android:textColor="@color/activity_muted"
                     android:textSize="10sp"
-                    tools:text="REP-20250514-008" />
+                    tools:text="REP-20260521-ORK" />
 
                 <View
                     android:layout_width="0dp"

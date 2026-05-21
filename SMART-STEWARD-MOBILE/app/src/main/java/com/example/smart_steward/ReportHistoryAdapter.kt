@@ -103,14 +103,14 @@ class ReportHistoryAdapter(
             val iconView = itemView.findViewById<TextView>(R.id.historyTypeIcon)
             val thumb = itemView.findViewById<ImageView>(R.id.historyThumb)
             iconView.text = emoji
-            iconView.background = roundedRect(ContextCompat.getColor(ctx, tileColor), dp(ctx, 8f))
+            iconView.background = roundedRect(ContextCompat.getColor(ctx, tileColor), dp(ctx, 10f))
             val photoUrl = report.photoUrl.trim()
             if (photoUrl.isNotEmpty()) {
                 thumb.visibility = View.VISIBLE
                 iconView.visibility = View.GONE
                 thumb.load(photoUrl) {
                     crossfade(true)
-                    transformations(RoundedCornersTransformation(dp(ctx, 8f)))
+                    transformations(RoundedCornersTransformation(dp(ctx, 10f)))
                     listener(
                         onError = { _, _ ->
                             thumb.visibility = View.GONE
@@ -127,7 +127,12 @@ class ReportHistoryAdapter(
             val agencyChip = itemView.findViewById<TextView>(R.id.historyAgencyChip)
             val agency = AgencyCanonical.shortName(report.assignedAgency)
             agencyChip.text = agency
-            stylePill(agencyChip, agencyChipColor(agency, ctx), textOnFill = false)
+            stylePill(
+                agencyChip,
+                ContextCompat.getColor(ctx, R.color.activity_chip_bg),
+                textOnFill = false,
+                textColor = ContextCompat.getColor(ctx, R.color.activity_muted)
+            )
 
             val metaChip = itemView.findViewById<TextView>(R.id.historyMetaChip)
             if (report.status == ReportStatusUi.REJECTED) {
@@ -161,15 +166,6 @@ class ReportHistoryAdapter(
                     ContextCompat.getColor(ctx, R.color.activity_resolved_green)
                 ReportStatusUi.REJECTED ->
                     ContextCompat.getColor(ctx, R.color.activity_rejected_gray)
-            }
-
-        private fun agencyChipColor(agency: String, ctx: android.content.Context): Int =
-            when (agency) {
-                "BFP" -> ContextCompat.getColor(ctx, R.color.profile_tile_peach)
-                "DENR" -> ContextCompat.getColor(ctx, R.color.profile_tile_green)
-                "Barangay" -> ContextCompat.getColor(ctx, R.color.profile_tile_blue)
-                "PNP" -> ContextCompat.getColor(ctx, R.color.activity_chip_bg)
-                else -> ContextCompat.getColor(ctx, R.color.activity_chip_bg)
             }
 
         private fun stylePill(

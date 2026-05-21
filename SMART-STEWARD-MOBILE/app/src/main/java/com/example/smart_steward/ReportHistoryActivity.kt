@@ -1,28 +1,21 @@
 package com.example.smart_steward
 
-import android.content.Intent
-import android.graphics.Typeface
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.PopupMenu
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import coil.load
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import java.text.SimpleDateFormat
@@ -52,12 +45,9 @@ class ReportHistoryActivity : AppCompatActivity() {
     private lateinit var recycler: RecyclerView
     private lateinit var empty: TextView
     private lateinit var searchInput: EditText
+    private lateinit var statusSpinner: Spinner
+    private var spinnerSkipCallback = false
     private var reportsListener: ListenerRegistration? = null
-
-    private lateinit var chipAll: TextView
-    private lateinit var chipResolved: TextView
-    private lateinit var chipPending: TextView
-    private lateinit var chipInProgress: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,27 +65,27 @@ class ReportHistoryActivity : AppCompatActivity() {
 
         bindStatCard(
             R.id.reportHistoryStatTotalBlock,
-            accentColor = R.color.activity_accent_line,
-            label = getString(R.string.my_activity_total).uppercase(Locale.getDefault())
-        ) { statusFilter = StatusFilter.ALL; refreshChipSelection(); refreshList() }
+            iconRes = R.drawable.ic_stat_total,
+            label = getString(R.string.my_activity_total)
+        ) { applyStatusFilter(StatusFilter.ALL) }
 
         bindStatCard(
             R.id.reportHistoryStatResolvedBlock,
-            accentColor = R.color.activity_resolved_green,
-            label = getString(R.string.my_activity_resolved).uppercase(Locale.getDefault())
-        ) { statusFilter = StatusFilter.RESOLVED; refreshChipSelection(); refreshList() }
+            iconRes = R.drawable.ic_stat_resolved,
+            label = getString(R.string.my_activity_resolved)
+        ) { applyStatusFilter(StatusFilter.RESOLVED) }
 
         bindStatCard(
             R.id.reportHistoryStatPendingBlock,
-            accentColor = R.color.activity_progress_blue,
-            label = getString(R.string.my_activity_pending).uppercase(Locale.getDefault())
-        ) { statusFilter = StatusFilter.PENDING; refreshChipSelection(); refreshList() }
+            iconRes = R.drawable.ic_stat_pending,
+            label = getString(R.string.my_activity_pending)
+        ) { applyStatusFilter(StatusFilter.PENDING) }
 
         bindStatCard(
             R.id.reportHistoryStatRejectedBlock,
-            accentColor = R.color.activity_rejected_gray,
-            label = getString(R.string.my_activity_rejected).uppercase(Locale.getDefault())
-        ) { statusFilter = StatusFilter.REJECTED; refreshChipSelection(); refreshList() }
+            iconRes = R.drawable.ic_stat_rejected,
+            label = getString(R.string.my_activity_rejected)
+        ) { applyStatusFilter(StatusFilter.REJECTED) }
 
         empty = findViewById(R.id.reportHistoryEmpty)
         searchInput = findViewById(R.id.reportHistorySearchInput)
@@ -108,27 +98,8 @@ class ReportHistoryActivity : AppCompatActivity() {
             }
         })
 
-        chipAll = findViewById(R.id.reportHistoryChipAll)
-        chipResolved = findViewById(R.id.reportHistoryChipResolved)
-        chipPending = findViewById(R.id.reportHistoryChipPending)
-        chipInProgress = findViewById(R.id.reportHistoryChipInProgress)
-        chipAll.setOnClickListener { applyChipFilter(StatusFilter.ALL) }
-        chipResolved.setOnClickListener { applyChipFilter(StatusFilter.RESOLVED) }
-        chipPending.setOnClickListener { applyChipFilter(StatusFilter.PENDING) }
-        chipInProgress.setOnClickListener { applyChipFilter(StatusFilter.IN_PROGRESS) }
-        refreshChipSelection()
-
-        findViewById<ImageView>(R.id.reportHistorySortButton).setOnClickListener { anchor ->
-            val menu = PopupMenu(this, anchor)
-            menu.menu.add(0, 0, 0, R.string.my_activity_newest_first)
-            menu.menu.add(0, 1, 1, R.string.my_activity_oldest_first)
-            menu.setOnMenuItemClickListener { item ->
-                newestFirst = item.itemId == 0
-                refreshList()
-                true
-            }
-            menu.show()
-        }
+        statusSpinner = findViewById(R.id.reportHistoryFilterStatusSpinner)
+        setupStatusFilterSpinner()
 
         recycler = findViewById(R.id.reportHistoryRecycler)
         recycler.layoutManager = LinearLayoutManager(this)
@@ -151,17 +122,74 @@ class ReportHistoryActivity : AppCompatActivity() {
         reportsListener = null
     }
 
-    private fun bindStatCard(
-        includeId: Int,
-        accentColor: Int,
-        label: String,
-        onClick: () -> Unit
-    ) {
+    private fun setupStatusFilterSpinner() {
+        val labels = listOf(
+            getString(R.string.my_activity_select_status),
+            getString(R.string.my_activity_resolved),
+            getString(R.string.my_activity_pending),
+            getString(R.string.my_activity_in_progress),
+            getString(R.string.my_activity_rejected)
+        )
+        statusSpinner.adapter = spinnerAdapter(labels)
+        statusSpinner.setSelection(filterToSpinnerIndex(statusFilter))
+
+        statusSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (spinnerSkipCallback) return
+                applyStatusFilter(spinnerIndexToFilter(position))
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun spinnerIndexToFilter(index: Int): StatusFilter = when (index) {
+        1 -> StatusFilter.RESOLVED
+        2 -> StatusFilter.PENDING
+        3 -> StatusFilter.IN_PROGRESS
+        4 -> StatusFilter.REJECTED
+        else -> StatusFilter.ALL
+    }
+
+    private fun filterToSpinnerIndex(value: StatusFilter): Int = when (value) {
+        StatusFilter.RESOLVED -> 1
+        StatusFilter.PENDING -> 2
+        StatusFilter.IN_PROGRESS -> 3
+        StatusFilter.REJECTED -> 4
+        StatusFilter.ALL -> 0
+    }
+
+    private fun spinnerAdapter(items: List<String>): ArrayAdapter<String> {
+        val adapter = ArrayAdapter(
+            this,
+            R.layout.spinner_item_my_activity,
+            android.R.id.text1,
+            items
+        )
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown_my_activity)
+        return adapter
+    }
+
+    private fun bindStatCard(includeId: Int, iconRes: Int, label: String, onClick: () -> Unit) {
         val root = findViewById<View>(includeId)
-        root.findViewById<TextView>(R.id.historyStatLabel).text = label
-        root.findViewById<View>(R.id.historyStatAccent)
-            .setBackgroundColor(ContextCompat.getColor(this, accentColor))
+        root.findViewById<ImageView>(R.id.myActivityStatIcon).setImageResource(iconRes)
+        root.findViewById<TextView>(R.id.myActivityStatLabel).text = label
         root.setOnClickListener { onClick() }
+    }
+
+    private fun applyStatusFilter(filter: StatusFilter) {
+        statusFilter = filter
+        syncSpinnerToFilter()
+        refreshList()
+    }
+
+    private fun syncSpinnerToFilter() {
+        val index = filterToSpinnerIndex(statusFilter)
+        if (statusSpinner.selectedItemPosition != index) {
+            spinnerSkipCallback = true
+            statusSpinner.setSelection(index)
+            spinnerSkipCallback = false
+        }
     }
 
     private fun updateStatValues(list: List<UserReport>) {
@@ -181,30 +209,7 @@ class ReportHistoryActivity : AppCompatActivity() {
     }
 
     private fun setStatValue(includeId: Int, value: String) {
-        findViewById<View>(includeId).findViewById<TextView>(R.id.historyStatValue).text = value
-    }
-
-    private fun applyChipFilter(filter: StatusFilter) {
-        statusFilter = filter
-        refreshChipSelection()
-        refreshList()
-    }
-
-    private fun refreshChipSelection() {
-        val selectedBg = R.drawable.bg_history_chip_selected
-        val unselectedBg = R.drawable.bg_history_chip_unselected
-        val selectedText = ContextCompat.getColor(this, R.color.white)
-        val unselectedText = ContextCompat.getColor(this, R.color.register_button_green)
-
-        fun style(chip: TextView, selected: Boolean) {
-            chip.setBackgroundResource(if (selected) selectedBg else unselectedBg)
-            chip.setTextColor(if (selected) selectedText else unselectedText)
-        }
-
-        style(chipAll, statusFilter == StatusFilter.ALL)
-        style(chipResolved, statusFilter == StatusFilter.RESOLVED)
-        style(chipPending, statusFilter == StatusFilter.PENDING)
-        style(chipInProgress, statusFilter == StatusFilter.IN_PROGRESS)
+        findViewById<View>(includeId).findViewById<TextView>(R.id.myActivityStatValue).text = value
     }
 
     private fun startReportsWatcher() {
@@ -309,5 +314,4 @@ class ReportHistoryActivity : AppCompatActivity() {
         }
         return items
     }
-
 }

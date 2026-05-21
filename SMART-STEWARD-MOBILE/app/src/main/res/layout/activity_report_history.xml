@@ -6,8 +6,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/activity_page_bg"
-    android:clipChildren="false"
-    android:clipToPadding="false">
+    android:clipChildren="true"
+    android:clipToPadding="true">
 
     <LinearLayout
         android:id="@+id/reportHistoryTopBlock"
@@ -34,11 +34,10 @@
                 android:id="@+id/reportHistoryBack"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@drawable/bg_history_back_btn"
                 android:contentDescription="@string/content_desc_back"
-                android:padding="10dp"
+                android:padding="8dp"
                 android:src="@drawable/ic_chevron_left"
-                app:tint="@color/register_button_green" />
+                app:tint="@color/white" />
 
             <TextView
                 android:layout_width="0dp"
@@ -50,58 +49,15 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <ImageView
-                android:id="@+id/reportHistorySortButton"
+            <View
                 android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@drawable/bg_history_filter_btn"
-                android:contentDescription="@string/history_sort_menu"
-                android:padding="9dp"
-                android:src="@drawable/ic_filter_menu" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:orientation="horizontal">
-
-            <include
-                android:id="@+id/reportHistoryStatTotalBlock"
-                layout="@layout/include_history_stat_card"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="5dp"
-                android:layout_weight="1" />
-
-            <include
-                android:id="@+id/reportHistoryStatResolvedBlock"
-                layout="@layout/include_history_stat_card"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="5dp"
-                android:layout_weight="1" />
-
-            <include
-                android:id="@+id/reportHistoryStatPendingBlock"
-                layout="@layout/include_history_stat_card"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="5dp"
-                android:layout_weight="1" />
-
-            <include
-                android:id="@+id/reportHistoryStatRejectedBlock"
-                layout="@layout/include_history_stat_card"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
+                android:layout_height="40dp" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="4dp"
             android:background="@drawable/bg_history_search_field"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -112,7 +68,8 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_search" />
+                android:src="@drawable/ic_search"
+                app:tint="@color/activity_muted" />
 
             <EditText
                 android:id="@+id/reportHistorySearchInput"
@@ -129,60 +86,113 @@
                 android:textColorHint="@color/activity_muted"
                 android:textSize="14sp" />
         </LinearLayout>
-
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:clipToPadding="false"
-            android:scrollbars="none">
-
-            <LinearLayout
-                android:id="@+id/reportHistoryFilterChips"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/reportHistoryChipAll"
-                    style="@style/HistoryFilterChip"
-                    android:text="@string/my_activity_chip_all" />
-
-                <TextView
-                    android:id="@+id/reportHistoryChipResolved"
-                    style="@style/HistoryFilterChip"
-                    android:layout_marginStart="8dp"
-                    android:text="@string/my_activity_resolved" />
-
-                <TextView
-                    android:id="@+id/reportHistoryChipPending"
-                    style="@style/HistoryFilterChip"
-                    android:layout_marginStart="8dp"
-                    android:text="@string/my_activity_pending" />
-
-                <TextView
-                    android:id="@+id/reportHistoryChipInProgress"
-                    style="@style/HistoryFilterChip"
-                    android:layout_marginStart="8dp"
-                    android:text="@string/my_activity_in_progress" />
-            </LinearLayout>
-        </HorizontalScrollView>
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/reportHistoryRecycler"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:background="@color/activity_page_bg"
         android:clipToPadding="false"
+        android:elevation="0dp"
         android:paddingStart="12dp"
         android:paddingTop="4dp"
         android:paddingEnd="12dp"
         android:paddingBottom="88dp"
+        android:scrollbars="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/reportHistoryTopBlock"
+        app:layout_constraintTop_toBottomOf="@id/reportHistoryContentBlock"
         tools:listitem="@layout/item_report_history" />
+
+    <LinearLayout
+        android:id="@+id/reportHistoryContentBlock"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/activity_page_bg"
+        android:elevation="12dp"
+        android:orientation="vertical"
+        android:translationZ="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/reportHistoryTopBlock">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="14dp">
+
+            <include
+                android:id="@+id/reportHistoryStatTotalBlock"
+                layout="@layout/include_report_history_stat_card"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/reportHistoryStatResolvedBlock"
+                layout="@layout/include_report_history_stat_card"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/reportHistoryStatPendingBlock"
+                layout="@layout/include_report_history_stat_card"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/reportHistoryStatRejectedBlock"
+                layout="@layout/include_report_history_stat_card"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <View
+            android:id="@+id/reportHistorySectionDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:background="#D8E0DA" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="14dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="10dp">
+
+            <androidx.appcompat.widget.AppCompatSpinner
+                android:id="@+id/reportHistoryFilterStatusSpinner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:background="@drawable/bg_spinner_filter_green"
+                android:backgroundTint="@null"
+                android:dropDownVerticalOffset="4dp"
+                android:elevation="0dp"
+                android:minWidth="200dp"
+                android:minHeight="44dp"
+                android:paddingStart="14dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="36dp"
+                android:paddingBottom="10dp"
+                android:popupBackground="@android:color/white"
+                android:spinnerMode="dropdown"
+                android:stateListAnimator="@null" />
+        </FrameLayout>
+    </LinearLayout>
 
     <TextView
         android:id="@+id/reportHistoryEmpty"
@@ -197,7 +207,7 @@
         app:layout_constraintBottom_toBottomOf="@id/reportHistoryRecycler"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/reportHistoryTopBlock" />
+        app:layout_constraintTop_toBottomOf="@id/reportHistoryContentBlock" />
 
     <include
         layout="@layout/include_main_bottom_nav"
@@ -209,6 +219,5 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>
