@@ -26,10 +26,16 @@ import java.util.Locale
 
 class IncidentFlowActivity : AppCompatActivity() {
 
+    companion object {
+        private const val KEY_SCREEN_STATE = "incident_flow_screen_state"
+        private const val KEY_INITIAL_ANALYSIS_DONE = "incident_flow_initial_analysis_done"
+    }
+
     private enum class ScreenState {
         PREVIEW,
         ANALYZING,
         DETECTED,
+        NOT_DETECTED,
         EDIT,
         REANALYZING,
         SUBMITTED
@@ -39,6 +45,7 @@ class IncidentFlowActivity : AppCompatActivity() {
     private lateinit var previewContainer: View
     private lateinit var analyzingContainer: View
     private lateinit var detectedContainer: View
+    private lateinit var noIncidentContainer: View
     private lateinit var editContainer: View
     private lateinit var submittedContainer: View
     private lateinit var imagePreviewLarge: ImageView
@@ -57,6 +64,9 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     /** Latest classification payload from [AiAnalysisActivity] (activity result). */
     private var lastAnalysisResult: Intent? = null
+
+    /** True after the first AI pass finished; prevents re-analysis on rotation. */
+    private var initialAnalysisDone = false
 
     private val aiAnalysisLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -82,6 +92,7 @@ class IncidentFlowActivity : AppCompatActivity() {
         previewContainer = findViewById(R.id.previewContainer)
         analyzingContainer = findViewById(R.id.analyzingContainer)
         detectedContainer = findViewById(R.id.detectedContainer)
+        noIncidentContainer = findViewById(R.id.noIncidentContainer)
         editContainer = findViewById(R.id.editContainer)
         submittedContainer = findViewById(R.id.submittedContainer)
         imagePreviewLarge = findViewById(R.id.imagePreviewLarge)
@@ -128,28 +139,25 @@ class IncidentFlowActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.confirmSubmitButton).setOnClickListener {
+            syncEditToDetected()
             val description = descriptionInput.text.toString()
-            afterAiAnalysis = {
-                lastAnalysisResult?.let { applyAnalysisExtrasToReviewScreen(it) }
-                findViewById<TextView>(R.id.detectedDescriptionText).text = description
-                submitReportAndShowSubmitted(
-                    findViewById<TextView>(R.id.detectedIncidentTypeText).text.toString(),
-                    findViewById<TextView>(R.id.detectedAgencyText).text.toString(),
-                    description,
-                    formatLocationForSubmit(
-                        findViewById<TextView>(R.id.detectedLocationText).text.toString()
-                    )
+            findViewById<TextView>(R.id.detectedDescriptionText).text = description
+            submitReportAndShowSubmitted(
+                incidentType = findViewById<TextView>(R.id.detectedIncidentTypeText).text.toString(),
+                assignedAgency = findViewById<TextView>(R.id.detectedAgencyText).text.toString(),
+                description = description,
+                locationLine = formatLocationForSubmit(
+                    findViewById<TextView>(R.id.editLocationText).text.toString()
                 )
-            }
-            aiAnalysisLauncher.launch(
-                Intent(this, AiAnalysisActivity::class.java)
-                    .putExtra(AiAnalysisActivity.EXTRA_REANALYZE, true)
-                    .putExtra(AiAnalysisActivity.EXTRA_USER_MESSAGE, description)
             )
         }
 
         findViewById<Button>(R.id.backToDashboardButton).setOnClickListener {
             finish()
+        }
+
+        findViewById<Button>(R.id.noIncidentCaptureAgainButton).setOnClickListener {
+            navigateHome(openCamera = true)
         }
 
         findViewById<Button>(R.id.trackReportButton).setOnClickListener {
@@ -168,7 +176,29 @@ class IncidentFlowActivity : AppCompatActivity() {
             }
         }
 
-        startInitialAiAnalysis()
+        if (savedInstanceState != null) {
+            initialAnalysisDone = savedInstanceState.getBoolean(KEY_INITIAL_ANALYSIS_DONE, false)
+            if (initialAnalysisDone) {
+                restoreScreenState(savedInstanceState)
+            } else {
+                startInitialAiAnalysis()
+            }
+        } else {
+            startInitialAiAnalysis()
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(KEY_SCREEN_STATE, currentState.name)
+        outState.putBoolean(KEY_INITIAL_ANALYSIS_DONE, initialAnalysisDone)
+    }
+
+    /** After rotation or process restore, stay on the current step instead of re-running AI. */
+    private fun restoreScreenState(savedInstanceState: Bundle) {
+        val name = savedInstanceState.getString(KEY_SCREEN_STATE) ?: return
+        val restored = runCatching { ScreenState.valueOf(name) }.getOrNull() ?: return
+        showState(restored)
     }
 
     private fun startInitialAiAnalysis() {
@@ -182,8 +212,31 @@ class IncidentFlowActivity : AppCompatActivity() {
         previewContainer.visibility = View.GONE
         titleText.text = getString(R.string.incident_title_analyzing)
         finishOnAiCancel = true
-        afterAiAnalysis = { showState(ScreenState.DETECTED) }
+        afterAiAnalysis = { showAnalysisResultScreen() }
         aiAnalysisLauncher.launch(Intent(this, AiAnalysisActivity::class.java))
+    }
+
+    private fun showAnalysisResultScreen() {
+        initialAnalysisDone = true
+        if (isLastAnalysisReportable()) {
+            showState(ScreenState.DETECTED)
+        } else {
+            showState(ScreenState.NOT_DETECTED)
+        }
+    }
+
+    private fun isLastAnalysisReportable(): Boolean {
+        return lastAnalysisResult?.getBooleanExtra(AiAnalysisActivity.EXTRA_REPORTABLE, true) != false
+    }
+
+    private fun navigateHome(openCamera: Boolean) {
+        val intent = Intent(this, DashboardActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if (openCamera) {
+            intent.putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
+        }
+        startActivity(intent)
+        finish()
     }
 
     override fun onResume() {
@@ -256,9 +309,78 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     private fun populateDetectedReviewUi() {
         applyAnalysisExtrasToReviewScreen(lastAnalysisResult)
+        bindMediaPreview(
+            findViewById(R.id.detectedSinglePreview),
+            findViewById(R.id.detectedVideoPlayOverlay)
+        )
+        // Show the latest GPS reverse-geocode here (not only the value bundled from AI analysis).
+        refreshDetectedLocationFromGps()
+    }
 
-        val preview = findViewById<ImageView>(R.id.detectedSinglePreview)
-        val playOverlay = findViewById<ImageView>(R.id.detectedVideoPlayOverlay)
+    private fun populateNoIncidentUi() {
+        bindMediaPreview(
+            findViewById(R.id.noIncidentPreview),
+            findViewById(R.id.noIncidentVideoPlayOverlay)
+        )
+        updateNoIncidentVideoDurationBadge()
+        val summary = lastAnalysisResult
+            ?.getStringExtra(AiAnalysisActivity.EXTRA_DESCRIPTION)
+            .orEmpty()
+            .trim()
+        findViewById<TextView>(R.id.noIncidentExplanationText).text =
+            noIncidentExplanationText(summary)
+    }
+
+    private fun updateNoIncidentVideoDurationBadge() {
+        val badge = findViewById<TextView>(R.id.noIncidentVideoDuration)
+        val videoUri = CapturedMediaStore.capturedVideoUri
+        if (videoUri == null) {
+            badge.visibility = View.GONE
+            return
+        }
+        val ms = videoDurationMs(videoUri)
+        if (ms <= 0L) {
+            badge.visibility = View.GONE
+            return
+        }
+        badge.text = formatVideoDuration(ms)
+        badge.visibility = View.VISIBLE
+    }
+
+    private fun videoDurationMs(uri: Uri): Long {
+        val r = MediaMetadataRetriever()
+        return try {
+            r.setDataSource(this, uri)
+            r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+        } catch (_: Exception) {
+            0L
+        } finally {
+            try {
+                r.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun formatVideoDuration(ms: Long): String {
+        val totalSec = (ms / 1000).toInt().coerceAtLeast(0)
+        val min = totalSec / 60
+        val sec = totalSec % 60
+        return if (min > 0) "%d:%02d".format(min, sec) else "0:%02d".format(sec)
+    }
+
+    private fun noIncidentExplanationText(aiSummary: String): String {
+        val generic = setOf(
+            "no reportable issue detected",
+            "not a valid incident"
+        )
+        if (aiSummary.isBlank() || generic.any { aiSummary.equals(it, ignoreCase = true) }) {
+            return getString(R.string.no_incident_body_default)
+        }
+        return aiSummary
+    }
+
+    private fun bindMediaPreview(preview: ImageView, playOverlay: ImageView) {
         val placeholder = ContextCompat.getColor(this, R.color.register_field_fill)
         val bitmap = CapturedMediaStore.capturedBitmap
         val videoUri = CapturedMediaStore.capturedVideoUri
@@ -293,9 +415,6 @@ class IncidentFlowActivity : AppCompatActivity() {
                 playOverlay.visibility = View.GONE
             }
         }
-
-        // Show the latest GPS reverse-geocode here (not only the value bundled from AI analysis).
-        refreshDetectedLocationFromGps()
     }
 
     /** Updates the review row from the current fused location so the label matches "where I am now". */
@@ -366,6 +485,25 @@ class IncidentFlowActivity : AppCompatActivity() {
         description: String,
         locationLine: String
     ) {
+        if (!isLastAnalysisReportable()) {
+            showState(ScreenState.NOT_DETECTED)
+            Toast.makeText(
+                this,
+                getString(R.string.submit_blocked_not_reportable),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        val agency = assignedAgency.trim()
+        if (agency.equals("N/A", ignoreCase = true) || agency.isEmpty()) {
+            Toast.makeText(
+                this,
+                getString(R.string.submit_blocked_no_agency),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         val bitmapCapture = CapturedMediaStore.capturedBitmap
         val videoUri = CapturedMediaStore.capturedVideoUri
         val thumbnail = bitmapCapture ?: videoUri?.let { loadVideoFrame(it) }
@@ -532,10 +670,15 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     private fun showState(state: ScreenState) {
         currentState = state
+        if (state == ScreenState.SUBMITTED) {
+            initialAnalysisDone = true
+        }
         previewContainer.visibility = if (state == ScreenState.PREVIEW) View.VISIBLE else View.GONE
         analyzingContainer.visibility =
             if (state == ScreenState.ANALYZING || state == ScreenState.REANALYZING) View.VISIBLE else View.GONE
         detectedContainer.visibility = if (state == ScreenState.DETECTED) View.VISIBLE else View.GONE
+        noIncidentContainer.visibility =
+            if (state == ScreenState.NOT_DETECTED) View.VISIBLE else View.GONE
         editContainer.visibility = if (state == ScreenState.EDIT) View.VISIBLE else View.GONE
         submittedContainer.visibility = if (state == ScreenState.SUBMITTED) View.VISIBLE else View.GONE
 
@@ -543,6 +686,7 @@ class IncidentFlowActivity : AppCompatActivity() {
             ScreenState.PREVIEW -> getString(R.string.send_ai_title)
             ScreenState.ANALYZING -> getString(R.string.incident_title_analyzing)
             ScreenState.DETECTED -> getString(R.string.review_ai_detection_title)
+            ScreenState.NOT_DETECTED -> getString(R.string.no_incident_title)
             ScreenState.EDIT -> getString(R.string.incident_title_edit)
             ScreenState.REANALYZING -> getString(R.string.incident_title_reanalyzing)
             ScreenState.SUBMITTED -> getString(R.string.incident_title_submitted)
@@ -564,6 +708,9 @@ class IncidentFlowActivity : AppCompatActivity() {
         if (state == ScreenState.DETECTED) {
             refreshDetectedTimestamp()
             populateDetectedReviewUi()
+        }
+        if (state == ScreenState.NOT_DETECTED) {
+            populateNoIncidentUi()
         }
     }
 }

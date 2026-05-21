@@ -5,10 +5,15 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "ml:ingest": "python ../ml/scripts/ingest_from_source.py",
+    "ml:organize": "python ../ml/scripts/organize_dataset.py",
+    "ml:train": "python ../ml/training/train_mobilenet.py",
+    "ml:predict": "python ../ml/training/predict.py"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fluent-ffmpeg": "^2.1.3",

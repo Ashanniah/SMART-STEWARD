@@ -32,6 +32,8 @@ class AiAnalysisActivity : AppCompatActivity() {
         const val EXTRA_AGENCY_SUBLINE = "extra_agency_subline"
         const val EXTRA_DESCRIPTION = "extra_description"
         const val EXTRA_LOCATION_SHORT = "extra_location_short"
+        /** When false, the capture is not a reportable incident — show the no-incident screen. */
+        const val EXTRA_REPORTABLE = "extra_reportable"
     }
 
     private val handler = Handler(Looper.getMainLooper())

@@ -86,6 +86,8 @@ Talamban</string>
     <string name="submitted_success_headline">Report submitted!</string>
     <string name="submitted_success_subtitle">Your report has been sent to %1$s. You\'ll be notified when action is taken.</string>
     <string name="submitted_success_toast">Your report has been submitted.</string>
+    <string name="submit_blocked_not_reportable">This photo was not classified as a reportable incident. Capture a new photo to continue.</string>
+    <string name="submit_blocked_no_agency">No agency is assigned to this report. Edit details or retake the photo before submitting.</string>
     <string name="submitted_saved_draft">No internet. Report saved as draft and will auto-submit once online.</string>
     <string name="report_receipt_banner">REPORT RECEIPT</string>
     <string name="report_receipt_close">Close</string>
@@ -237,6 +239,8 @@ Talamban</string>
     <string name="my_activity_chip_trending">Trending</string>
     <string name="my_activity_view_map">View on Map</string>
     <string name="my_activity_track">Track Report</string>
+    <string name="my_activity_search_hint">Search activities..</string>
+    <string name="my_activity_select_status">Select Status</string>
     <string name="my_activity_filter_status">Status</string>
     <string name="my_activity_filter_date">Date</string>
     <string name="my_activity_detail_report_id">Report ID:</string>
@@ -304,6 +308,21 @@ Talamban</string>
     <string name="ai_steps_section">Analysis steps</string>
 
     <string name="review_ai_detection_title">Review AI Detection</string>
+    <string name="no_incident_title">No incident detected</string>
+    <string name="no_incident_banner">We couldn\'t find a valid report in this photo</string>
+    <string name="no_incident_banner_subtitle">No environmental incident or illegal activities</string>
+    <string name="no_incident_body_default">Smart Steward didn\'t see a safety, environmental, or public incident in this image.</string>
+    <string name="no_incident_what_to_report">What you can report</string>
+    <string name="no_incident_chip_fire">Fire</string>
+    <string name="no_incident_chip_flooding">Flooding</string>
+    <string name="no_incident_chip_road_hazard">Road hazard</string>
+    <string name="no_incident_chip_illegal_dumping">Illegal dumping</string>
+    <string name="no_incident_chip_garbage">Garbage pile-up</string>
+    <string name="no_incident_chip_burning">Open burning</string>
+    <string name="no_incident_chip_gambling">Illegal gambling</string>
+    <string name="no_incident_capture_again">Capture again</string>
+    <string name="no_incident_retake_photo">Retake photo</string>
+    <string name="no_incident_go_home">Go to home</string>
     <string name="review_classification_complete">AI classification complete</string>
     <string name="review_media_badge_photo_video">1 image · 1 video</string>
     <string name="review_media_badge_photo_only">1 image</string>

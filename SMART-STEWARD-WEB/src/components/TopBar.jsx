@@ -46,7 +46,7 @@ export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
     if (pathname === '/report-history') {
       return {
         title: 'HISTORY OF REPORTS',
-        subtitle: `Historical reports assigned to ${cfg.userDisplayName}.`,
+        subtitle: `Resolved reports assigned to ${cfg.userDisplayName}.`,
       };
     }
     return {

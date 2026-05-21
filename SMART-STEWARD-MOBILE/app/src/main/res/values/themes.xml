@@ -22,4 +22,18 @@
         <item name="checkedIconTint">@color/white</item>
         <item name="rippleColor">@color/activity_card_bg</item>
     </style>
+
+    <style name="Widget.SMARTSTEWARD.NoIncidentReportChip" parent="Widget.MaterialComponents.Chip.Entry">
+        <item name="chipBackgroundColor">@color/white</item>
+        <item name="chipStrokeColor">@color/register_button_green</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="android:textColor">@color/register_button_green</item>
+        <item name="chipIconTint">@color/register_button_green</item>
+        <item name="chipCornerRadius">20dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="chipMinHeight">36dp</item>
+        <item name="android:clickable">false</item>
+        <item name="android:focusable">false</item>
+        <item name="chipIconSize">16dp</item>
+    </style>
 </resources>

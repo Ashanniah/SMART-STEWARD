@@ -62,4 +62,7 @@
     <color name="ai_badge_queued_text">#9EAEA3</color>
     <color name="ai_step_faded">#A0B0A5</color>
     <color name="ai_hero_icon_tint">#8BC34A</color>
+    <color name="no_incident_banner_title">#E65100</color>
+    <color name="no_incident_banner_subtitle">#BF360C</color>
+    <color name="no_incident_action_btn">#8A9B91</color>
 </resources>

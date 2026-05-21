@@ -29,9 +29,9 @@ android {
         }
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         // OkHttp requires http:// or https:// — many dev setups use host:port only in local.properties.
-        val apiRaw = localProperties.getProperty("API_BASE_URL", "http://10.0.2.2:3000").trim().trimEnd('/')
+        val apiRaw = localProperties.getProperty("API_BASE_URL", "http://192.168.1.109:3000").trim().trimEnd('/')
         val apiBaseUrl = when {
-            apiRaw.isEmpty() -> "http://10.0.2.2:3000"
+            apiRaw.isEmpty() -> "http://192.168.1.109:3000"
             apiRaw.startsWith("http://", ignoreCase = true) ||
                 apiRaw.startsWith("https://", ignoreCase = true) -> apiRaw
             else -> "http://$apiRaw"

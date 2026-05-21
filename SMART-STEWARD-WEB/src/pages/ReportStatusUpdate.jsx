@@ -23,6 +23,7 @@ import { normalizedToDetailView } from '../utils/normalizeReportDoc';
 import { workflowKeyToFirestoreStatus } from '../utils/workflowStatusFirestore';
 import { getFirestoreDb, isFirebaseConfigured } from '../firebase/config';
 import { REPORTS_COLLECTION } from '../constants/reportsCollection';
+import AlertModal from '../components/AlertModal';
 
 const STATUS_DOT_CLASS = {
   pending: 'status-update-legend__dot--pending',
@@ -67,6 +68,8 @@ export default function ReportStatusUpdate() {
   const [remarks, setRemarks] = useState('');
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const rawCurrentKey = detail?.status ?? 'pending';
   const currentKey = rawCurrentKey === 'review' ? 'in_progress' : rawCurrentKey;
@@ -99,13 +102,14 @@ export default function ReportStatusUpdate() {
       if (trimmed) payload.lastStatusNote = trimmed;
       await updateDoc(ref, payload);
 
+      const statusLabel = WORKFLOW_STATUS_META[selectedStatus]?.label ?? selectedStatus;
+
       if (viewerAgencyKey && detail) {
         try {
-          const label = WORKFLOW_STATUS_META[selectedStatus]?.label ?? selectedStatus;
           await writeAgencyNotification({
             targetAgency: viewerAgencyKey,
             title: 'Report status updated',
-            body: `${label}: ${detail.reportTypeLabel ?? detail.activity} — ${detail.locationDisplay ?? detail.location}`,
+            body: `${statusLabel}: ${detail.reportTypeLabel ?? detail.activity} — ${detail.locationDisplay ?? detail.location}`,
             kind: AGENCY_NOTIFICATION_KINDS.STATUS_CHANGED,
             reportDocId: id,
             severity: AGENCY_NOTIFICATION_SEVERITY.INFO,
@@ -115,7 +119,14 @@ export default function ReportStatusUpdate() {
         }
       }
 
-      navigate(`/reports/${encodeURIComponent(id)}`, { replace: false });
+      setRemarks('');
+      setSelectedStatus('');
+      setSuccessMessage(
+        trimmed
+          ? `This report is now marked as ${statusLabel}. Your remarks were saved and the citizen will be notified.`
+          : `This report is now marked as ${statusLabel}. The update was recorded and the citizen will be notified.`
+      );
+      setSuccessOpen(true);
     } catch (err) {
       console.error(err);
       setSubmitError(err.message || 'Could not update status. Check permissions and try again.');
@@ -142,8 +153,20 @@ export default function ReportStatusUpdate() {
     return <Navigate to="/reports" replace />;
   }
 
+  function dismissSuccess() {
+    setSuccessOpen(false);
+    navigate(`/reports/${encodeURIComponent(id)}`, { replace: false });
+  }
+
   return (
     <div className="status-update fade-in">
+      <AlertModal
+        open={successOpen}
+        title="Status updated"
+        message={successMessage}
+        buttonLabel="OK"
+        onClose={dismissSuccess}
+      />
       <header className="status-update-header">
         <h1 className="status-update__title">STATUS UPDATE PANEL</h1>
       </header>

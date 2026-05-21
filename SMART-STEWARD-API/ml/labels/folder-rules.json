@@ -1,0 +1,17 @@
+[
+  { "pattern": "altering\\s*boundaries|landmarks", "class": "altering_boundaries" },
+  { "pattern": "animal|anima\\s*nuisance", "class": "animal_nuisance" },
+  { "pattern": "open\\s*burn|burning|burn\\b", "class": "burning" },
+  { "pattern": "fire|smoke|bfp", "class": "fire" },
+  { "pattern": "catcall|harass", "class": "catcalling" },
+  { "pattern": "flood|flooding", "class": "flooding" },
+  { "pattern": "garbage|trash|waste", "class": "garbage" },
+  { "pattern": "mahjong|gambl|betting", "class": "illegal_gambling" },
+  { "pattern": "pdea|shabu|meth|narcotic|illegal\\s*drug|drug\\s*ops|anti-?drug", "class": "illegal_drugs" },
+  { "pattern": "illegal\\s*dump|dumping", "class": "illegal_dumping" },
+  { "pattern": "noise|loud", "class": "noise_complaint" },
+  { "pattern": "pothole|road\\s*hazard|road", "class": "road_hazard" },
+  { "pattern": "theft|steal|rob", "class": "theft" },
+  { "pattern": "vandal", "class": "vandalism" },
+  { "pattern": "blur|not\\s*reportable|invalid|sample", "class": "not_reportable" }
+]
