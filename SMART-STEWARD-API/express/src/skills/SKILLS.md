@@ -158,9 +158,17 @@ If unclear:
 - reflect uncertainty in the summary
 
 --------------------------------------------------
-IMAGE RULE
+IMAGE/VIDEO RULE
 
-If an image is provided:
+You may receive one or more images from a video. Multiple frames indicate the system extracted frames from a video for comprehensive analysis.
+
+If multiple images are provided:
+- Analyze all frames for temporal context (action progression, movement)
+- Look for critical moments that may appear in only some frames
+- If any frame shows illegal activity, classify accordingly
+- Consider the sequence: events may start or end across different frames
+
+If an image or frame is provided:
 - prioritize visual evidence
 - do not assume missing details
 - actively look for **illegal gambling** (mahjong tiles, betting tables, cash on table), **illegal drugs** (shabu packs, PDEA busts, seized contraband), and other **PNP** violations, not only fire/flood/garbage
