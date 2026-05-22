@@ -21,7 +21,7 @@ export function aggregateReportCounts(incidents) {
   const out = { total: incidents.length, pending: 0, review: 0, resolved: 0, rejected: 0 };
   for (const inc of incidents) {
     const s = inc.markerStatus ?? inc.status ?? 'pending';
-    if (s === 'review') out.review += 1;
+    if (s === 'review' || s === 'in_progress') out.review += 1;
     else if (s === 'resolved') out.resolved += 1;
     else if (s === 'rejected') out.rejected += 1;
     else out.pending += 1;
@@ -34,7 +34,7 @@ export function dominantAccentFromIncidents(incidents) {
   const c = aggregateReportCounts(incidents);
   const ranked = [
     ['pending', '#6b7280'],
-    ['review', '#3b82f6'],
+    ['review', '#eab308'],
     ['resolved', '#22c55e'],
     ['rejected', '#ef4444'],
   ];
@@ -57,8 +57,11 @@ export function inferClusterHeadline(incidents) {
   const raw = locs[0] || 'Reports in this area';
   const cleaned = raw.replace(/^\s*location:\s*/i, '').trim();
   const parts = cleaned.split(',').map((s) => s.trim()).filter(Boolean);
-  const headline = parts[0] || cleaned;
-  const sub = parts.slice(1).join(', ') || '';
+  const brgy = parts.find((p) => /\b(brgy\.?|barangay)\b/i.test(p));
+  const headline = brgy || parts[0] || cleaned;
+  const sub = brgy
+    ? parts.filter((p) => p !== brgy).join(', ')
+    : parts.slice(1).join(', ') || '';
   return { headline, sub };
 }
 
@@ -72,7 +75,7 @@ export function mostRecentIncident(incidents) {
 }
 
 export function statusBadgeLabel(status) {
-  if (status === 'review') return 'IN PROGRESS';
+  if (status === 'review' || status === 'in_progress') return 'IN PROGRESS';
   if (status === 'resolved') return 'RESOLVED';
   if (status === 'rejected') return 'REJECTED';
   return 'PENDING';

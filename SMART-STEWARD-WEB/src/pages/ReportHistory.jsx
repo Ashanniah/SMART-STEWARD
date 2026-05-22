@@ -1,52 +1,28 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ClipboardDocumentListIcon,
-  ClockIcon,
-  MagnifyingGlassIcon,
   CheckCircleIcon,
   ArrowDownTrayIcon,
   MapPinIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ArrowPathIcon,
-  EllipsisVerticalIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 import { getPaginationRange } from '../data/reportHistoryMock';
 import { useReportsData } from '../context/ReportsDataContext';
+import MediaLightbox from '../components/MediaLightbox';
 
 const PLACEHOLDER_THUMB =
   'https://images.unsplash.com/photo-1611287157826-4e513e77ba9a?w=120&h=120&fit=crop&q=80';
 
 const STAT_CONFIG = [
   {
-    key: 'total',
-    title: 'Total Reports',
-    Icon: ClipboardDocumentListIcon,
-    accent: 'green',
-    hint: 'All reports received',
-  },
-  {
-    key: 'pending',
-    title: 'Pending Reports',
-    Icon: ClockIcon,
-    accent: 'orange',
-    hint: 'Awaiting initial review',
-  },
-  {
-    key: 'review',
-    title: 'Under Review',
-    Icon: MagnifyingGlassIcon,
-    accent: 'blue',
-    hint: 'Being reviewed by agency',
-  },
-  {
     key: 'resolved',
     title: 'Resolved Reports',
     Icon: CheckCircleIcon,
     accent: 'teal',
-    hint: 'Closed as resolved',
+    hint: 'Closed and archived in history',
   },
 ];
 
@@ -70,7 +46,7 @@ function getPaginationRange(current, total, delta = 2) {
 function HistoryStatusPill({ status }) {
   const labels = {
     pending: 'Pending',
-    review: 'Under Review',
+    review: 'In Progress',
     resolved: 'Resolved',
     rejected: 'Rejected',
     in_progress: 'In Progress',
@@ -104,7 +80,11 @@ function fmtNum(n) {
 
 export default function ReportHistory() {
   const navigate = useNavigate();
-  const { reports, loading, error, counts } = useReportsData();
+  const { reports, loading, error } = useReportsData();
+  const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
+  const [typeFilter, setTypeFilter] = useState('');
+  const [agencyFilter, setAgencyFilter] = useState('');
+  const [dateSort, setDateSort] = useState('newest');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -200,7 +180,7 @@ export default function ReportHistory() {
             <div className="history-stat-card__body">
               <div className="history-stat-card__label">{title}</div>
               <div className="history-stat-card__value">
-                {(counts[key] ?? 0).toLocaleString()}
+                {(historyCounts[key] ?? 0).toLocaleString()}
               </div>
               <div className="history-stat-card__hint">{hint}</div>
               <div className="history-stat-card__trend">
@@ -213,7 +193,7 @@ export default function ReportHistory() {
 
       <header className="report-history-page__header">
         <div>
-          <h1 className="report-history-page__title">All Reports History</h1>
+          <h1 className="report-history-page__title">Resolved Reports History</h1>
           <p className="report-history-page__subtitle">
             Complete history of reports submitted to the system (includes mobile uploads).
           </p>
@@ -227,29 +207,38 @@ export default function ReportHistory() {
       <div className="history-filters">
         <label className="history-filters__field">
           <span className="history-filters__label">By Type</span>
-          <select className="history-filters__select" defaultValue="">
+          <select
+            className="history-filters__select"
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value);
+              setPage(1);
+            }}
+          >
             <option value="">All Types</option>
-            <option value="dumping">Illegal Dumping</option>
-            <option value="burning">Open Burning</option>
-            <option value="trees">Tree Cutting</option>
-          </select>
-        </label>
-        <label className="history-filters__field">
-          <span className="history-filters__label">By Status</span>
-          <select className="history-filters__select" defaultValue="">
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="review">Under Review</option>
-            <option value="in_progress">In Progress</option>
-            <option value="resolved">Resolved</option>
-            <option value="rejected">Rejected</option>
+            {typeOptions.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
         </label>
         <label className="history-filters__field">
           <span className="history-filters__label">By Agency</span>
-          <select className="history-filters__select" defaultValue="">
+          <select
+            className="history-filters__select"
+            value={agencyFilter}
+            onChange={(e) => {
+              setAgencyFilter(e.target.value);
+              setPage(1);
+            }}
+          >
             <option value="">All Agencies</option>
-            <option value="denr">DENR</option>
+            {agencyOptions.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
           </select>
         </label>
         <label className="history-filters__field history-filters__field--date">
@@ -257,13 +246,20 @@ export default function ReportHistory() {
           <div className="history-filters__range">{dateRangeLabel}</div>
         </label>
         <div className="history-filters__actions">
-          <button type="button" className="history-btn history-btn--apply">
+          <button
+            type="button"
+            className="history-btn history-btn--apply"
+            onClick={() => setPage(1)}
+          >
             Apply Filters
           </button>
           <button
             type="button"
             className="history-btn history-btn--reset"
             onClick={() => {
+              setTypeFilter('');
+              setAgencyFilter('');
+              setDateSort('newest');
               setPage(1);
               setPageSize(10);
             }}
@@ -279,8 +275,7 @@ export default function ReportHistory() {
           <table className="history-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th aria-label="Thumbnail" />
+                <th>Media / Report ID</th>
                 <th>Report Type</th>
                 <th>Location</th>
                 <th>Date &amp; Time</th>
@@ -292,9 +287,9 @@ export default function ReportHistory() {
               </tr>
             </thead>
             <tbody>
-              {loading && reports.length === 0 ? (
+              {loading && resolvedReports.length === 0 && reports.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="reports-table__loading">
+                  <td colSpan={9} className="reports-table__loading">
                     Loading reports…
                   </td>
                 </tr>
@@ -319,10 +314,6 @@ export default function ReportHistory() {
                     </td>
                     <td>
                       <div className="history-type">
-                        <CheckCircleSolidIcon
-                          className="history-type__check"
-                          aria-hidden
-                        />
                         <div>
                           <div className="history-type__title">{row.typeTitle}</div>
                           <div className="history-type__cat">{row.categoryLabel}</div>
@@ -332,15 +323,16 @@ export default function ReportHistory() {
                     <td>
                       <div className="history-loc">
                         <span>{row.location}</span>
-                        <a
+                        <button
+                          type="button"
                           className="history-map-link"
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.location)}`}
-                          target="_blank"
-                          rel="noreferrer"
+                          onClick={() =>
+                            navigate(`/dashboard?focusReport=${encodeURIComponent(row.docId)}`)
+                          }
                         >
                           <MapPinIcon aria-hidden />
                           View on Map
-                        </a>
+                        </button>
                       </div>
                     </td>
                     <td>{row.dateTime}</td>
@@ -362,13 +354,6 @@ export default function ReportHistory() {
                           }
                         >
                           View Details
-                        </button>
-                        <button
-                          type="button"
-                          className="history-btn-more"
-                          aria-label="More actions"
-                        >
-                          <EllipsisVerticalIcon aria-hidden />
                         </button>
                       </div>
                     </td>
@@ -440,6 +425,12 @@ export default function ReportHistory() {
           </div>
         </footer>
       </div>
+      <MediaLightbox
+        open={mediaPreview.open}
+        type={mediaPreview.type}
+        src={mediaPreview.src}
+        onClose={() => setMediaPreview({ open: false, type: 'image', src: '' })}
+      />
     </div>
   );
 }

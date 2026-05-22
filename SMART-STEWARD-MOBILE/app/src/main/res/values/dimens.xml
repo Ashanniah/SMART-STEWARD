@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="bottom_nav_height">72dp</dimen>
+    <dimen name="bottom_nav_height">76dp</dimen>
     <dimen name="bottom_nav_icon_size">22dp</dimen>
-    <dimen name="bottom_nav_horizontal_inset">10dp</dimen>
-    <dimen name="bottom_nav_bottom_inset">10dp</dimen>
-    <dimen name="bottom_nav_fab_size">58dp</dimen>
-    <dimen name="bottom_nav_fab_lift">-26dp</dimen>
+    <dimen name="bottom_nav_horizontal_inset">0dp</dimen>
+    <dimen name="bottom_nav_bottom_inset">0dp</dimen>
+    <dimen name="dashboard_zoom_controls_margin_with_sheet">230dp</dimen>
+    <dimen name="dashboard_zoom_controls_margin_no_sheet">96dp</dimen>
+    <dimen name="bottom_nav_fab_size">56dp</dimen>
+    <dimen name="bottom_nav_fab_lift">-22dp</dimen>
     <dimen name="dashboard_bottom_sheet_peek">268dp</dimen>
+    <dimen name="report_receipt_scroll_max_height">480dp</dimen>
 </resources>

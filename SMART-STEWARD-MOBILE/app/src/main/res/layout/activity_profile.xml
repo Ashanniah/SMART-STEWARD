@@ -542,138 +542,16 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <LinearLayout
-        android:id="@+id/profileBottomNav"
+    <include
+        layout="@layout/include_main_bottom_nav"
         android:layout_width="0dp"
-        android:layout_height="@dimen/bottom_nav_height"
+        android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/bottom_nav_horizontal_inset"
         android:layout_marginEnd="@dimen/bottom_nav_horizontal_inset"
         android:layout_marginBottom="@dimen/bottom_nav_bottom_inset"
-        android:background="@drawable/bg_dashboard_bottom_nav"
-        android:elevation="10dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintStart_toStartOf="parent" />
 
-        <LinearLayout
-            android:id="@+id/profileNavHome"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <ImageView
-                android:layout_width="@dimen/bottom_nav_icon_size"
-                android:layout_height="@dimen/bottom_nav_icon_size"
-                android:src="@drawable/home"
-                app:tint="@color/register_button_green" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/home"
-                android:textColor="@color/bottom_nav_inactive"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/profileNavActivity"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <ImageView
-                android:layout_width="@dimen/bottom_nav_icon_size"
-                android:layout_height="@dimen/bottom_nav_icon_size"
-                android:src="@drawable/activity"
-                app:tint="@color/register_button_green" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/activity"
-                android:textColor="@color/bottom_nav_inactive"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <Space
-            android:layout_width="@dimen/bottom_nav_fab_size"
-            android:layout_height="1dp" />
-
-        <LinearLayout
-            android:id="@+id/profileNavNotification"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <ImageView
-                android:layout_width="@dimen/bottom_nav_icon_size"
-                android:layout_height="@dimen/bottom_nav_icon_size"
-                android:src="@drawable/notification"
-                app:tint="@color/register_button_green" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/nav_alerts"
-                android:textColor="@color/bottom_nav_inactive"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/profileNavProfile"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <ImageView
-                android:layout_width="@dimen/bottom_nav_icon_size"
-                android:layout_height="@dimen/bottom_nav_icon_size"
-                android:src="@drawable/user"
-                app:tint="@color/register_button_green" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/profile"
-                android:textColor="@color/register_button_green"
-                android:textSize="11sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <FrameLayout
-        android:id="@+id/profileCameraFab"
-        android:layout_width="@dimen/bottom_nav_fab_size"
-        android:layout_height="@dimen/bottom_nav_fab_size"
-        android:layout_marginBottom="4dp"
-        android:background="@drawable/bg_dashboard_camera_fab"
-        android:clickable="true"
-        android:elevation="14dp"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackgroundBorderless"
-        android:translationY="@dimen/bottom_nav_fab_lift"
-        app:layout_constraintBottom_toBottomOf="@id/profileBottomNav"
-        app:layout_constraintEnd_toEndOf="@id/profileBottomNav"
-        app:layout_constraintStart_toStartOf="@id/profileBottomNav">
-
-        <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:layout_gravity="center"
-            android:contentDescription="@string/open_camera"
-            android:src="@drawable/camera"
-            app:tint="@color/white" />
-    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

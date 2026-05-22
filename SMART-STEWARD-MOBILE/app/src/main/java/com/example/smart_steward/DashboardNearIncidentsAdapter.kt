@@ -3,10 +3,14 @@ package com.example.smart_steward
 import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.RoundedCornersTransformation
 import com.google.android.material.card.MaterialCardView
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -46,31 +50,51 @@ class DashboardNearIncidentsAdapter(
             card.findViewById<TextView>(R.id.nearRowTitle).text = title
             card.findViewById<TextView>(R.id.nearRowMeta).text = meta
 
-            val icon = card.findViewById<TextView>(R.id.nearRowTypeIcon)
-            icon.text = when {
-                title.contains("dump", true) -> "🗑️"
-                title.contains("burn", true) || title.contains("fire", true) -> "🔥"
-                title.contains("log", true) || title.contains("tree", true) -> "🌳"
-                else -> "📍"
+            val photo = card.findViewById<ImageView>(R.id.nearRowPhoto)
+            val thumbContainer = card.findViewById<View>(R.id.nearRowThumbContainer)
+            val videoPlay = card.findViewById<ImageView>(R.id.nearRowVideoPlay)
+            val cornerRadiusPx = 8f * ctx.resources.displayMetrics.density
+            val url = report.photoUrl.trim()
+            if (url.isNotEmpty()) {
+                photo.load(url) {
+                    crossfade(true)
+                    transformations(RoundedCornersTransformation(cornerRadiusPx))
+                    placeholder(R.drawable.bg_near_report_thumb_placeholder)
+                    error(R.drawable.bg_near_report_thumb_placeholder)
+                }
+            } else {
+                photo.setImageResource(R.drawable.bg_near_report_thumb_placeholder)
+            }
+
+            val videoRemote = report.videoUrl.trim()
+            if (videoRemote.isNotEmpty()) {
+                videoPlay.visibility = View.VISIBLE
+                thumbContainer.setOnClickListener {
+                    MediaPlayback.openRemoteVideo(ctx, videoRemote)
+                }
+            } else if (url.isNotEmpty()) {
+                videoPlay.visibility = View.GONE
+                thumbContainer.setOnClickListener {
+                    MediaPlayback.openRemoteImage(ctx, url)
+                }
+            } else {
+                videoPlay.visibility = View.GONE
+                thumbContainer.setOnClickListener(null)
             }
 
             val tag = card.findViewById<TextView>(R.id.nearRowStatus)
-            when (report.status) {
-                ReportStatusUi.PENDING -> {
-                    tag.text = "Pending"
-                    styleTag(tag, ContextCompat.getColor(ctx, R.color.activity_pending_orange))
-                }
-
-                ReportStatusUi.IN_PROGRESS -> {
-                    tag.text = "In Progress"
-                    styleTag(tag, ContextCompat.getColor(ctx, R.color.activity_progress_blue))
-                }
-
-                ReportStatusUi.RESOLVED -> {
-                    tag.text = "Resolved"
-                    styleTag(tag, ContextCompat.getColor(ctx, R.color.activity_resolved_green))
-                }
+            tag.text = report.statusLabel
+            val color = when (report.status) {
+                ReportStatusUi.PENDING ->
+                    ContextCompat.getColor(ctx, R.color.activity_pending_orange)
+                ReportStatusUi.IN_PROGRESS ->
+                    ContextCompat.getColor(ctx, R.color.activity_progress_blue)
+                ReportStatusUi.RESOLVED ->
+                    ContextCompat.getColor(ctx, R.color.activity_resolved_green)
+                ReportStatusUi.REJECTED ->
+                    ContextCompat.getColor(ctx, R.color.activity_rejected_gray)
             }
+            styleTag(tag, color)
             card.setOnClickListener { onTap(report) }
         }
 

@@ -38,7 +38,8 @@ function pinFillColor(markerStatus) {
     case 'rejected':
       return '#ef4444';
     case 'review':
-      return '#3b82f6';
+    case 'in_progress':
+      return '#eab308';
     default:
       return '#6b7280';
   }
@@ -65,7 +66,8 @@ function statusLabelForMarker(markerStatus) {
     case 'rejected':
       return 'REJECTED';
     case 'review':
-      return 'UNDER REVIEW';
+    case 'in_progress':
+      return 'IN PROGRESS';
     default:
       return 'PENDING';
   }
@@ -78,7 +80,8 @@ function statusColorForMarker(markerStatus) {
     case 'rejected':
       return '#ef4444';
     case 'review':
-      return '#3b82f6';
+    case 'in_progress':
+      return '#eab308';
     default:
       return '#6b7280';
   }
@@ -89,7 +92,12 @@ function markerKey(incident) {
 }
 
 function resolveMarkerStatus(incident) {
-  return incident.markerStatus ?? (incident.status === 'resolved' ? 'resolved' : 'pending');
+  const s = incident.markerStatus ?? incident.status ?? 'pending';
+  if (s === 'resolved') return 'resolved';
+  if (s === 'rejected') return 'rejected';
+  if (s === 'review') return 'review';
+  if (s === 'in_progress') return 'in_progress';
+  return 'pending';
 }
 
 const defaultIncidents = [];
@@ -101,6 +109,7 @@ export default function GoogleMapComponent({
   zoom = 14,
   center = defaultCenter,
   enableFullscreenControl = true,
+  focusIncidentId = '',
   /** When true, markers cluster when zoomed out; single-marker clicks open the rich panel. */
   clustering = true,
 }) {
@@ -133,6 +142,38 @@ export default function GoogleMapComponent({
     () => mergedIncidents.filter((i) => Number.isFinite(i.lat) && Number.isFinite(i.lng)),
     [mergedIncidents]
   );
+
+  /**
+   * Spread incidents that share the same coordinates so status-specific pins remain visible
+   * after cluster breakup at high zoom.
+   */
+  const adjustedIncidents = useMemo(() => {
+    const groups = new Map();
+    placedIncidents.forEach((inc) => {
+      const key = `${inc.lat.toFixed(6)}:${inc.lng.toFixed(6)}`;
+      const list = groups.get(key) ?? [];
+      list.push(inc);
+      groups.set(key, list);
+    });
+
+    const out = [];
+    groups.forEach((list) => {
+      if (list.length === 1) {
+        out.push(list[0]);
+        return;
+      }
+      const step = 0.000055; // ~6m
+      list.forEach((inc, idx) => {
+        const angle = (2 * Math.PI * idx) / list.length;
+        out.push({
+          ...inc,
+          lat: inc.lat + Math.sin(angle) * step,
+          lng: inc.lng + Math.cos(angle) * step,
+        });
+      });
+    });
+    return out;
+  }, [placedIncidents]);
 
   useEffect(() => {
     const ids = new Set(incidents.map((i) => i.id));
@@ -195,23 +236,32 @@ export default function GoogleMapComponent({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isLoaded || !window.google?.maps) return;
-    if (placedIncidents.length >= 2) {
+    if (adjustedIncidents.length >= 2) {
       const bounds = new window.google.maps.LatLngBounds();
-      placedIncidents.forEach((i) => bounds.extend({ lat: i.lat, lng: i.lng }));
+      adjustedIncidents.forEach((i) => bounds.extend({ lat: i.lat, lng: i.lng }));
       map.fitBounds(bounds, 56);
-    } else if (placedIncidents.length === 1) {
-      map.panTo({ lat: placedIncidents[0].lat, lng: placedIncidents[0].lng });
+    } else if (adjustedIncidents.length === 1) {
+      map.panTo({ lat: adjustedIncidents[0].lat, lng: adjustedIncidents[0].lng });
       map.setZoom(Math.max(zoom, 13));
     }
-  }, [isLoaded, placedIncidents, zoom]);
+  }, [isLoaded, adjustedIncidents, zoom]);
+
+  useEffect(() => {
+    if (!focusIncidentId || !isLoaded || !mapRef.current) return;
+    const target = adjustedIncidents.find((inc) => String(inc.id) === String(focusIncidentId));
+    if (!target) return;
+    mapRef.current.panTo({ lat: target.lat, lng: target.lng });
+    mapRef.current.setZoom(Math.max(mapRef.current.getZoom() ?? zoom, 17));
+    setFloating({ variant: 'single', incident: target });
+  }, [focusIncidentId, isLoaded, adjustedIncidents, zoom]);
 
   useEffect(() => {
     if (!clustering) {
       setFloating(null);
       return;
     }
-    if (placedIncidents.length === 0) setFloating(null);
-  }, [clustering, placedIncidents.length]);
+    if (adjustedIncidents.length === 0) setFloating(null);
+  }, [clustering, adjustedIncidents.length]);
 
   useEffect(() => {
     if (!clustering || !isLoaded || !mapInstance) {
@@ -230,7 +280,7 @@ export default function GoogleMapComponent({
       clustererRef.current = null;
     }
 
-    const list = placedIncidents;
+    const list = adjustedIncidents;
     if (list.length === 0) {
       return () => {};
     }
@@ -264,7 +314,7 @@ export default function GoogleMapComponent({
         const recent = mostRecentIncident(incidentsInCluster);
         setFloating({
           variant: 'cluster',
-          clusterPayload: { counts, headline, sub, recent },
+          clusterPayload: { counts, headline, sub, recent, incidents: incidentsInCluster },
         });
       },
     });
@@ -282,14 +332,14 @@ export default function GoogleMapComponent({
         clustererRef.current = null;
       }
     };
-  }, [clustering, isLoaded, mapInstance, placedIncidents]);
+  }, [clustering, isLoaded, mapInstance, adjustedIncidents]);
 
   useEffect(() => {
     if (!selectedIncident) return;
-    if (!placedIncidents.some((i) => i.id === selectedIncident.id)) {
+    if (!adjustedIncidents.some((i) => i.id === selectedIncident.id)) {
       setSelectedIncident(null);
     }
-  }, [placedIncidents, selectedIncident]);
+  }, [adjustedIncidents, selectedIncident]);
 
   const onMarkerClick = useCallback((incident) => {
     setSelectedIncident(incident);
@@ -353,7 +403,7 @@ export default function GoogleMapComponent({
       options={mapOptions}
       onLoad={onMapLoad}
     >
-      {placedIncidents.map((incident) => (
+      {adjustedIncidents.map((incident) => (
         <Marker
           key={markerKey(incident)}
           position={{ lat: incident.lat, lng: incident.lng }}

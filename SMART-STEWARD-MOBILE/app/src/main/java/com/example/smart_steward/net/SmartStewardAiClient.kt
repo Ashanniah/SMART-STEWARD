@@ -24,6 +24,17 @@ import java.util.concurrent.TimeUnit
  */
 object SmartStewardAiClient {
 
+    /** OkHttp requires an explicit http/https scheme (host:port alone throws). */
+    private fun normalizeApiBaseUrl(raw: String): String {
+        val t = raw.trim().trimEnd('/')
+        return when {
+            t.isEmpty() -> "http://192.168.1.109:3000"
+            t.startsWith("http://", ignoreCase = true) ||
+                t.startsWith("https://", ignoreCase = true) -> t
+            else -> "http://$t"
+        }
+    }
+
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -43,7 +54,7 @@ object SmartStewardAiClient {
         reanalyze: Boolean,
         deviceLocationShort: String?
     ): Intent {
-        val root = baseUrl.trim().trimEnd('/')
+        val root = normalizeApiBaseUrl(baseUrl)
         val url = "$root/ai"
 
         val bitmap = CapturedMediaStore.capturedBitmap
@@ -118,8 +129,13 @@ object SmartStewardAiClient {
         val agency = payload.optString("assignedAgency").ifBlank {
             context.getString(R.string.review_detected_agency_title_default)
         }
+        val reportable = isReportablePayload(payload, category, agency)
         val summary = payload.optString("summary").ifBlank {
-            context.getString(R.string.review_ai_description_default)
+            if (reportable) {
+                context.getString(R.string.review_ai_description_default)
+            } else {
+                context.getString(R.string.no_incident_body_default)
+            }
         }
         val severity = payload.optString("severity").ifBlank { "—" }
 
@@ -142,7 +158,21 @@ object SmartStewardAiClient {
             putExtra(AiAnalysisActivity.EXTRA_AGENCY_SUBLINE, agencyShort)
             putExtra(AiAnalysisActivity.EXTRA_DESCRIPTION, summary)
             putExtra(AiAnalysisActivity.EXTRA_LOCATION_SHORT, loc)
+            putExtra(AiAnalysisActivity.EXTRA_REPORTABLE, reportable)
         }
+    }
+
+    private fun isReportablePayload(
+        payload: JSONObject,
+        category: String,
+        agency: String
+    ): Boolean {
+        if (payload.has("reportable")) {
+            return payload.optBoolean("reportable", true)
+        }
+        if (category.equals("Not a valid incident", ignoreCase = true)) return false
+        if (agency.equals("N/A", ignoreCase = true)) return false
+        return true
     }
 
     private fun agencyShortFromLine(assignedAgency: String): String {

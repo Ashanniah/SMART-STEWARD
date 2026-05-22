@@ -1,0 +1,107 @@
+{
+  "altering_boundaries": {
+    "category": "Altering Boundaries or Landmarks",
+    "type": "illegal activity",
+    "assignedAgency": "Barangay",
+    "reportable": true,
+    "severity": "Medium"
+  },
+  "animal_nuisance": {
+    "category": "Animal Nuisance",
+    "type": "incident",
+    "assignedAgency": "Barangay",
+    "reportable": true,
+    "severity": "Low"
+  },
+  "burning": {
+    "category": "Open Burning",
+    "type": "illegal activity",
+    "assignedAgency": "BFP",
+    "reportable": true,
+    "severity": "High"
+  },
+  "catcalling": {
+    "category": "Catcalling / Harassment",
+    "type": "illegal activity",
+    "assignedAgency": "PNP",
+    "reportable": true,
+    "severity": "Medium"
+  },
+  "flooding": {
+    "category": "Flooding",
+    "type": "incident",
+    "assignedAgency": "Barangay",
+    "reportable": true,
+    "severity": "Medium"
+  },
+  "garbage": {
+    "category": "Garbage",
+    "type": "incident",
+    "assignedAgency": "Barangay",
+    "reportable": true,
+    "severity": "Low"
+  },
+  "illegal_dumping": {
+    "category": "Illegal Dumping",
+    "type": "illegal activity",
+    "assignedAgency": "Barangay",
+    "reportable": true,
+    "severity": "Medium"
+  },
+  "illegal_gambling": {
+    "category": "Illegal Gambling",
+    "type": "illegal activity",
+    "assignedAgency": "PNP",
+    "reportable": true,
+    "severity": "Medium"
+  },
+  "illegal_drugs": {
+    "category": "Illegal Drugs",
+    "type": "illegal activity",
+    "assignedAgency": "PNP",
+    "reportable": true,
+    "severity": "High"
+  },
+  "noise_complaint": {
+    "category": "Noise Complaint",
+    "type": "incident",
+    "assignedAgency": "Barangay",
+    "reportable": true,
+    "severity": "Low"
+  },
+  "road_hazard": {
+    "category": "Road Hazard",
+    "type": "incident",
+    "assignedAgency": "Barangay",
+    "reportable": true,
+    "severity": "Medium"
+  },
+  "theft": {
+    "category": "Theft",
+    "type": "illegal activity",
+    "assignedAgency": "PNP",
+    "reportable": true,
+    "severity": "High"
+  },
+  "vandalism": {
+    "category": "Vandalism",
+    "type": "illegal activity",
+    "assignedAgency": "PNP",
+    "reportable": true,
+    "severity": "Medium"
+  },
+  "fire": {
+    "category": "Fire Hazard",
+    "type": "incident",
+    "assignedAgency": "BFP",
+    "reportable": true,
+    "severity": "High"
+  },
+  "not_reportable": {
+    "category": "Not a valid incident",
+    "type": "incident",
+    "assignedAgency": "N/A",
+    "reportable": false,
+    "severity": "Low"
+  }
+}

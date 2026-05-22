@@ -3,7 +3,9 @@ package com.example.smart_steward
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.MotionEvent
 import android.widget.Button
 import android.widget.CheckBox
@@ -19,6 +21,9 @@ class LoginActivity : AppCompatActivity() {
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
+    /** Avoid persisting while restoring UI from SharedPreferences. */
+    private var suppressRememberCallback = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
@@ -28,6 +33,25 @@ class LoginActivity : AppCompatActivity() {
         val rememberMe = findViewById<CheckBox>(R.id.loginRememberMe)
 
         applySavedEmail(emailInput, rememberMe)
+
+        rememberMe.setOnCheckedChangeListener { _, isChecked ->
+            if (suppressRememberCallback) return@setOnCheckedChangeListener
+            persistRememberState(isChecked, emailInput.text.toString().trim())
+        }
+
+        emailInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                if (suppressRememberCallback) return
+                if (!rememberMe.isChecked) return
+                val email = s?.toString()?.trim().orEmpty()
+                if (email.isNotBlank() && FormValidation.isValidEmail(email)) {
+                    loginPrefs.edit().putString(KEY_SAVED_EMAIL, email).apply()
+                }
+            }
+        })
+
         setupPasswordToggle(passwordInput)
 
         findViewById<TextView>(R.id.forgotPasswordLink).setOnClickListener {
@@ -71,7 +95,7 @@ class LoginActivity : AppCompatActivity() {
                     "password" to password
                 ),
                 onSuccess = {
-                    saveRememberMePreference(email, rememberMe.isChecked)
+                    persistRememberState(rememberMe.isChecked, email)
                     FormValidation.toast(this, "Login successful.")
                     val nextIntent = if (LandingGate.hasSeenLanding(this)) {
                         Intent(this, DashboardActivity::class.java)
@@ -104,18 +128,25 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun applySavedEmail(emailInput: EditText, rememberMe: CheckBox) {
-        val remember = loginPrefs.getBoolean(KEY_REMEMBER_ME, false)
-        rememberMe.isChecked = remember
-        if (remember) {
-            emailInput.setText(loginPrefs.getString(KEY_SAVED_EMAIL, "").orEmpty())
+        suppressRememberCallback = true
+        try {
+            val remember = loginPrefs.getBoolean(KEY_REMEMBER_ME, false)
+            rememberMe.isChecked = remember
+            if (remember) {
+                emailInput.setText(loginPrefs.getString(KEY_SAVED_EMAIL, "").orEmpty())
+            }
+        } finally {
+            suppressRememberCallback = false
         }
     }
 
-    private fun saveRememberMePreference(email: String, remember: Boolean) {
+    private fun persistRememberState(remember: Boolean, email: String) {
         loginPrefs.edit().apply {
             putBoolean(KEY_REMEMBER_ME, remember)
             if (remember) {
-                putString(KEY_SAVED_EMAIL, email)
+                if (email.isNotBlank() && FormValidation.isValidEmail(email)) {
+                    putString(KEY_SAVED_EMAIL, email)
+                }
             } else {
                 remove(KEY_SAVED_EMAIL)
             }

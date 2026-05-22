@@ -4,12 +4,14 @@ const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
 const os = require('os');
 
 dotenv.config();
 
-// Set ffmpeg path
+// Bundled binaries so video frame extraction works without a system FFmpeg install.
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -45,7 +47,7 @@ const extractFrameFromVideo = (videoPath) => {
   });
 };
 
-const generateResponse = async (message, mediaFile) => {
+const generateOpenAiResponse = async (message, mediaFile) => {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
@@ -111,8 +113,9 @@ const generateResponse = async (message, mediaFile) => {
       ],
     });
 
+    const parsed = JSON.parse(response.choices[0].message.content);
     return {
-      response: JSON.parse(response.choices[0].message.content),
+      response: enrichReportableFlag(parsed),
       usage: response.usage,
     };
   } finally {
@@ -127,6 +130,22 @@ const generateResponse = async (message, mediaFile) => {
   }
 };
 
+/** Ensures clients can branch on `reportable` without string-matching category/agency. */
+function enrichReportableFlag(parsed) {
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  const category = String(parsed.category || '').trim().toLowerCase();
+  const agency = String(parsed.assignedAgency || '').trim().toUpperCase();
+  const nonIncident =
+    category === 'not a valid incident' || agency === 'N/A';
+  if (nonIncident) {
+    parsed.reportable = false;
+  } else if (parsed.reportable === undefined) {
+    parsed.reportable = true;
+  }
+  return parsed;
+}
+
 module.exports = {
-  generateResponse,
+  generateOpenAiResponse,
+  extractFrameFromVideo,
 };

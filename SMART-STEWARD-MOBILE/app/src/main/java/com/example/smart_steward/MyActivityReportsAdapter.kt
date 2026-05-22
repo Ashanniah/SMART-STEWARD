@@ -1,14 +1,10 @@
 package com.example.smart_steward
 
-import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -20,6 +16,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class MyActivityReportsAdapter(
+    private val onViewOnMap: (UserReport) -> Unit,
     private val onTrackReport: (UserReport) -> Unit
 ) : RecyclerView.Adapter<MyActivityReportsAdapter.VH>() {
 
@@ -41,12 +38,17 @@ class MyActivityReportsAdapter(
     override fun getItemCount(): Int = items.size
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        holder.bind(items[position], dateFmt, onTrackReport)
+        holder.bind(items[position], dateFmt, onViewOnMap, onTrackReport)
     }
 
     class VH(private val card: MaterialCardView) : RecyclerView.ViewHolder(card) {
 
-        fun bind(report: UserReport, dateFmt: SimpleDateFormat, onTrackReport: (UserReport) -> Unit) {
+        fun bind(
+            report: UserReport,
+            dateFmt: SimpleDateFormat,
+            onViewOnMap: (UserReport) -> Unit,
+            onTrackReport: (UserReport) -> Unit
+        ) {
             val ctx = card.context
             val title = report.incidentType.substringBefore("(").trim()
                 .ifBlank { report.incidentType }
@@ -61,6 +63,8 @@ class MyActivityReportsAdapter(
 
             val (emoji, tileColorRes) = typeVisuals(report.incidentType)
             val thumb = card.findViewById<ImageView>(R.id.reportThumbnail)
+            val thumbContainer = card.findViewById<View>(R.id.reportThumbContainer)
+            val videoPlay = card.findViewById<ImageView>(R.id.reportVideoPlay)
             val emojiFallback = card.findViewById<TextView>(R.id.reportTypeEmojiFallback)
             val cornerPx = dp(ctx, 10f)
             emojiFallback.text = emoji
@@ -69,6 +73,7 @@ class MyActivityReportsAdapter(
                 cornerPx
             )
             val url = report.photoUrl.trim()
+            val videoRemote = report.videoUrl.trim()
             if (url.isNotEmpty()) {
                 thumb.visibility = View.VISIBLE
                 emojiFallback.visibility = View.GONE
@@ -94,34 +99,34 @@ class MyActivityReportsAdapter(
                 emojiFallback.visibility = View.VISIBLE
             }
 
+            if (videoRemote.isNotEmpty()) {
+                videoPlay.visibility = View.VISIBLE
+                thumbContainer.setOnClickListener {
+                    MediaPlayback.openRemoteVideo(ctx, videoRemote)
+                }
+            } else if (url.isNotEmpty()) {
+                videoPlay.visibility = View.GONE
+                thumbContainer.setOnClickListener {
+                    MediaPlayback.openRemoteImage(ctx, url)
+                }
+            } else {
+                videoPlay.visibility = View.GONE
+                thumbContainer.setOnClickListener(null)
+            }
+
             val statusTag = card.findViewById<TextView>(R.id.reportStatusTag)
-            when (report.status) {
-                ReportStatusUi.PENDING -> {
-                    statusTag.setText(R.string.my_activity_status_pending)
-                    styleTag(statusTag, ContextCompat.getColor(ctx, R.color.activity_pending_orange))
-                }
-                ReportStatusUi.IN_PROGRESS -> {
-                    statusTag.setText(R.string.my_activity_status_in_progress)
-                    styleTag(statusTag, ContextCompat.getColor(ctx, R.color.activity_progress_blue))
-                }
-                ReportStatusUi.RESOLVED -> {
-                    statusTag.setText(R.string.my_activity_status_resolved)
-                    styleTag(statusTag, ContextCompat.getColor(ctx, R.color.activity_resolved_green))
-                }
+            statusTag.text = report.statusLabel
+            val badgeColor = when (report.status) {
+                ReportStatusUi.PENDING ->
+                    ContextCompat.getColor(ctx, R.color.activity_pending_orange)
+                ReportStatusUi.IN_PROGRESS ->
+                    ContextCompat.getColor(ctx, R.color.activity_progress_blue)
+                ReportStatusUi.RESOLVED ->
+                    ContextCompat.getColor(ctx, R.color.activity_resolved_green)
+                ReportStatusUi.REJECTED ->
+                    ContextCompat.getColor(ctx, R.color.activity_rejected_gray)
             }
-
-            card.findViewById<TextView>(R.id.reportProgressLabel).text = report.progressLabel
-            card.findViewById<TextView>(R.id.reportProgressPercent).text = "${report.progressPercent}%"
-
-            val bar = card.findViewById<ProgressBar>(R.id.reportProgressBar)
-            bar.progress = report.progressPercent
-            val progressColor = when (report.status) {
-                ReportStatusUi.PENDING -> ContextCompat.getColor(ctx, R.color.activity_pending_orange)
-                ReportStatusUi.IN_PROGRESS -> ContextCompat.getColor(ctx, R.color.activity_progress_blue)
-                ReportStatusUi.RESOLVED -> ContextCompat.getColor(ctx, R.color.activity_resolved_green)
-            }
-            bar.progressTintList = ColorStateList.valueOf(progressColor)
-            bar.progressBackgroundTintList = ColorStateList.valueOf(0x33000000)
+            styleTag(statusTag, badgeColor)
 
             val secondary = card.findViewById<TextView>(R.id.reportBtnSecondary)
             val primary = card.findViewById<TextView>(R.id.reportBtnPrimary)
@@ -135,11 +140,19 @@ class MyActivityReportsAdapter(
 
             secondary.setOnClickListener {
                 if (report.status == ReportStatusUi.RESOLVED) {
-                    openUrl(ctx, report.photoUrl)
+                    val videoEvidence = report.videoUrl.trim()
+                    val photoEvidence = report.photoUrl.trim()
+                    when {
+                        videoEvidence.isNotEmpty() -> MediaPlayback.openRemoteVideo(ctx, videoEvidence)
+                        photoEvidence.isNotEmpty() -> MediaPlayback.openRemoteImage(ctx, photoEvidence)
+                        else -> Toast.makeText(
+                            ctx,
+                            ctx.getString(R.string.my_activity_view_evidence),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 } else {
-                    val query = report.locationLine.ifBlank { title }
-                    val uri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                    onViewOnMap(report)
                 }
             }
             primary.setOnClickListener {
@@ -182,12 +195,5 @@ class MyActivityReportsAdapter(
             }
         }
 
-        private fun openUrl(ctx: android.content.Context, url: String) {
-            if (url.isBlank()) {
-                Toast.makeText(ctx, ctx.getString(R.string.my_activity_view_evidence), Toast.LENGTH_SHORT).show()
-                return
-            }
-            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        }
     }
 }

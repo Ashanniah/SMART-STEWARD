@@ -16,16 +16,36 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
-        <TextView
-            android:id="@+id/nearRowTypeIcon"
+        <FrameLayout
+            android:id="@+id/nearRowThumbContainer"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:background="@drawable/bg_dashboard_search"
-            android:gravity="center"
-            android:textSize="20sp"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="📋" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                android:id="@+id/nearRowPhoto"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/near_report_photo"
+                android:scaleType="centerCrop"
+                android:src="@drawable/bg_near_report_thumb_placeholder"
+                tools:ignore="ImageContrastCheck" />
+
+            <ImageView
+                android:id="@+id/nearRowVideoPlay"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_play_circle"
+                android:contentDescription="@string/play_video"
+                android:padding="4dp"
+                android:scaleType="fitCenter"
+                android:src="@android:drawable/ic_media_play"
+                android:tint="@color/white"
+                android:visibility="gone"
+                tools:visibility="visible" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/nearRowTitle"
@@ -39,8 +59,8 @@
             android:textSize="15sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toStartOf="@+id/nearRowStatus"
-            app:layout_constraintStart_toEndOf="@id/nearRowTypeIcon"
-            app:layout_constraintTop_toTopOf="@id/nearRowTypeIcon"
+            app:layout_constraintStart_toEndOf="@id/nearRowThumbContainer"
+            app:layout_constraintTop_toTopOf="@id/nearRowThumbContainer"
             tools:text="Illegal Dumping" />
 
         <TextView
@@ -67,7 +87,7 @@
             android:textSize="11sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/nearRowTypeIcon"
+            app:layout_constraintTop_toTopOf="@id/nearRowThumbContainer"
             tools:background="@color/activity_pending_orange"
             tools:text="Pending" />
 

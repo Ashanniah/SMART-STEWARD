@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { generateResponse } = require('../services/openai');
+const { generateHybridResponse } = require('../services/hybridAi');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -23,7 +23,7 @@ router.post('/', upload.single('media'), async (req, res) => {
       return res.status(400).json({ error: 'Message or media file is required.' });
     }
 
-    const aiResponse = await generateResponse(message, file);
+    const aiResponse = await generateHybridResponse(message, file);
     
     // Clean up the uploaded file if it exists
     if (file && fs.existsSync(file.path)) {

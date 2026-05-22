@@ -1,0 +1,19 @@
+# Raw images and videos are large — keep local or use Git LFS; do not commit by default.
+datasets/**/*
+!datasets/**/.gitkeep
+!datasets/**/README.md
+
+# Trained weights / ONNX / TFLite exports
+models/*
+!models/.gitkeep
+!models/README.md
+
+# Python training artifacts
+training/__pycache__/
+training/.venv/
+training/runs/
+*.pth
+*.pt
+*.onnx
+*.tflite
+*.h5

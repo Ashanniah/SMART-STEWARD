@@ -2,15 +2,18 @@ package com.example.smart_steward
 
 import android.Manifest
 import android.app.Dialog
+import android.content.res.ColorStateList
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageButton
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -19,11 +22,17 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import kotlin.math.abs
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnLayout
+import androidx.core.view.updatePadding
+import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.RoundedCornersTransformation
+import java.text.SimpleDateFormat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -38,15 +47,13 @@ import com.google.android.libraries.places.widget.AutocompleteSupportFragment
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.google.android.gms.common.api.Status
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import java.util.Locale
 
 class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
-
-    companion object {
-        const val EXTRA_OPEN_CAMERA = "open_camera"
-    }
 
     private enum class CameraAction {
         PHOTO,
@@ -59,16 +66,42 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var adapter: DashboardNearIncidentsAdapter
     private var bottomSheetBehavior: BottomSheetBehavior<LinearLayout>? = null
     private lateinit var bottomSheet: LinearLayout
-    private lateinit var chipTypeDumping: Chip
-    private lateinit var chipTypeBurning: Chip
-    private lateinit var chipTypeLogging: Chip
+    private lateinit var typeFilterChipGroup: ChipGroup
     private var allReports: List<UserReport> = emptyList()
     private var filteredReports: List<UserReport> = emptyList()
     private var mapScope: DashboardMapScope = DashboardMapScope.ALL
-    private var typeFilter: DashboardTypeFilter = DashboardTypeFilter.ALL
+    /** Null = show all incident types; otherwise matches [UserReport.displayTitle]. */
+    private var selectedIncidentTypeLabel: String? = null
+    /** Null = all agencies, else one of DENR/PNP/BFP/Barangay. */
+    private var selectedAgencyLabel: String? = null
     private val reportMarkers = LinkedHashMap<String, Marker>()
     private val agencyMarkers = LinkedHashMap<String, Marker>()
     private var activeQuickCardReport: UserReport? = null
+    private var pendingFocusReportId: String? = null
+    private var pendingFocusLat: Double? = null
+    private var pendingFocusLng: Double? = null
+
+    companion object {
+        const val EXTRA_OPEN_CAMERA = "open_camera"
+        const val EXTRA_FOCUS_REPORT_ID = "focus_report_id"
+        const val EXTRA_FOCUS_LAT = "focus_lat"
+        const val EXTRA_FOCUS_LNG = "focus_lng"
+        private const val PREFS_NAME = "dashboard_prefs"
+        private const val KEY_LOCATION_DIALOG_SHOWN = "location_dialog_shown"
+        /** Chip.tag for the “All” filter (empty string — not a valid report title). */
+        private const val TYPE_CHIP_TAG_ALL = ""
+        private val AGENCY_FILTER_OPTIONS = listOf("DENR", "PNP", "BFP", "Barangay")
+    }
+
+    private fun isLocationDialogShown(): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        return prefs.getBoolean(KEY_LOCATION_DIALOG_SHOWN, false)
+    }
+
+    private fun setLocationDialogShown() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_LOCATION_DIALOG_SHOWN, true).apply()
+    }
 
     private val takePhotoLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -90,9 +123,11 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     ) { result ->
         if (result.resultCode == RESULT_OK) {
             val uri: Uri? = result.data?.data
+                ?: result.data?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
             if (uri != null) {
                 CapturedMediaStore.capturedBitmap = null
-                CapturedMediaStore.capturedVideoUri = uri
+                CapturedMediaStore.capturedVideoUri =
+                    MediaCapturePersistence.copyVideoToCache(this, uri) ?: uri
             }
             startActivity(Intent(this, IncidentFlowActivity::class.java))
         }
@@ -130,11 +165,17 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.dashboardRoot)) { view, insets ->
+        val topBar = findViewById<LinearLayout>(R.id.dashboardTopBar)
+        val bottomNav = findViewById<LinearLayout>(R.id.mainBottomNav)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.dashboardRoot)) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            topBar.updatePadding(top = 10 + systemBars.top)
+            bottomNav.updatePadding(bottom = 6 + systemBars.bottom)
+            topBar.doOnLayout { applyMapPadding() }
             insets
         }
+
+        captureFocusIntent(intent)
 
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.dashboardMap) as? SupportMapFragment
@@ -146,29 +187,35 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         setupSearch()
         setupQuickCard()
 
-        if (intent.getBooleanExtra(EXTRA_OPEN_CAMERA, false)) {
-            findViewById<View>(R.id.dashboardRoot).post {
-                showMediaCaptureDialog()
-            }
-        }
+        maybeShowMediaCaptureFromIntent(intent)
 
-        findViewById<LinearLayout>(R.id.dashboardNavActivity).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.dashboardNavNotification).setOnClickListener {
-            startActivity(Intent(this, NotificationActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.dashboardNavProfile).setOnClickListener {
+        findViewById<View>(R.id.dashboardHeaderProfile).setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
 
-        findViewById<FrameLayout>(R.id.dashboardCameraFab).setOnClickListener {
-            showMediaCaptureDialog()
-        }
+        MainBottomNav.setup(this, MainBottomNavTab.HOME)
 
         watchReports()
+        updateZoomControlsPosition()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        MainBottomNav.updateBadge(this)
+        ProfileInitials.bind(findViewById(R.id.dashboardHeaderProfileInitials))
+    }
+
+    fun openMediaCaptureChooser() {
+        findViewById<View>(R.id.dashboardRoot).post {
+            showMediaCaptureDialog()
+        }
+    }
+
+    private fun maybeShowMediaCaptureFromIntent(source: Intent?) {
+        if (source?.getBooleanExtra(EXTRA_OPEN_CAMERA, false) != true) return
+        findViewById<View>(R.id.dashboardRoot).post {
+            showMediaCaptureDialog()
+        }
     }
 
     private fun showMediaCaptureDialog() {
@@ -205,7 +252,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.uiSettings.isMapToolbarEnabled = false
         googleMap.uiSettings.isMyLocationButtonEnabled = false
         googleMap.uiSettings.isCompassEnabled = false
-        findViewById<LinearLayout>(R.id.dashboardBottomNav).doOnLayout { applyMapPadding() }
+        findViewById<LinearLayout>(R.id.dashboardTopBar).doOnLayout { applyMapPadding() }
+        findViewById<LinearLayout>(R.id.mainBottomNav).doOnLayout { applyMapPadding() }
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(talamban, 14f))
         googleMap.setOnInfoWindowClickListener { marker ->
             val report = marker.tag as? UserReport ?: return@setOnInfoWindowClickListener
@@ -219,6 +267,67 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         renderMapLayers()
         googleMap.setOnMapLoadedCallback {
             requestLocationDialog()
+        }
+        runPendingFocusAfterRender()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        captureFocusIntent(intent)
+        applyFiltersAndRender()
+        maybeShowMediaCaptureFromIntent(intent)
+    }
+
+    private fun captureFocusIntent(i: Intent?) {
+        if (i == null) return
+        val id = i.getStringExtra(EXTRA_FOCUS_REPORT_ID)
+        val hasLatLng = i.hasExtra(EXTRA_FOCUS_LAT) && i.hasExtra(EXTRA_FOCUS_LNG)
+        if (id == null && !hasLatLng) return
+        pendingFocusReportId = id
+        if (hasLatLng) {
+            val lat = i.getDoubleExtra(EXTRA_FOCUS_LAT, Double.NaN)
+            val lng = i.getDoubleExtra(EXTRA_FOCUS_LNG, Double.NaN)
+            if (!lat.isNaN() && !lng.isNaN()) {
+                pendingFocusLat = lat
+                pendingFocusLng = lng
+            }
+        } else if (id != null) {
+            pendingFocusLat = null
+            pendingFocusLng = null
+        }
+    }
+
+    private fun runPendingFocusAfterRender() {
+        val gMap = map ?: return
+        val id = pendingFocusReportId
+
+        if (id != null) {
+            if (mapScope != DashboardMapScope.ALL || selectedIncidentTypeLabel != null) {
+                mapScope = DashboardMapScope.ALL
+                selectedIncidentTypeLabel = null
+                bindScopeChips()
+                applyFiltersAndRender()
+                return
+            }
+            val report = allReports.find { it.id == id }
+            if (report != null) {
+                pendingFocusReportId = null
+                pendingFocusLat = null
+                pendingFocusLng = null
+                focusReport(report, openSheet = false)
+                return
+            }
+        }
+
+        val lat = pendingFocusLat
+        val lng = pendingFocusLng
+        if (lat != null && lng != null) {
+            gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 16.2f))
+            if (id == null) {
+                pendingFocusLat = null
+                pendingFocusLng = null
+            }
         }
     }
 
@@ -234,6 +343,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
         adapter = DashboardNearIncidentsAdapter { report ->
             focusReport(report, openSheet = false)
+            ReportReceiptDialog.show(this, report)
         }
         findViewById<RecyclerView>(R.id.dashboardNearRecycler).apply {
             layoutManager = LinearLayoutManager(this@DashboardActivity)
@@ -296,16 +406,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         findViewById<ImageButton>(R.id.dashboardMyLocation).setOnClickListener {
             centerOnCurrentLocation(showCard = false)
         }
-        findViewById<ImageButton>(R.id.dashboardLayerButton).setOnClickListener {
-            mapScope = when (mapScope) {
-                DashboardMapScope.ALL -> DashboardMapScope.INCIDENTS
-                DashboardMapScope.INCIDENTS -> DashboardMapScope.ILLEGAL_ACTIVITIES
-                DashboardMapScope.ILLEGAL_ACTIVITIES -> DashboardMapScope.AGENCIES
-                DashboardMapScope.AGENCIES -> DashboardMapScope.ALL
-            }
-            bindScopeChips()
-            applyFiltersAndRender()
-        }
     }
 
     private fun setupFilters() {
@@ -313,24 +413,33 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         val scopeIncidents = findViewById<Chip>(R.id.chipScopeIncidents)
         val scopeIllegal = findViewById<Chip>(R.id.chipScopeIllegal)
         val scopeAgencies = findViewById<Chip>(R.id.chipScopeAgencies)
-        scopeAll.setOnClickListener { mapScope = DashboardMapScope.ALL; bindScopeChips(); applyFiltersAndRender() }
-        scopeIncidents.setOnClickListener { mapScope = DashboardMapScope.INCIDENTS; bindScopeChips(); applyFiltersAndRender() }
-        scopeIllegal.setOnClickListener { mapScope = DashboardMapScope.ILLEGAL_ACTIVITIES; bindScopeChips(); applyFiltersAndRender() }
-        scopeAgencies.setOnClickListener { mapScope = DashboardMapScope.AGENCIES; bindScopeChips(); applyFiltersAndRender() }
+        scopeAll.setOnClickListener {
+            mapScope = DashboardMapScope.ALL
+            selectedAgencyLabel = null
+            bindScopeChips()
+            applyFiltersAndRender()
+        }
+        scopeIncidents.setOnClickListener {
+            mapScope = DashboardMapScope.INCIDENTS
+            selectedAgencyLabel = null
+            bindScopeChips()
+            applyFiltersAndRender()
+        }
+        scopeIllegal.setOnClickListener {
+            mapScope = DashboardMapScope.ILLEGAL_ACTIVITIES
+            selectedAgencyLabel = null
+            bindScopeChips()
+            applyFiltersAndRender()
+        }
+        scopeAgencies.setOnClickListener {
+            mapScope = DashboardMapScope.AGENCIES
+            bindScopeChips()
+            showAgencyDropdown(scopeAgencies)
+            applyFiltersAndRender()
+        }
 
-        val typeAll = findViewById<Chip>(R.id.chipTypeAll)
-        chipTypeDumping = findViewById(R.id.chipTypeDumping)
-        chipTypeBurning = findViewById(R.id.chipTypeBurning)
-        chipTypeLogging = findViewById(R.id.chipTypeLogging)
-        val typeDump = chipTypeDumping
-        val typeBurn = chipTypeBurning
-        val typeLog = chipTypeLogging
-        typeAll.setOnClickListener { typeFilter = DashboardTypeFilter.ALL; bindTypeChips(); applyFiltersAndRender() }
-        typeDump.setOnClickListener { typeFilter = DashboardTypeFilter.DUMPING; bindTypeChips(); applyFiltersAndRender() }
-        typeBurn.setOnClickListener { typeFilter = DashboardTypeFilter.BURNING; bindTypeChips(); applyFiltersAndRender() }
-        typeLog.setOnClickListener { typeFilter = DashboardTypeFilter.LOGGING; bindTypeChips(); applyFiltersAndRender() }
+        typeFilterChipGroup = findViewById(R.id.dashboardTypeFilterRow)
         bindScopeChips()
-        bindTypeChips()
     }
 
     private fun bindScopeChips() {
@@ -340,11 +449,94 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         findViewById<Chip>(R.id.chipScopeAgencies).isChecked = mapScope == DashboardMapScope.AGENCIES
     }
 
-    private fun bindTypeChips() {
-        findViewById<Chip>(R.id.chipTypeAll).isChecked = typeFilter == DashboardTypeFilter.ALL
-        findViewById<Chip>(R.id.chipTypeDumping).isChecked = typeFilter == DashboardTypeFilter.DUMPING
-        findViewById<Chip>(R.id.chipTypeBurning).isChecked = typeFilter == DashboardTypeFilter.BURNING
-        findViewById<Chip>(R.id.chipTypeLogging).isChecked = typeFilter == DashboardTypeFilter.LOGGING
+    private fun showAgencyDropdown(anchor: View) {
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add(0, 0, 0, "All agencies")
+        AGENCY_FILTER_OPTIONS.forEachIndexed { idx, label ->
+            popup.menu.add(0, idx + 1, idx + 1, label)
+        }
+        popup.setOnMenuItemClickListener { item ->
+            selectedAgencyLabel = if (item.itemId == 0) null else item.title.toString()
+            applyFiltersAndRender()
+            true
+        }
+        popup.show()
+    }
+
+    private fun reportsInCurrentScope(): List<UserReport> {
+        return when (mapScope) {
+            DashboardMapScope.AGENCIES -> emptyList()
+            DashboardMapScope.ILLEGAL_ACTIVITIES ->
+                allReports.filter { isIllegalActivityType(it.incidentType) }
+            DashboardMapScope.ALL, DashboardMapScope.INCIDENTS -> allReports
+        }
+    }
+
+    private fun matchesSelectedIncidentType(report: UserReport): Boolean {
+        val sel = selectedIncidentTypeLabel ?: return true
+        return report.displayTitle().equals(sel, ignoreCase = true)
+    }
+
+    /** One chip per distinct report title in scope + “All”. No synthetic “Other” row. */
+    private fun syncIncidentTypeChips() {
+        if (mapScope == DashboardMapScope.AGENCIES) {
+            typeFilterChipGroup.removeAllViews()
+            return
+        }
+        val inScope = reportsInCurrentScope()
+        val distinctTypes = inScope.map { it.displayTitle().trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .sorted()
+
+        if (selectedIncidentTypeLabel != null &&
+            distinctTypes.none { it.equals(selectedIncidentTypeLabel, ignoreCase = true) }
+        ) {
+            selectedIncidentTypeLabel = null
+        }
+
+        typeFilterChipGroup.removeAllViews()
+        val density = resources.displayMetrics.density
+        val cornerPx = 18f * density
+        val minHeightPx = 36f * density
+
+        fun addTypeChip(label: String, selectionKey: String?) {
+            val chip = Chip(this, null, R.style.Widget_SMARTSTEWARD_FilterChip)
+            chip.text = label
+            chip.tag = selectionKey ?: TYPE_CHIP_TAG_ALL
+            chip.chipCornerRadius = cornerPx
+            chip.chipMinHeight = minHeightPx
+            chip.isSingleLine = true
+            chip.setEnsureMinTouchTargetSize(false)
+            chip.isCheckable = true
+            chip.isCheckedIconVisible = false
+            chip.checkedIcon = null
+            chip.chipBackgroundColor = ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.register_button_green)
+            )
+            chip.setTextColor(
+                ColorStateList.valueOf(ContextCompat.getColor(this, R.color.white))
+            )
+            chip.setOnClickListener {
+                selectedIncidentTypeLabel = selectionKey
+                applyFiltersAndRender()
+            }
+            typeFilterChipGroup.addView(chip)
+        }
+
+        addTypeChip(getString(R.string.dashboard_filter_all), null)
+        for (t in distinctTypes) {
+            addTypeChip(t, t)
+        }
+
+        for (i in 0 until typeFilterChipGroup.childCount) {
+            val chip = typeFilterChipGroup.getChildAt(i) as Chip
+            val key = chip.tag as? String ?: TYPE_CHIP_TAG_ALL
+            chip.isChecked = when {
+                selectedIncidentTypeLabel == null -> key == TYPE_CHIP_TAG_ALL
+                else -> key.equals(selectedIncidentTypeLabel, ignoreCase = true)
+            }
+        }
     }
 
     private fun watchReports() {
@@ -361,13 +553,16 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun applyFiltersAndRender() {
-        updateTypeChipVisibility()
+        syncIncidentTypeChips()
         val incidentFiltered = when (mapScope) {
-            DashboardMapScope.AGENCIES -> emptyList()
+            DashboardMapScope.AGENCIES ->
+                allReports.filter { matchesReportAgencyFilter(it, selectedAgencyLabel) }
             DashboardMapScope.ILLEGAL_ACTIVITIES ->
-                allReports.filter { isIllegalActivityType(it.incidentType) && matchesTypeFilter(it, typeFilter) }
-            DashboardMapScope.ALL, DashboardMapScope.INCIDENTS ->
-                allReports.filter { matchesTypeFilter(it, typeFilter) }
+                allReports.filter { isIllegalActivityType(it.incidentType) && matchesSelectedIncidentType(it) }
+            DashboardMapScope.INCIDENTS ->
+                allReports.filter { matchesSelectedIncidentType(it) }
+            DashboardMapScope.ALL ->
+                allReports.filter { matchesSelectedIncidentType(it) }
         }
         filteredReports = incidentFiltered
         adapter.submitList(filteredReports)
@@ -375,28 +570,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         updateBottomSheetVisibility()
         renderMapLayers()
         applyMapPadding()
-    }
-
-    private fun updateTypeChipVisibility() {
-        val hasDumping = allReports.any { matchesTypeFilter(it, DashboardTypeFilter.DUMPING) }
-        val hasBurning = allReports.any { matchesTypeFilter(it, DashboardTypeFilter.BURNING) }
-        val hasLogging = allReports.any { matchesTypeFilter(it, DashboardTypeFilter.LOGGING) }
-        chipTypeDumping.visibility = if (hasDumping) View.VISIBLE else View.GONE
-        chipTypeBurning.visibility = if (hasBurning) View.VISIBLE else View.GONE
-        chipTypeLogging.visibility = if (hasLogging) View.VISIBLE else View.GONE
-
-        val selectedHidden = (typeFilter == DashboardTypeFilter.DUMPING && !hasDumping) ||
-            (typeFilter == DashboardTypeFilter.BURNING && !hasBurning) ||
-            (typeFilter == DashboardTypeFilter.LOGGING && !hasLogging)
-        if (selectedHidden) {
-            typeFilter = DashboardTypeFilter.ALL
-            bindTypeChips()
-        }
+        runPendingFocusAfterRender()
     }
 
     private fun updateBottomSheetVisibility() {
-        val hasReports = allReports.isNotEmpty()
-        if (hasReports) {
+        val hasListToShow = filteredReports.isNotEmpty()
+        if (hasListToShow) {
             bottomSheet.visibility = View.VISIBLE
             if (bottomSheetBehavior?.state == BottomSheetBehavior.STATE_HIDDEN) {
                 bottomSheetBehavior?.state = BottomSheetBehavior.STATE_COLLAPSED
@@ -405,6 +584,20 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             bottomSheetBehavior?.state = BottomSheetBehavior.STATE_HIDDEN
             bottomSheet.visibility = View.GONE
         }
+        updateZoomControlsPosition()
+    }
+
+    private fun updateZoomControlsPosition() {
+        if (!::bottomSheet.isInitialized) return
+        val controls = findViewById<LinearLayout>(R.id.dashboardFloatingControls)
+        val lp = controls.layoutParams as CoordinatorLayout.LayoutParams
+        val marginRes = if (bottomSheet.visibility == View.VISIBLE) {
+            R.dimen.dashboard_zoom_controls_margin_with_sheet
+        } else {
+            R.dimen.dashboard_zoom_controls_margin_no_sheet
+        }
+        lp.bottomMargin = resources.getDimensionPixelSize(marginRes)
+        controls.layoutParams = lp
     }
 
     private fun renderMapLayers() {
@@ -420,8 +613,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     MarkerOptions()
                         .position(report.effectivePosition())
                         .title(report.displayTitle())
-                        .snippet("${report.locationDisplay()} · ${report.status.name.replace("_", " ")}")
-                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(markerHueForReport(report)))
+                        .snippet("${report.locationDisplay()} · ${markerSnippetStatus(report.status)}")
+                        .icon(markerDescriptorForReport(this, report))
                 )
                 if (marker != null) {
                     marker.tag = report
@@ -430,32 +623,36 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-        if (mapScope == DashboardMapScope.ALL || mapScope == DashboardMapScope.AGENCIES) {
-            DEFAULT_AGENCY_PINS.forEach { agency ->
-                val marker = gMap.addMarker(
-                    MarkerOptions()
-                        .position(agency.position)
-                        .title(agency.shortLabel)
-                        .snippet(agency.name)
-                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
-                            com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE
-                        ))
-                )
-                if (marker != null) agencyMarkers[agency.id] = marker
-            }
-        }
+        // Agency scope now filters report markers by assigned agency and keeps status colors.
+        // No separate blue agency pins are rendered.
     }
 
     private fun focusReport(report: UserReport, openSheet: Boolean) {
         map?.animateCamera(CameraUpdateFactory.newLatLngZoom(report.effectivePosition(), 16.2f))
         reportMarkers[report.id]?.showInfoWindow()
         showQuickCard(report)
-        if (openSheet) {
+        if (openSheet && bottomSheet.visibility == View.VISIBLE) {
             bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
         }
     }
 
     private fun requestLocationDialog() {
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFineLocation) {
+            enableCurrentLocation()
+            return
+        }
+
+        if (isLocationDialogShown()) {
+            return
+        }
+
+        setLocationDialogShown()
+
         AlertDialog.Builder(this)
             .setTitle("Allow location access")
             .setMessage("Enable location while using the app to show your current position on the map.")
@@ -535,6 +732,14 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             requestLocationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
             return
         }
+
+        val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) && 
+            !locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+            Toast.makeText(this, "Please enable location services in Settings.", Toast.LENGTH_LONG).show()
+            return
+        }
+
         LocationServices.getFusedLocationProviderClient(this).lastLocation
             .addOnCompleteListener { task ->
                 val location = if (task.isSuccessful) task.result else null
@@ -555,33 +760,120 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                         if (nearest != null) showQuickCard(nearest)
                     }
                 } else {
-                    Toast.makeText(this, "Current location unavailable.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Unable to get current location. Please try again or ensure GPS is enabled.", Toast.LENGTH_LONG).show()
                 }
             }
     }
 
     private fun setupQuickCard() {
-        findViewById<ImageButton>(R.id.dashboardQuickDismiss).setOnClickListener {
-            hideQuickCard()
-        }
-        findViewById<TextView>(R.id.dashboardQuickSecondaryBtn).setOnClickListener {
+        findViewById<ImageButton>(R.id.dashboardQuickClose).setOnClickListener {
             hideQuickCard()
         }
         findViewById<TextView>(R.id.dashboardQuickPrimaryBtn).setOnClickListener {
-            val report = activeQuickCardReport
-            if (report != null) {
-                Toast.makeText(this, "Notified ${report.assignedAgency.ifBlank { "DENR" }}", Toast.LENGTH_SHORT).show()
+            val report = activeQuickCardReport ?: return@setOnClickListener
+            when (report.status) {
+                ReportStatusUi.IN_PROGRESS -> {
+                    Toast.makeText(
+                        this,
+                        "You can’t notify because the report is already in progress.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnClickListener
+                }
+                ReportStatusUi.RESOLVED -> {
+                    Toast.makeText(
+                        this,
+                        "You can’t notify because the report is already resolved.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnClickListener
+                }
+                ReportStatusUi.REJECTED -> {
+                    Toast.makeText(
+                        this,
+                        "You can’t notify because the report is already closed.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnClickListener
+                }
+                ReportStatusUi.PENDING -> Unit
             }
+            if (report.assignedAgency.isBlank()) {
+                Toast.makeText(this, R.string.dashboard_no_agency_assigned, Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            AgencyNotificationsFirestore.sendCitizenNotify(
+                report,
+                onSuccess = {
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.dashboard_notify_sent,
+                            AgencyCanonical.shortName(report.assignedAgency)
+                        ),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    hideQuickCard()
+                },
+                onError = { msg -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
+            )
         }
     }
 
     private fun showQuickCard(report: UserReport) {
         activeQuickCardReport = report
-        findViewById<TextView>(R.id.dashboardQuickType).text = report.displayTitle()
         findViewById<TextView>(R.id.dashboardQuickTitle).text = report.displayTitle()
-        val dateText = report.submittedAt?.let { java.text.SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(it) }
-            ?: "recently"
-        findViewById<TextView>(R.id.dashboardQuickMeta).text = "${report.locationDisplay()} - Reported $dateText"
+        val primaryBtn = findViewById<TextView>(R.id.dashboardQuickPrimaryBtn)
+        primaryBtn.text = getString(R.string.dashboard_notify_action)
+        val canNotify = report.status == ReportStatusUi.PENDING
+        primaryBtn.alpha = if (canNotify) 1f else 0.55f
+
+        findViewById<TextView>(R.id.dashboardQuickLocation).text = report.locationDisplay()
+        val submitted = report.submittedAt
+        val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+        val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
+        findViewById<TextView>(R.id.dashboardQuickDate).text =
+            submitted?.let { dateFmt.format(it) } ?: "—"
+        findViewById<TextView>(R.id.dashboardQuickTime).text =
+            submitted?.let { timeFmt.format(it) } ?: "—"
+        findViewById<TextView>(R.id.dashboardQuickAgency).text =
+            if (report.assignedAgency.isNotBlank()) {
+                AgencyCanonical.shortName(report.assignedAgency)
+            } else {
+                getString(R.string.dashboard_detail_agency_unassigned)
+            }
+
+        val photo = findViewById<ImageView>(R.id.dashboardQuickPhoto)
+        val thumbContainer = findViewById<View>(R.id.dashboardQuickThumbContainer)
+        val videoPlay = findViewById<ImageView>(R.id.dashboardQuickVideoPlay)
+        val cornerRadiusPx = 6f * resources.displayMetrics.density
+        val url = report.photoUrl.trim()
+        if (url.isNotEmpty()) {
+            photo.load(url) {
+                crossfade(true)
+                transformations(RoundedCornersTransformation(cornerRadiusPx))
+                placeholder(R.drawable.bg_near_report_thumb_placeholder)
+                error(R.drawable.bg_near_report_thumb_placeholder)
+            }
+        } else {
+            photo.setImageResource(R.drawable.bg_near_report_thumb_placeholder)
+        }
+        val videoRemote = report.videoUrl.trim()
+        if (videoRemote.isNotEmpty()) {
+            videoPlay.visibility = View.VISIBLE
+            thumbContainer.setOnClickListener {
+                MediaPlayback.openRemoteVideo(this, videoRemote)
+            }
+        } else if (url.isNotEmpty()) {
+            videoPlay.visibility = View.GONE
+            thumbContainer.setOnClickListener {
+                MediaPlayback.openRemoteImage(this, url)
+            }
+        } else {
+            videoPlay.visibility = View.GONE
+            thumbContainer.setOnClickListener(null)
+        }
+
         findViewById<LinearLayout>(R.id.dashboardQuickCard).visibility = View.VISIBLE
     }
 
@@ -592,14 +884,16 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun applyMapPadding() {
         val gMap = map ?: return
-        val nav = findViewById<LinearLayout>(R.id.dashboardBottomNav)
+        val topBar = findViewById<LinearLayout>(R.id.dashboardTopBar)
+        val nav = findViewById<LinearLayout>(R.id.mainBottomNav)
         val fabLift = abs(resources.getDimensionPixelSize(R.dimen.bottom_nav_fab_lift))
         val sheetPad = if (::bottomSheet.isInitialized && bottomSheet.visibility == View.VISIBLE) {
             resources.getDimensionPixelSize(R.dimen.dashboard_bottom_sheet_peek)
         } else {
             0
         }
-        gMap.setPadding(0, 180, 0, nav.height + fabLift + sheetPad + 24)
+        val topPad = if (topBar.height > 0) topBar.height else (180 * resources.displayMetrics.density).toInt()
+        gMap.setPadding(0, topPad, 0, nav.height + fabLift + sheetPad + 24)
     }
 
     override fun onDestroy() {
@@ -607,4 +901,5 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         reportsListener = null
         super.onDestroy()
     }
+
 }

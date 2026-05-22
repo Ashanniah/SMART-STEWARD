@@ -12,25 +12,18 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.smart_steward.api.ApiProvider
 import com.example.smart_steward.api.routes.AuthRoutes
 import com.google.firebase.auth.FirebaseAuth
-import java.util.Locale
 
 class ProfileActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
-        val user = FirebaseAuth.getInstance().currentUser
-        val name = user?.displayName.takeUnless { it.isNullOrBlank() }
-            ?: getString(R.string.profile_name_placeholder)
-        findViewById<TextView>(R.id.profileName).text = name
-        findViewById<TextView>(R.id.profileEmail).text = user?.email.takeUnless { it.isNullOrBlank() }
-            ?: getString(R.string.profile_email_placeholder)
-        findViewById<TextView>(R.id.profileInitials).text = initialsFromDisplayName(name)
+        bindProfileHeader()
 
         findViewById<TextView>(R.id.profileAboutVersion).text = versionLabel()
 
         findViewById<TextView>(R.id.profileEditButton).setOnClickListener {
-            Toast.makeText(this, getString(R.string.profile_edit), Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, EditProfileActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.profileRowAccountSettings).setOnClickListener {
@@ -42,7 +35,7 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.profileRowPrivacy).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
+            startActivity(Intent(this, ReportHistoryActivity::class.java))
         }
 
         findViewById<LinearLayout>(R.id.profileRowTerms).setOnClickListener {
@@ -58,50 +51,43 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<LinearLayout>(R.id.logoutButton).setOnClickListener {
-            ApiProvider.auth.call(
-                route = AuthRoutes.SIGN_OUT,
-                onSuccess = {
-                    val intent = Intent(this, LoginActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
-                },
-                onError = { error ->
-                    Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.logout_confirm_title))
+                .setMessage(getString(R.string.logout_confirm_message))
+                .setNegativeButton(getString(R.string.logout_confirm_no), null)
+                .setPositiveButton(getString(R.string.logout_confirm_yes)) { _, _ ->
+                    ApiProvider.auth.call(
+                        route = AuthRoutes.SIGN_OUT,
+                        onSuccess = {
+                            val intent = Intent(this, LoginActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                        },
+                        onError = { error ->
+                            Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                        }
+                    )
                 }
-            )
+                .show()
         }
 
-        findViewById<LinearLayout>(R.id.profileNavHome).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
-
-        findViewById<LinearLayout>(R.id.profileNavActivity).setOnClickListener {
-            startActivity(Intent(this, MyActivityActivity::class.java))
-        }
-
-        findViewById<LinearLayout>(R.id.profileNavNotification).setOnClickListener {
-            startActivity(Intent(this, NotificationActivity::class.java))
-        }
-
-        findViewById<FrameLayout>(R.id.profileCameraFab).setOnClickListener {
-            startActivity(
-                Intent(this, DashboardActivity::class.java)
-                    .putExtra(DashboardActivity.EXTRA_OPEN_CAMERA, true)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-            finish()
-        }
+        MainBottomNav.setup(this, selected = null)
     }
 
-    private fun initialsFromDisplayName(displayName: String): String {
-        val parts = displayName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return "?"
-        if (parts.size == 1) return parts[0].take(2).uppercase(Locale.getDefault())
-        return (parts[0].first().toString() + parts[1].first().toString()).uppercase(Locale.getDefault())
+    override fun onResume() {
+        super.onResume()
+        bindProfileHeader()
+        MainBottomNav.updateBadge(this)
+    }
+
+    private fun bindProfileHeader() {
+        val user = FirebaseAuth.getInstance().currentUser
+        val name = user?.displayName.takeUnless { it.isNullOrBlank() }
+            ?: getString(R.string.profile_name_placeholder)
+        findViewById<TextView>(R.id.profileName).text = name
+        findViewById<TextView>(R.id.profileEmail).text = user?.email.takeUnless { it.isNullOrBlank() }
+            ?: getString(R.string.profile_email_placeholder)
+        findViewById<TextView>(R.id.profileInitials).text = ProfileInitials.fromDisplayName(name)
     }
 
     private fun versionLabel(): String {
@@ -120,4 +106,5 @@ class ProfileActivity : AppCompatActivity() {
             getString(R.string.profile_about_version_fmt, "1.0")
         }
     }
+
 }
