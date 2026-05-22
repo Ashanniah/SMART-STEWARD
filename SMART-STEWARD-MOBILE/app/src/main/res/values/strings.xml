@@ -58,6 +58,13 @@ DASHBOARD</string>
     <string name="dashboard_notify_generic">Send notification</string>
     <string name="dashboard_notify_sent">Notification recorded for %1$s.</string>
     <string name="dashboard_no_agency_assigned">No agency is assigned to this report yet.</string>
+    <string name="dashboard_detail_location_label">Location:</string>
+    <string name="dashboard_detail_date_label">Date of Report:</string>
+    <string name="dashboard_detail_time_label">Time of Report:</string>
+    <string name="dashboard_detail_agency_label">Agency:</string>
+    <string name="dashboard_notify_action">NOTIFY</string>
+    <string name="dashboard_detail_agency_unassigned">—</string>
+    <string name="dashboard_quick_close">Close</string>
     <string name="current_location_text">Current Location
 Talamban</string>
     <string name="view_details">View Details</string>
@@ -91,8 +98,13 @@ Talamban</string>
     <string name="submitted_saved_draft">No internet. Report saved as draft and will auto-submit once online.</string>
     <string name="report_receipt_banner">REPORT RECEIPT</string>
     <string name="report_receipt_title">Report Receipt</string>
+    <string name="report_details_title">REPORT DETAILS:</string>
+    <string name="report_details_report_id_label">Report ID: </string>
+    <string name="report_details_description_heading">DESCRIPTION:</string>
+    <string name="report_details_photo_uploaded">Photo Uploaded:</string>
+    <string name="report_details_agency_remarks_heading">AGENCY REMARKS:</string>
     <string name="report_receipt_close">Close</string>
-    <string name="receipt_current_status">Current status</string>
+    <string name="receipt_current_status">Current Status:</string>
     <string name="receipt_status_pending_review">Pending review</string>
     <string name="receipt_status_in_progress">In progress</string>
     <string name="receipt_status_resolved">Resolved</string>

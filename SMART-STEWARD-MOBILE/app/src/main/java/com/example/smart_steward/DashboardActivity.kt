@@ -31,6 +31,8 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
+import coil.transform.RoundedCornersTransformation
+import java.text.SimpleDateFormat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -764,7 +766,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setupQuickCard() {
-        findViewById<TextView>(R.id.dashboardQuickSecondaryBtn).setOnClickListener {
+        findViewById<ImageButton>(R.id.dashboardQuickClose).setOnClickListener {
             hideQuickCard()
         }
         findViewById<TextView>(R.id.dashboardQuickPrimaryBtn).setOnClickListener {
@@ -822,26 +824,56 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         activeQuickCardReport = report
         findViewById<TextView>(R.id.dashboardQuickTitle).text = report.displayTitle()
         val primaryBtn = findViewById<TextView>(R.id.dashboardQuickPrimaryBtn)
-        primaryBtn.text =
-            if (report.assignedAgency.isNotBlank()) {
-                getString(
-                    R.string.dashboard_notify_agency,
-                    AgencyCanonical.shortName(report.assignedAgency)
-                )
-            } else {
-                getString(R.string.dashboard_notify_generic)
-            }
+        primaryBtn.text = getString(R.string.dashboard_notify_action)
         val canNotify = report.status == ReportStatusUi.PENDING
         primaryBtn.alpha = if (canNotify) 1f else 0.55f
-        val dateText = report.submittedAt?.let { java.text.SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(it) }
-            ?: "recently"
-        val coords = report.latitude?.let { lat ->
-            report.longitude?.let { lng ->
-                " · ${String.format(Locale.US, "%.4f°, %.4f°", lat, lng)}"
+
+        findViewById<TextView>(R.id.dashboardQuickLocation).text = report.locationDisplay()
+        val submitted = report.submittedAt
+        val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+        val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
+        findViewById<TextView>(R.id.dashboardQuickDate).text =
+            submitted?.let { dateFmt.format(it) } ?: "—"
+        findViewById<TextView>(R.id.dashboardQuickTime).text =
+            submitted?.let { timeFmt.format(it) } ?: "—"
+        findViewById<TextView>(R.id.dashboardQuickAgency).text =
+            if (report.assignedAgency.isNotBlank()) {
+                AgencyCanonical.shortName(report.assignedAgency)
+            } else {
+                getString(R.string.dashboard_detail_agency_unassigned)
             }
-        }.orEmpty()
-        findViewById<TextView>(R.id.dashboardQuickMeta).text =
-            "${report.locationDisplay()} - Reported $dateText$coords"
+
+        val photo = findViewById<ImageView>(R.id.dashboardQuickPhoto)
+        val thumbContainer = findViewById<View>(R.id.dashboardQuickThumbContainer)
+        val videoPlay = findViewById<ImageView>(R.id.dashboardQuickVideoPlay)
+        val cornerRadiusPx = 6f * resources.displayMetrics.density
+        val url = report.photoUrl.trim()
+        if (url.isNotEmpty()) {
+            photo.load(url) {
+                crossfade(true)
+                transformations(RoundedCornersTransformation(cornerRadiusPx))
+                placeholder(R.drawable.bg_near_report_thumb_placeholder)
+                error(R.drawable.bg_near_report_thumb_placeholder)
+            }
+        } else {
+            photo.setImageResource(R.drawable.bg_near_report_thumb_placeholder)
+        }
+        val videoRemote = report.videoUrl.trim()
+        if (videoRemote.isNotEmpty()) {
+            videoPlay.visibility = View.VISIBLE
+            thumbContainer.setOnClickListener {
+                MediaPlayback.openRemoteVideo(this, videoRemote)
+            }
+        } else if (url.isNotEmpty()) {
+            videoPlay.visibility = View.GONE
+            thumbContainer.setOnClickListener {
+                MediaPlayback.openRemoteImage(this, url)
+            }
+        } else {
+            videoPlay.visibility = View.GONE
+            thumbContainer.setOnClickListener(null)
+        }
+
         findViewById<LinearLayout>(R.id.dashboardQuickCard).visibility = View.VISIBLE
     }
 

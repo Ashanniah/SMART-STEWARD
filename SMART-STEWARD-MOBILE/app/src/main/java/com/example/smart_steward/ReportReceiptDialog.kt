@@ -3,11 +3,14 @@ package com.example.smart_steward
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
+import coil.load
+import coil.transform.RoundedCornersTransformation
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -19,63 +22,73 @@ object ReportReceiptDialog {
 
         dialogView.findViewById<TextView>(R.id.receiptReportId).text = report.displayReportRef()
 
-        bindRow(
+        bindDetailRow(
+            dialogView.findViewById(R.id.receiptRowStatus),
+            iconRes = R.drawable.check,
+            label = activity.getString(R.string.receipt_current_status),
+            value = null,
+            badgeText = report.statusLabel
+        )
+        applyStatusBadge(activity, dialogView.findViewById(R.id.receiptRowStatus), report)
+
+        bindDetailRow(
             dialogView.findViewById(R.id.receiptRowType),
-            activity.getString(R.string.receipt_row_report_type),
-            report.incidentType.trim().ifBlank { "—" },
-            showTypeDot = true
+            iconRes = R.drawable.problem,
+            label = activity.getString(R.string.my_activity_detail_report_type),
+            value = report.displayTitle(),
+            badgeText = null
         )
-        val dateFmt = SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault())
-        val submitted = report.submittedAt?.let { dateFmt.format(it) } ?: "—"
-        bindRow(
+
+        val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+        val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val submitted = report.submittedAt
+
+        bindDetailRow(
             dialogView.findViewById(R.id.receiptRowDate),
-            activity.getString(R.string.receipt_row_date_submitted),
-            submitted
+            iconRes = R.drawable.calendar,
+            label = activity.getString(R.string.my_activity_detail_date_submitted),
+            value = submitted?.let { dateFmt.format(it) } ?: "—",
+            badgeText = null
         )
-        bindRow(
+        bindDetailRow(
+            dialogView.findViewById(R.id.receiptRowTime),
+            iconRes = R.drawable.clock,
+            label = activity.getString(R.string.dashboard_detail_time_label),
+            value = submitted?.let { timeFmt.format(it) } ?: "—",
+            badgeText = null
+        )
+        bindDetailRow(
             dialogView.findViewById(R.id.receiptRowLocation),
-            activity.getString(R.string.receipt_row_location),
-            report.locationDisplay().ifBlank { "—" }
+            iconRes = R.drawable.loc,
+            label = activity.getString(R.string.my_activity_detail_location),
+            value = report.locationDisplay().ifBlank { "—" },
+            badgeText = null
         )
 
-        val descBody = buildDescriptionBody(report)
-        dialogView.findViewById<TextView>(R.id.receiptDescriptionBody).text = descBody
+        dialogView.findViewById<TextView>(R.id.receiptDescriptionBody).text =
+            report.description.trim().ifBlank { "—" }
 
-        applyStatusBadge(activity, dialogView, report)
+        bindPhotoSection(activity, dialogView, report)
 
-        val videoUrl = report.videoUrl.trim()
-        val photoUrl = report.photoUrl.trim()
-        val attachmentChip = dialogView.findViewById<LinearLayout>(R.id.receiptAttachmentChip)
-        if (videoUrl.isNotEmpty() || photoUrl.isNotEmpty()) {
-            attachmentChip.visibility = View.VISIBLE
-            val fileCount = if (videoUrl.isNotEmpty() && photoUrl.isNotEmpty()) 2 else 1
-            dialogView.findViewById<TextView>(R.id.receiptAttachmentLabel).text =
-                if (videoUrl.isNotEmpty()) {
-                    activity.getString(R.string.receipt_video_attached)
-                } else {
-                    activity.getString(R.string.receipt_photo_attached)
-                }
-            dialogView.findViewById<TextView>(R.id.receiptAttachmentCount).text =
-                if (fileCount == 1) {
-                    activity.getString(R.string.receipt_files_count, fileCount)
-                } else {
-                    activity.getString(R.string.receipt_files_count_plural, fileCount)
-                }
-            attachmentChip.setOnClickListener {
-                when {
-                    videoUrl.isNotEmpty() -> MediaPlayback.openRemoteVideo(activity, videoUrl)
-                    else -> MediaPlayback.openRemoteImage(activity, photoUrl)
-                }
-            }
-        } else {
-            attachmentChip.visibility = View.GONE
-        }
+        bindDetailRow(
+            dialogView.findViewById(R.id.receiptRowAgency),
+            iconRes = R.drawable.agency,
+            label = activity.getString(R.string.dashboard_detail_agency_label),
+            value = if (report.assignedAgency.isNotBlank()) {
+                AgencyCanonical.shortName(report.assignedAgency)
+            } else {
+                activity.getString(R.string.dashboard_detail_agency_unassigned)
+            },
+            badgeText = null
+        )
 
-        val extra = dialogView.findViewById<LinearLayout>(R.id.receiptExtraContent)
         val adminNote = report.lastStatusNote.trim()
+        val remarksSection = dialogView.findViewById<LinearLayout>(R.id.receiptRemarksSection)
         if (adminNote.isNotEmpty()) {
-            extra.visibility = View.VISIBLE
-            addAdminRemarksRow(activity, extra, adminNote)
+            remarksSection.visibility = View.VISIBLE
+            dialogView.findViewById<TextView>(R.id.receiptRemarksBody).text = adminNote
+        } else {
+            remarksSection.visibility = View.GONE
         }
 
         val dialog = BottomSheetDialog(activity)
@@ -90,7 +103,7 @@ object ReportReceiptDialog {
             val scroll = dialogView.findViewById<NestedScrollView>(R.id.receiptScroll)
             scroll.post {
                 val maxHeight = minOf(
-                    (activity.resources.displayMetrics.heightPixels * 0.75f).toInt(),
+                    (activity.resources.displayMetrics.heightPixels * 0.85f).toInt(),
                     activity.resources.getDimensionPixelSize(R.dimen.report_receipt_scroll_max_height)
                 )
                 val contentHeight = scroll.getChildAt(0)?.height ?: 0
@@ -103,104 +116,94 @@ object ReportReceiptDialog {
         dialog.show()
     }
 
-    private fun bindRow(
+    private fun bindDetailRow(
         rowRoot: View,
+        iconRes: Int,
         label: String,
-        value: String,
-        showTypeDot: Boolean = false
+        value: String?,
+        badgeText: String?
     ) {
-        rowRoot.findViewById<TextView>(R.id.receiptRowLabel).text = label
-        rowRoot.findViewById<TextView>(R.id.receiptRowValue).text = value
-        rowRoot.findViewById<View>(R.id.receiptRowTypeDot).visibility =
-            if (showTypeDot) View.VISIBLE else View.GONE
+        rowRoot.findViewById<ImageView>(R.id.receiptDetailIcon).setImageResource(iconRes)
+        rowRoot.findViewById<TextView>(R.id.receiptDetailLabel).text = label
+        val valueView = rowRoot.findViewById<TextView>(R.id.receiptDetailValue)
+        val badgeView = rowRoot.findViewById<TextView>(R.id.receiptDetailBadge)
+        if (badgeText != null) {
+            valueView.visibility = View.GONE
+            badgeView.visibility = View.VISIBLE
+            badgeView.text = badgeText
+        } else {
+            badgeView.visibility = View.GONE
+            valueView.visibility = View.VISIBLE
+            valueView.text = value.orEmpty()
+        }
     }
 
-    private fun buildDescriptionBody(report: UserReport): String =
-        report.description.trim().ifBlank { "—" }
+    private fun bindPhotoSection(activity: AppCompatActivity, dialogView: View, report: UserReport) {
+        val photoSection = dialogView.findViewById<LinearLayout>(R.id.receiptPhotoSection)
+        val photoUrl = report.photoUrl.trim()
+        val videoUrl = report.videoUrl.trim()
+        if (photoUrl.isEmpty() && videoUrl.isEmpty()) {
+            photoSection.visibility = View.GONE
+            return
+        }
+        photoSection.visibility = View.VISIBLE
+        val thumb = dialogView.findViewById<ImageView>(R.id.receiptPhotoThumb)
+        val play = dialogView.findViewById<ImageView>(R.id.receiptPhotoVideoPlay)
+        val container = dialogView.findViewById<View>(R.id.receiptPhotoThumbContainer)
+        val cornerRadiusPx = 6f * activity.resources.displayMetrics.density
 
-    private fun addAdminRemarksRow(activity: AppCompatActivity, parent: LinearLayout, note: String) {
-        val row = activity.layoutInflater.inflate(R.layout.item_receipt_row, parent, false)
-        val label = activity.getString(R.string.my_activity_detail_admin_remarks)
-            .trimEnd(':')
-            .trim()
-        bindRow(row, label, note)
-        parent.addView(row)
+        if (photoUrl.isNotEmpty()) {
+            thumb.load(photoUrl) {
+                crossfade(true)
+                transformations(RoundedCornersTransformation(cornerRadiusPx))
+                placeholder(R.drawable.bg_near_report_thumb_placeholder)
+                error(R.drawable.bg_near_report_thumb_placeholder)
+            }
+        } else {
+            thumb.setImageResource(R.drawable.bg_near_report_thumb_placeholder)
+        }
+
+        if (videoUrl.isNotEmpty()) {
+            play.visibility = View.VISIBLE
+            container.setOnClickListener {
+                MediaPlayback.openRemoteVideo(activity, videoUrl)
+            }
+        } else if (photoUrl.isNotEmpty()) {
+            play.visibility = View.GONE
+            container.setOnClickListener {
+                MediaPlayback.openRemoteImage(activity, photoUrl)
+            }
+        } else {
+            play.visibility = View.GONE
+            container.setOnClickListener(null)
+        }
     }
 
-    private fun applyStatusBadge(activity: AppCompatActivity, dialogView: View, report: UserReport) {
-        val statusText = dialogView.findViewById<TextView>(R.id.receiptStatusText)
-        val statusDot = dialogView.findViewById<View>(R.id.receiptStatusDot)
-        val statusBadge = dialogView.findViewById<LinearLayout>(R.id.receiptStatusBadge)
-
-        val (labelRes, dotColor, bgColor, borderColor, textColor) = when (report.status) {
-            ReportStatusUi.PENDING -> StatusStyle(
-                R.string.receipt_status_pending_review,
-                0xFFEAB308.toInt(),
-                0xFFFFF9E8.toInt(),
-                ContextCompat.getColor(activity, R.color.notif_advisory_border),
-                ContextCompat.getColor(activity, R.color.notif_gold_text)
+    private fun applyStatusBadge(activity: AppCompatActivity, statusRow: View, report: UserReport) {
+        val badge = statusRow.findViewById<TextView>(R.id.receiptDetailBadge)
+        val (bgColor, textColor) = when (report.status) {
+            ReportStatusUi.PENDING -> Pair(
+                ContextCompat.getColor(activity, R.color.activity_pending_orange),
+                ContextCompat.getColor(activity, R.color.white)
             )
-
-            ReportStatusUi.IN_PROGRESS -> StatusStyle(
-                R.string.receipt_status_in_progress,
-                0xFF1565C0.toInt(),
-                ContextCompat.getColor(activity, R.color.profile_tile_blue),
-                0xFF90CAF9.toInt(),
-                0xFF1565C0.toInt()
-            )
-
-            ReportStatusUi.RESOLVED -> StatusStyle(
-                R.string.receipt_status_resolved,
+            ReportStatusUi.IN_PROGRESS -> Pair(0xFF1565C0.toInt(), ContextCompat.getColor(activity, R.color.white))
+            ReportStatusUi.RESOLVED -> Pair(
                 ContextCompat.getColor(activity, R.color.activity_resolved_green),
-                0xFFE8F5EC.toInt(),
-                0xFFA5D6A7.toInt(),
-                ContextCompat.getColor(activity, R.color.notif_title_green)
+                ContextCompat.getColor(activity, R.color.white)
             )
-
-            ReportStatusUi.REJECTED -> StatusStyle(
-                R.string.receipt_status_rejected,
+            ReportStatusUi.REJECTED -> Pair(
                 ContextCompat.getColor(activity, R.color.activity_rejected_gray),
-                0xFFFCE8E8.toInt(),
-                0xFFEF9A9A.toInt(),
-                ContextCompat.getColor(activity, R.color.activity_rejected_gray)
+                ContextCompat.getColor(activity, R.color.white)
             )
         }
-
-        statusText.text = activity.getString(labelRes)
-        statusText.setTextColor(textColor)
-        statusDot.background = circleDrawable(dotColor)
-        statusBadge.background = roundedRect(
-            bgColor,
-            borderColor,
-            dp(activity, 20f),
-            strokePx = dp(activity, 1f).toInt().coerceAtLeast(1)
-        )
+        badge.setTextColor(textColor)
+        badge.background = roundedRect(bgColor, dp(activity, 20f))
     }
 
-    private data class StatusStyle(
-        val labelRes: Int,
-        val dotColor: Int,
-        val bgColor: Int,
-        val borderColor: Int,
-        val textColor: Int
-    )
-
-    private fun circleDrawable(color: Int): GradientDrawable =
-        GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(color)
-        }
-
-    private fun roundedRect(
-        fill: Int,
-        stroke: Int,
-        radiusPx: Float,
-        strokePx: Int
-    ): GradientDrawable =
+    private fun roundedRect(fill: Int, radiusPx: Float): GradientDrawable =
         GradientDrawable().apply {
             cornerRadius = radiusPx
             setColor(fill)
-            setStroke(strokePx, stroke)
         }
 
     private fun dp(activity: AppCompatActivity, dp: Float): Float =
