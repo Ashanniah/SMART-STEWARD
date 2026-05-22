@@ -17,26 +17,21 @@ import { useNavigate } from 'react-router-dom';
 import { useAgencyNotifications } from '../context/AgencyNotificationsContext';
 import { useReportsData } from '../context/ReportsDataContext';
 import { formatRelativeTime } from '../utils/normalizeReportDoc';
-import { buildSyntheticAgencyNotifications } from '../utils/syntheticAgencyNotifications';
-import {
-  mergeAndSortAgencyNotifications,
-  resolveNotificationDot,
-  resolveNotificationVisualKind,
-} from '../utils/agencyNotificationPresentation';
 
-const READ_IDS_KEY = 'ss-agency-notif-read-ids';
+const READ_IDS_KEY = 'smartsteward-notif-read-doc-ids';
 
-function loadReadIds() {
+function loadReadSet() {
   try {
     const raw = sessionStorage.getItem(READ_IDS_KEY);
-    const arr = JSON.parse(raw || '[]');
-    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
   } catch {
     return new Set();
   }
 }
 
-function saveReadIds(set) {
+function saveReadSet(set) {
   try {
     sessionStorage.setItem(READ_IDS_KEY, JSON.stringify([...set]));
   } catch {
@@ -140,32 +135,33 @@ export default function NotificationsDropdown() {
   const navigate = useNavigate();
   const { notifications } = useAgencyNotifications();
   const { reports } = useReportsData();
-  const [readIds, setReadIds] = useState(() => loadReadIds());
   const [open, setOpen] = useState(false);
+  const [readIds, setReadIds] = useState(() => loadReadSet());
   const wrapRef = useRef(null);
 
-  const mergedList = useMemo(() => {
-    const synthetic = buildSyntheticAgencyNotifications(reports);
-    return mergeAndSortAgencyNotifications(notifications, synthetic);
-  }, [notifications, reports]);
+  useEffect(() => {
+    saveReadSet(readIds);
+  }, [readIds]);
 
   const items = useMemo(() => {
-    return mergedList.map((n) => {
-      const visual = resolveNotificationVisualKind(n.kind);
-      const dot = resolveNotificationDot(n.kind, n.severity);
-      const unread = !readIds.has(n.id);
+    const slice = reports.slice(0, 25);
+    return slice.map((r) => {
+      const kind =
+        r.status === 'resolved'
+          ? 'status_update'
+          : r.status === 'review'
+            ? 'new_report_blue'
+            : 'new_report';
+      const dot =
+        r.status === 'resolved' ? 'green' : r.status === 'review' ? 'yellow' : 'red';
       return {
-        id: n.id,
-        kind: n.kind,
-        visual,
+        id: r.docId,
+        kind,
+        title: 'New report submitted',
+        body: `${r.activity} — ${r.location}`,
+        timeLabel: formatRelativeTime(r.createdAt),
         dot,
-        unread,
-        pinned: Boolean(n.pinned),
-        title: n.title,
-        body: n.body,
-        timeLabel: formatRelativeTime(n.createdAt),
-        reportDocId: n.reportDocId || '',
-        synthetic: Boolean(n.synthetic),
+        unread: !readIds.has(r.docId),
       };
     });
   }, [mergedList, readIds]);
@@ -174,21 +170,12 @@ export default function NotificationsDropdown() {
   const unreadCount = useMemo(() => items.filter((n) => n.unread).length, [items]);
 
   const markAllRead = useCallback(() => {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      items.forEach((n) => next.add(n.id));
-      saveReadIds(next);
-      return next;
-    });
-  }, [items]);
+    const ids = reports.slice(0, 25).map((r) => r.docId);
+    setReadIds((prev) => new Set([...prev, ...ids]));
+  }, [reports]);
 
   const markOneRead = useCallback((id) => {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      saveReadIds(next);
-      return next;
-    });
+    setReadIds((prev) => new Set([...prev, id]));
   }, []);
 
   const goView = useCallback(
@@ -256,11 +243,7 @@ export default function NotificationsDropdown() {
 
           <ul className="notifications-list notifications-dropdown__list">
             {items.length === 0 ? (
-              <li>
-                <p className="denr-dashboard__muted" style={{ padding: '1rem 1.25rem', margin: 0 }}>
-                  No notifications right now.
-                </p>
-              </li>
+              <li className="notifications-dropdown__empty">No reports yet.</li>
             ) : (
               items.map((n) => (
                 <li key={n.id}>

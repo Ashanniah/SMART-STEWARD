@@ -57,13 +57,7 @@ export default function Dashboard() {
   const focusedReportId = searchParams.get('focusReport') || '';
 
   const mapCenter = useMemo(() => {
-    const first = mapIncidents.find(
-      (m) =>
-        m.lat != null &&
-        m.lng != null &&
-        Number.isFinite(m.lat) &&
-        Number.isFinite(m.lng)
-    );
+    const first = mapIncidents[0];
     if (first) return { lat: first.lat, lng: first.lng };
     return MAP_DEFAULT_CENTER;
   }, [mapIncidents]);
@@ -114,7 +108,7 @@ export default function Dashboard() {
               <p className="denr-dashboard__muted">Loading reports…</p>
             ) : recentSlice.length === 0 ? (
               <p className="denr-dashboard__muted">
-                No reports to display. New reports will appear here when they are received.
+                No reports yet. Submissions from the mobile app will appear here.
               </p>
             ) : (
               recentSlice.map((r) => (

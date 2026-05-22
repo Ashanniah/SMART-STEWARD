@@ -13,7 +13,7 @@ You MUST return ONLY valid JSON with this structure:
   "assignedAgency": "string",
   "summary": "string",
   "severity": "Low | Medium | High | Critical",
-  "reportable": true
+  "confidence_score": "number (0.0 to 1.0)"
 }
 
 Do not include any extra text or formatting.

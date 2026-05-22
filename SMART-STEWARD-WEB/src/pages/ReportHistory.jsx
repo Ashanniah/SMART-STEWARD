@@ -8,9 +8,13 @@ import {
   ChevronRightIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
-import { PlayIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
+import { getPaginationRange } from '../data/reportHistoryMock';
 import { useReportsData } from '../context/ReportsDataContext';
 import MediaLightbox from '../components/MediaLightbox';
+
+const PLACEHOLDER_THUMB =
+  'https://images.unsplash.com/photo-1611287157826-4e513e77ba9a?w=120&h=120&fit=crop&q=80';
 
 const STAT_CONFIG = [
   {
@@ -46,6 +50,7 @@ function HistoryStatusPill({ status }) {
     resolved: 'Resolved',
     rejected: 'Rejected',
     in_progress: 'In Progress',
+    rejected: 'Rejected',
   };
   const pillStatus =
     status === 'rejected'
@@ -69,6 +74,10 @@ function PriorityLabel({ priority }) {
   );
 }
 
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('en-US');
+}
+
 export default function ReportHistory() {
   const navigate = useNavigate();
   const { reports, loading, error } = useReportsData();
@@ -79,52 +88,56 @@ export default function ReportHistory() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const resolvedReports = useMemo(
-    () => reports.filter((r) => r.status === 'resolved'),
-    [reports]
+  const totalCount = reports.length;
+
+  const HISTORY_STATS = useMemo(
+    () => ({
+      total: {
+        value: fmtNum(counts.total),
+        hint: 'All reports submitted',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+      pending: {
+        value: fmtNum(counts.pending),
+        hint: 'Awaiting initial review',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+      review: {
+        value: fmtNum(counts.review),
+        hint: 'Currently being reviewed',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+      resolved: {
+        value: fmtNum(counts.resolved),
+        hint: 'Successfully resolved',
+        trend: '—',
+        trendHint: 'live from Firestore',
+      },
+    }),
+    [counts]
   );
 
-  const historyCounts = useMemo(
-    () => ({ resolved: resolvedReports.length }),
-    [resolvedReports]
-  );
-
-  const typeOptions = useMemo(() => {
-    const set = new Set(
-      resolvedReports.map((r) => String(r.activity || '').trim()).filter(Boolean)
-    );
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [resolvedReports]);
-
-  const agencyOptions = useMemo(() => {
-    const set = new Set(
-      resolvedReports.map((r) => String(r.assignedAgency || '').trim()).filter(Boolean)
-    );
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [resolvedReports]);
-
-  const filteredReports = useMemo(() => {
-    const list = resolvedReports.filter((r) => {
-      const matchType = !typeFilter || String(r.activity || '').trim() === typeFilter;
-      const matchAgency = !agencyFilter || String(r.assignedAgency || '').trim() === agencyFilter;
-      return matchType && matchAgency;
-    });
-    list.sort((a, b) => {
-      const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-      const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
-      return dateSort === 'oldest' ? ta - tb : tb - ta;
-    });
-    return list;
-  }, [resolvedReports, typeFilter, agencyFilter, dateSort]);
-
-  const totalCount = filteredReports.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const effectivePage = Math.min(Math.max(1, page), totalPages);
 
   const rows = useMemo(() => {
     const start = (effectivePage - 1) * pageSize;
-    return filteredReports.slice(start, start + pageSize);
-  }, [filteredReports, effectivePage, pageSize]);
+    return reports.slice(start, start + pageSize).map((r) => ({
+      docId: r.docId,
+      thumb: r.imageUrl || PLACEHOLDER_THUMB,
+      typeTitle: r.activity,
+      categoryLabel: r.categoryLabel,
+      location: r.location,
+      dateTime: r.dateTime,
+      reportedBy: r.reportedBy,
+      status: r.status,
+      priority: r.priority,
+      agency: r.assignedAgency,
+    }));
+  }, [reports, effectivePage, pageSize]);
 
   const startIdx = (effectivePage - 1) * pageSize;
   const showingFrom = totalCount === 0 ? 0 : startIdx + 1;
@@ -134,6 +147,18 @@ export default function ReportHistory() {
     () => getPaginationRange(effectivePage, totalPages, 2),
     [effectivePage, totalPages]
   );
+
+  const dateRangeLabel = useMemo(() => {
+    const dates = reports
+      .map((r) => r.createdAt)
+      .filter(Boolean)
+      .sort((a, b) => a.getTime() - b.getTime());
+    if (dates.length === 0) return 'No date range';
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    const opts = { month: 'short', day: 'numeric', year: 'numeric' };
+    return `${first.toLocaleDateString('en-US', opts)} – ${last.toLocaleDateString('en-US', opts)}`;
+  }, [reports]);
 
   return (
     <div className="report-history-page fade-in">
@@ -170,7 +195,7 @@ export default function ReportHistory() {
         <div>
           <h1 className="report-history-page__title">Resolved Reports History</h1>
           <p className="report-history-page__subtitle">
-            Archived resolved reports only — in progress, pending, and other statuses are not shown here.
+            Complete history of reports submitted to the system (includes mobile uploads).
           </p>
         </div>
         <button type="button" className="history-btn history-btn--export-outline">
@@ -217,18 +242,8 @@ export default function ReportHistory() {
           </select>
         </label>
         <label className="history-filters__field history-filters__field--date">
-          <span className="history-filters__label">By Date</span>
-          <select
-            className="history-filters__select"
-            value={dateSort}
-            onChange={(e) => {
-              setDateSort(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
+          <span className="history-filters__label">Date span</span>
+          <div className="history-filters__range">{dateRangeLabel}</div>
         </label>
         <div className="history-filters__actions">
           <button
@@ -280,54 +295,28 @@ export default function ReportHistory() {
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="reports-table__loading">
-                    No resolved reports to display.
+                  <td colSpan={10} className="reports-table__loading">
+                    No reports yet. Mobile submissions will appear here.
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
-                  <tr key={row.docId}>
-                    <td>
-                      <div className="history-table__media-id">
-                      <button
-                        type="button"
-                        className="history-table__thumb-btn"
-                        onClick={() =>
-                          setMediaPreview({
-                            open: true,
-                            type: row.hasVideo && row.videoUrl ? 'video' : 'image',
-                            src:
-                              (row.hasVideo && row.videoUrl)
-                                ? row.videoUrl
-                                : (row.imageUrl ||
-                                  'https://images.unsplash.com/photo-1448375240586-882707db8887?w=120&h=120&fit=crop&q=80'),
-                          })
-                        }
-                        aria-label={row.hasVideo ? 'Open report video' : 'Open report image'}
-                      >
-                        <img
-                          src={
-                            row.imageUrl ||
-                            'https://images.unsplash.com/photo-1448375240586-882707db8887?w=120&h=120&fit=crop&q=80'
-                          }
-                          alt=""
-                          className="history-table__thumb"
-                          width={48}
-                          height={48}
-                        />
-                        {row.hasVideo ? (
-                          <span className="history-table__thumb-play" aria-hidden>
-                            <PlayIcon />
-                          </span>
-                        ) : null}
-                      </button>
-                        <span className="history-table__id">{row.id}</span>
-                      </div>
+                rows.map((row, idx) => (
+                  <tr key={`${row.docId}-${startIdx + idx}`}>
+                    <td className="history-table__id">{row.docId.slice(0, 12)}…</td>
+                    <td className="history-table__thumb-cell">
+                      <img
+                        src={row.thumb}
+                        alt=""
+                        className="history-table__thumb"
+                        width={48}
+                        height={48}
+                      />
                     </td>
                     <td>
                       <div className="history-type">
                         <div>
-                          <div className="history-type__title">{row.activity}</div>
+                          <div className="history-type__title">{row.typeTitle}</div>
+                          <div className="history-type__cat">{row.categoryLabel}</div>
                         </div>
                       </div>
                     </td>
@@ -348,7 +337,7 @@ export default function ReportHistory() {
                     </td>
                     <td>{row.dateTime}</td>
                     <td>{row.reportedBy}</td>
-                    <td>{row.assignedAgency}</td>
+                    <td>{row.agency}</td>
                     <td>
                       <HistoryStatusPill status={row.status} />
                     </td>
@@ -377,13 +366,7 @@ export default function ReportHistory() {
 
         <footer className="history-footer">
           <p className="history-footer__meta">
-            {totalCount === 0 ? (
-              'No resolved reports to show.'
-            ) : (
-              <>
-                Showing {showingFrom} to {showingTo} of {totalCount.toLocaleString()} resolved reports
-              </>
-            )}
+            Showing {showingFrom} to {showingTo} of {fmtNum(totalCount)} reports
           </p>
 
           <nav className="history-pagination" aria-label="Pagination">

@@ -1,6 +1,13 @@
 import { UserIcon } from '@heroicons/react/24/outline';
 import { PlayIcon } from '@heroicons/react/24/solid';
 
+const STATUS_CLASS = {
+  pending: 'recent-report-row__status--pending',
+  review: 'recent-report-row__status--review',
+  resolved: 'recent-report-row__status--resolved',
+  rejected: 'recent-report-row__status--rejected',
+};
+
 export default function RecentReportRow({
   imageUrl,
   hasVideo = false,
@@ -11,6 +18,8 @@ export default function RecentReportRow({
   statusLabel = 'Pending',
   statusKey = 'pending',
 }) {
+  const statusClass = STATUS_CLASS[statusKey] ?? STATUS_CLASS.pending;
+
   return (
     <div className="recent-report-row">
       <div className="recent-report-row__thumb-wrap">
@@ -47,9 +56,7 @@ export default function RecentReportRow({
         </div>
       </div>
       <div className="recent-report-row__actions">
-        <span
-          className={`recent-report-row__status recent-report-row__status--${statusKey}`}
-        >
+        <span className={`recent-report-row__status ${statusClass}`}>
           {statusLabel}
         </span>
       </div>

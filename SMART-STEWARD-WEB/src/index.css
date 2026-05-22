@@ -1470,23 +1470,29 @@ input { font-family: inherit; }
 
 .topbar-notif__trigger {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--btn-primary);
-  background: #fff;
-  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--btn-primary);
+  width: auto;
+  height: auto;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: #374151;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: color 0.2s ease, opacity 0.2s ease;
 }
 
 .topbar-notif__trigger:hover {
-  background: rgba(33, 115, 75, 0.08);
-  border-color: var(--btn-primary-hover);
-  color: var(--btn-primary-hover);
+  color: #111827;
+}
+
+.topbar-notif__trigger:focus-visible {
+  outline: 2px solid #559700;
+  outline-offset: 2px;
 }
 
 .topbar-notif__bell {
@@ -1496,8 +1502,8 @@ input { font-family: inherit; }
 
 .topbar-notif__badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 0;
+  right: 0;
   min-width: 1.1rem;
   height: 1.1rem;
   padding: 0 0.3rem;
@@ -1543,6 +1549,15 @@ input { font-family: inherit; }
   font-size: 1.05rem;
   font-weight: 700;
   color: #0f172a;
+}
+
+.notifications-dropdown__empty {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.92rem;
+  list-style: none;
 }
 
 .notifications-dropdown__list {
@@ -1615,19 +1630,19 @@ input { font-family: inherit; }
 
 .denr-dashboard__muted {
   margin: 0;
-  padding: 0.75rem 0;
-  font-size: 0.9rem;
+  padding: 1rem 0;
+  font-size: 0.95rem;
   color: #64748b;
 }
 
 .denr-dashboard__firestore-msg {
   margin: 0 0 1rem;
-  padding: 0.65rem 0.9rem;
-  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
   background: #fef2f2;
   border: 1px solid #fecaca;
-  color: #b91c1c;
-  font-size: 0.88rem;
+  color: #991b1b;
+  font-size: 0.92rem;
 }
 
 .denr-dashboard__stats {
@@ -1758,6 +1773,12 @@ input { font-family: inherit; }
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+a.denr-link-all:hover {
+  text-decoration: underline;
 }
 
 .denr-link-all:hover {
@@ -1901,7 +1922,7 @@ input { font-family: inherit; }
 }
 
 .recent-report-row__status--rejected {
-  background: #ef4444;
+  background: #dc2626;
   color: #fff;
 }
 
@@ -2051,6 +2072,23 @@ input { font-family: inherit; }
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #0f172a;
+}
+
+.reports-page__banner-msg {
+  margin: -0.5rem 0 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.92rem;
+}
+
+.reports-table__loading {
+  padding: 2rem 1rem !important;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.95rem;
 }
 
 .reports-toolbar {
@@ -2319,6 +2357,11 @@ input { font-family: inherit; }
   color: #fff;
 }
 
+.reports-status--rejected {
+  background: #fecaca;
+  color: #991b1b;
+}
+
 .reports-btn-view {
   padding: 0.4rem 1.1rem;
   background: #fff;
@@ -2473,7 +2516,7 @@ input { font-family: inherit; }
 }
 
 .report-detail__pill--rejected {
-  background: #ef4444;
+  background: #dc2626;
   color: #fff;
 }
 
@@ -3891,7 +3934,7 @@ input { font-family: inherit; }
 
 .history-pill--rejected {
   background: #fee2e2;
-  color: #b91c1c;
+  color: #991b1b;
 }
 
 .history-priority {

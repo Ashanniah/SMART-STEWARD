@@ -56,14 +56,9 @@ export default function ReportStatusUpdate() {
   const navigate = useNavigate();
   const id = reportId ? decodeURIComponent(reportId) : '';
 
-  const { reports, loading, reportByDocId } = useReportsData();
-  const { viewerAgencyKey } = useAgencyUser();
-
-  const detail = useMemo(() => {
-    const row = id ? reportByDocId(id) : null;
-    return row ? normalizedToDetailView(row) : null;
-  }, [id, reportByDocId, reports]);
-
+  const { loading, reportByDocId } = useReportsData();
+  const row = id ? reportByDocId(id) : null;
+  const detail = useMemo(() => (row ? normalizedToDetailView(row) : null), [row]);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [remarks, setRemarks] = useState('');
   const [saving, setSaving] = useState(false);
@@ -75,76 +70,10 @@ export default function ReportStatusUpdate() {
   const currentKey = rawCurrentKey === 'review' ? 'in_progress' : rawCurrentKey;
   const currentIndex = workflowStatusIndex(currentKey);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSubmitError(null);
-    if (!selectedStatus) {
-      setSubmitError('Please select a status.');
-      return;
-    }
-    if (!isFirebaseConfigured) {
-      setSubmitError('Firebase is not configured.');
-      return;
-    }
-    const db = getFirestoreDb();
-    if (!db) {
-      setSubmitError('Could not connect to the database.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const ref = doc(db, REPORTS_COLLECTION, id);
-      const payload = {
-        status: workflowKeyToFirestoreStatus(selectedStatus),
-        statusUpdatedAt: serverTimestamp(),
-      };
-      const trimmed = remarks.trim();
-      if (trimmed) payload.lastStatusNote = trimmed;
-      await updateDoc(ref, payload);
-
-      const statusLabel = WORKFLOW_STATUS_META[selectedStatus]?.label ?? selectedStatus;
-
-      if (viewerAgencyKey && detail) {
-        try {
-          await writeAgencyNotification({
-            targetAgency: viewerAgencyKey,
-            title: 'Report status updated',
-            body: `${statusLabel}: ${detail.reportTypeLabel ?? detail.activity} — ${detail.locationDisplay ?? detail.location}`,
-            kind: AGENCY_NOTIFICATION_KINDS.STATUS_CHANGED,
-            reportDocId: id,
-            severity: AGENCY_NOTIFICATION_SEVERITY.INFO,
-          });
-        } catch (notifyErr) {
-          console.warn('Could not record inbox notification:', notifyErr);
-        }
-      }
-
-      setRemarks('');
-      setSelectedStatus('');
-      setSuccessMessage(
-        trimmed
-          ? `This report is now marked as ${statusLabel}. Your remarks were saved and the citizen will be notified.`
-          : `This report is now marked as ${statusLabel}. The update was recorded and the citizen will be notified.`
-      );
-      setSuccessOpen(true);
-    } catch (err) {
-      console.error(err);
-      setSubmitError(err.message || 'Could not update status. Check permissions and try again.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!id) {
-    return <Navigate to="/reports" replace />;
-  }
-
-  if (loading && !detail) {
+  if (loading && !row) {
     return (
       <div className="status-update fade-in">
-        <p className="denr-dashboard__muted" style={{ padding: '2rem' }}>
-          Loading report…
-        </p>
+        <p className="reports-table__loading">Loading report…</p>
       </div>
     );
   }

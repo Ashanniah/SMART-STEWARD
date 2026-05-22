@@ -228,7 +228,7 @@ export default function Reports() {
               ) : pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="reports-table__loading">
-                    No reports to display.
+                    No reports yet. Mobile submissions will show here.
                   </td>
                 </tr>
               ) : (
