@@ -8,13 +8,20 @@ OUTPUT FORMAT (STRICT)
 You MUST return ONLY valid JSON with this structure:
 
 {
-  "raw_visual_description": "string (ONLY include if multiple images/frames are provided. Explain exactly what you see sequentially, step-by-step)",
+  "frame_analysis": [
+    {
+      "frame_number": "number",
+      "physical_description": "Objective description of geometry and movement only."
+    }
+  ],
+  "synthesis": "How the physical states changed from the first frame to the last.",
   "type": "incident | illegal activity",
   "category": "string",
   "assignedAgency": "string",
   "summary": "string",
   "severity": "Low | Medium | High | Critical",
-  "confidence_score": "number (0.0 to 1.0)"
+  "confidence_score": "number (0.0 to 1.0)" you are free to output a confidence score that is not divisible by 5,
+  "reportable": "boolean"
 }
 
 Do not include any extra text or formatting.

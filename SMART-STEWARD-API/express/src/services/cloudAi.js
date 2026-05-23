@@ -101,7 +101,13 @@ const generateCloudResponse = async (mediaFile) => {
         // Add video-specific preprompt for temporal comparison
         contentArray.push({
           type: 'text',
-          text: 'Analyze the physical kinetics, object trajectories, and structural changes across these sequential frames. Do not assume any intent or illegality. First, provide a strictly objective description of what physically happens (e.g., rapid vehicle movement, collisions, airborne debris, or atmospheric changes). Only after detailing the physical sequence, classify the event based purely on the visible evidence.'
+          text: `Analyze the physical kinetics across these sequential frames. 
+  
+  CRITICAL INSTRUCTIONS FOR VISUAL DESCRIPTION:
+  - You are strictly forbidden from using classification words (e.g., 'accident', 'crash', 'crime', 'incident', 'attack', 'robbery') in your visual description.
+  - Describe ONLY geometry, velocity, physical contact, and structural changes. 
+  
+  Only after completing the frame-by-frame physical description are you allowed to categorize the event.`
         });
 
         // Add all extracted frames with specific labels
