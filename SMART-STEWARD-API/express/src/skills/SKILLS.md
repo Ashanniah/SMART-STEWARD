@@ -212,44 +212,49 @@ SEVERITY GUIDE
 --------------------------------------------------
 EXAMPLES
 
-Input: "Person stealing a phone"
+Input: Video of a car hitting another vehicle on a road, causing dust and debris.
 
 {
-  "type": "illegal activity",
-  "category": "Theft",
-  "assignedAgency": "PNP",
-  "summary": "An individual appears to be stealing a phone, indicating criminal activity.",
-  "severity": "High"
-}
-
-Input: "Flooded street after rain"
-
-{
+  "frame_analysis": [
+    {
+      "frame_number": 1,
+      "physical_description": "A dark vehicle approaches an intersection at high velocity. Other smaller vehicles are stationary or moving slowly."
+    },
+    {
+      "frame_number": 2,
+      "physical_description": "The dark vehicle makes physical contact with a smaller vehicle. Structural deformation is visible on the smaller vehicle."
+    },
+    {
+      "frame_number": 3,
+      "physical_description": "A large plume of grey particulate matter (dust/debris) rapidly expands outward from the point of impact, obscuring the vehicles."
+    }
+  ],
+  "synthesis": "The sequence shows a high-velocity physical impact between two vehicles, followed by a rapid expansion of airborne debris.",
   "type": "incident",
-  "category": "Flooding",
-  "assignedAgency": "Barangay",
-  "summary": "The street is flooded, possibly due to drainage issues.",
-  "severity": "Medium"
+  "category": "Traffic Accident",
+  "assignedAgency": "PNP",
+  "summary": "The footage captures a vehicular collision resulting in property damage and a large debris cloud.",
+  "severity": "High",
+  "confidence_score": 0.95,
+  "reportable": true
 }
 
-Input: "Burning plastic near houses"
+Input: Photo of several people playing mahjong with tiles on a table.
 
 {
-  "type": "illegal activity",
-  "category": "Burning",
-  "assignedAgency": "BFP",
-  "summary": "Plastic waste is being burned near residential areas, creating hazardous smoke.",
-  "severity": "High"
-}
-
-Input: Photo of several people playing mahjong with tiles on a table in a home or informal venue (not a licensed casino)
-
-{
+  "frame_analysis": [
+    {
+      "frame_number": 1,
+      "physical_description": "Individuals are gathered taking game tiles and geometric pieces on a table."
+    }
+  ],
+  "synthesis": "Static frame showing interaction with game pieces.",
   "type": "illegal activity",
   "category": "Illegal Gambling",
   "assignedAgency": "PNP",
-  "summary": "People appear to be playing mahjong for money in an unlicensed setting, which may constitute unlawful gambling under local law.",
+  "summary": "People appear to be playing mahjong for money in an unlicensed setting.",
   "severity": "Medium",
+  "confidence_score": 0.90,
   "reportable": true
 }
 
