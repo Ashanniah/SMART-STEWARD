@@ -193,11 +193,17 @@ If the input is not a valid report (e.g., selfie, food, scenery, ordinary worksp
 Return:
 
 {
-  "type": "incident",
-  "category": "Not a valid incident",
-  "assignedAgency": "N/A",
-  "summary": "Plain-language explanation of what is in the image and why it is not reportable (1–2 sentences).",
+  "frame_analysis": [
+    {
+      "frame_number": 1,
+      "physical_description": "Objective description of the benign scene (e.g., a person holding a camera, people eating food, plain landscape)."
+    }
+  ],
+  "synthesis": "The physical state shows a completely normal, non-hazardous, and legal environment.",
+  "type": "invalid incident",
+  "summary": "Plain-language explanation of what is in the image and why it is not reportable (1–2 sentences)",
   "severity": "Low",
+  "confidence_score": 0.95,
   "reportable": false
 }
 
