@@ -101,7 +101,7 @@ const generateCloudResponse = async (mediaFile) => {
         // Add video-specific preprompt for temporal comparison
         contentArray.push({
           type: 'text',
-          text: 'Compare the extracted frames across timestamps and analyze what this video could be. Use the temporal sequence to determine whether the situation escalates, changes, or reveals illegal activity/incident context. Provide one unified classification.'
+          text: 'Analyze the physical kinetics, object trajectories, and structural changes across these sequential frames. Do not assume any intent or illegality. First, provide a strictly objective description of what physically happens (e.g., rapid vehicle movement, collisions, airborne debris, or atmospheric changes). Only after detailing the physical sequence, classify the event based purely on the visible evidence.'
         });
 
         // Add all extracted frames with specific labels
