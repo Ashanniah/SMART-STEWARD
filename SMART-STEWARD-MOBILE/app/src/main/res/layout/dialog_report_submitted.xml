@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_submitted_modal"
+    android:orientation="vertical"
+    android:paddingBottom="18dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:id="@+id/submittedDialogClose"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="end|top"
+            android:background="@drawable/bg_receipt_close_circle"
+            android:contentDescription="@string/report_receipt_close"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_close_grey" />
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_submitted_check"
+        android:gravity="center"
+        android:text="✓"
+        android:textColor="@color/white"
+        android:textSize="48sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:text="@string/submitted_success_headline"
+        android:textColor="@color/activity_title_bar"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/submittedDialogSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.15"
+        android:paddingStart="22dp"
+        android:paddingEnd="22dp"
+        android:textColor="@color/activity_muted"
+        android:textSize="14sp"
+        tools:text="Your report has been submitted to PNP. You'll be notified when action is taken." />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="18dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/bg_receipt_card_shell"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_receipt_header_strip"
+            android:gravity="center"
+            android:letterSpacing="0.08"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:text="@string/report_details_section_title"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/submittedDialogScroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fadeScrollbars="false"
+            android:maxHeight="@dimen/report_receipt_scroll_max_height"
+            android:overScrollMode="ifContentScrolls"
+            android:scrollbars="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="8dp">
+
+                <include
+                    android:id="@+id/submittedRowReportId"
+                    layout="@layout/item_receipt_detail_row" />
+
+                <include
+                    android:id="@+id/submittedRowStatus"
+                    layout="@layout/item_receipt_detail_row" />
+
+                <include
+                    android:id="@+id/submittedRowType"
+                    layout="@layout/item_receipt_detail_row" />
+
+                <include
+                    android:id="@+id/submittedRowDate"
+                    layout="@layout/item_receipt_detail_row" />
+
+                <include
+                    android:id="@+id/submittedRowTime"
+                    layout="@layout/item_receipt_detail_row" />
+
+                <include
+                    android:id="@+id/submittedRowLocation"
+                    layout="@layout/item_receipt_detail_row" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="@drawable/bg_receipt_description_box"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/paper"
+                            app:tint="@color/activity_title_bar" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="@string/report_details_description_heading"
+                            style="@style/TextAppearance.SMARTSTEWARD.MetaLabelGreen" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/submittedDialogDescription"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingMultiplier="1.25"
+                        android:textColor="#1A1F1C"
+                        android:textSize="14sp"
+                        tools:text="A group of individuals is involved in a jewelry robbery." />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/submittedPhotoSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="16dp"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/image"
+                            app:tint="@color/activity_title_bar" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="@string/report_details_photo_uploaded"
+                            style="@style/TextAppearance.SMARTSTEWARD.MetaLabelGreen" />
+                    </LinearLayout>
+
+                    <FrameLayout
+                        android:id="@+id/submittedPhotoThumbContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_receipt_photo_thumb"
+                        android:padding="2dp">
+
+                        <ImageView
+                            android:id="@+id/submittedPhotoThumb"
+                            android:layout_width="match_parent"
+                            android:layout_height="120dp"
+                            android:contentDescription="@string/near_report_photo"
+                            android:scaleType="centerCrop"
+                            tools:src="@color/register_field_fill" />
+
+                        <ImageView
+                            android:id="@+id/submittedPhotoVideoPlay"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_gravity="center"
+                            android:background="@drawable/bg_play_circle"
+                            android:contentDescription="@string/play_video"
+                            android:padding="8dp"
+                            android:scaleType="fitCenter"
+                            android:src="@android:drawable/ic_media_play"
+                            android:tint="@color/white"
+                            android:visibility="gone" />
+                    </FrameLayout>
+                </LinearLayout>
+
+                <include
+                    android:id="@+id/submittedRowAgency"
+                    layout="@layout/item_receipt_detail_row" />
+
+                <LinearLayout
+                    android:id="@+id/submittedRemarksSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="6dp"
+                    android:background="@drawable/bg_receipt_description_box"
+                    android:orientation="vertical"
+                    android:padding="14dp"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/edit"
+                            app:tint="@color/activity_title_bar" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="@string/report_details_agency_remarks_heading"
+                            style="@style/TextAppearance.SMARTSTEWARD.MetaLabelGreen" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/submittedDialogRemarks"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingMultiplier="1.25"
+                        android:textColor="#1A1F1C"
+                        android:textSize="14sp"
+                        tools:text="Be careful" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/submittedDialogTrackButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_track_report_outline"
+            android:text="@string/my_activity_track"
+            android:textAllCaps="true"
+            android:textColor="@color/register_button_green"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <Button
+            android:id="@+id/submittedDialogOkButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_review_submit_pill"
+            android:text="@string/report_submitted_ok"
+            android:textAllCaps="true"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+    </LinearLayout>
+</LinearLayout>

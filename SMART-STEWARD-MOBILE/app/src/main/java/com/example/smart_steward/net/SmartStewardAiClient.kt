@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import com.example.smart_steward.AiAnalysisActivity
 import com.example.smart_steward.CapturedMediaStore
 import com.example.smart_steward.R
@@ -12,11 +13,13 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 /**
  * Calls the Express LLM route: POST {baseUrl}/ai
@@ -24,11 +27,46 @@ import java.util.concurrent.TimeUnit
  */
 object SmartStewardAiClient {
 
+    private const val TAG = "SmartStewardAiClient"
+
+    /** Upload target band (5–8 MB warning). We aim for the best quality still ≤ this. */
+    const val TARGET_VIDEO_BYTES: Long = 8L * 1024L * 1024L
+
+    /** Soft floor of the target band — stop early once we reach a good 5–8 MB encode. */
+    private const val TARGET_VIDEO_BYTES_MIN: Long = 5L * 1024L * 1024L
+
+    /** Hard upload cap — reject only if the file cannot be brought under this. */
+    const val MAX_VIDEO_BYTES: Long = 20L * 1024L * 1024L
+
+    /** Already within the 5–8 MB band (used for UI hints only). */
+    const val COMPRESS_ABOVE_BYTES: Long = TARGET_VIDEO_BYTES
+
+    /** Max height for all upload encodes (low resolution). */
+    private const val UPLOAD_MAX_HEIGHT = 480
+
+    /** @deprecated Use [MAX_VIDEO_BYTES]. */
+    @Deprecated("Use MAX_VIDEO_BYTES")
+    const val MAX_SOURCE_VIDEO_BYTES: Long = MAX_VIDEO_BYTES
+
+    private data class VideoCompressProfile(val maxHeight: Int, val videoBitrate: Int)
+
+    /** Low-resolution profiles only — every video is transcoded before upload. */
+    private val COMPRESS_PROFILES = listOf(
+        VideoCompressProfile(UPLOAD_MAX_HEIGHT, 700_000),
+        VideoCompressProfile(UPLOAD_MAX_HEIGHT, 500_000),
+        VideoCompressProfile(UPLOAD_MAX_HEIGHT, 400_000),
+        VideoCompressProfile(360, 350_000),
+        VideoCompressProfile(360, 250_000),
+        VideoCompressProfile(360, 180_000),
+        VideoCompressProfile(360, 120_000),
+        VideoCompressProfile(360, 80_000),
+    )
+
     /** OkHttp requires an explicit http/https scheme (host:port alone throws). */
     private fun normalizeApiBaseUrl(raw: String): String {
         val t = raw.trim().trimEnd('/')
         return when {
-            t.isEmpty() -> "http://192.168.1.109:3000"
+            t.isEmpty() -> "http://54.66.101.26:3000"
             t.startsWith("http://", ignoreCase = true) ||
                 t.startsWith("https://", ignoreCase = true) -> t
             else -> "http://$t"
@@ -47,12 +85,138 @@ object SmartStewardAiClient {
      * Returns an [Intent] with the same extras as [AiAnalysisActivity] uses for the review screen,
      * populated from the API JSON (`type`, `category`, `assignedAgency`, `summary`, `severity`).
      */
+    /** Resolves size; may copy to cache only when length is unknown. */
+    fun resolveVideoSizeBytes(context: Context, uri: Uri): Long {
+        context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
+            val len = afd.length
+            if (len >= 0L) return len
+        }
+        val path = uri.path
+        if (path != null) {
+            val f = File(path)
+            if (f.isFile) return f.length()
+        }
+        val temp = copyUriToCacheFile(context, uri)
+        val size = temp.length()
+        temp.delete()
+        return size
+    }
+
+    /** Every video is transcoded to low resolution before upload. */
+    fun shouldAttemptVideoCompression(@Suppress("UNUSED_PARAMETER") sizeBytes: Long): Boolean = true
+
+    /** True when the source exceeds 20 MB and must be reduced before upload. */
+    fun isVideoCompressionRequired(sizeBytes: Long): Boolean =
+        sizeBytes > MAX_VIDEO_BYTES
+
+    /**
+     * Prepares a video for AI upload.
+     * Always transcodes to low resolution (480p/360p) and compresses toward the 5–8 MB band.
+     * Rejects only if no encode can be produced under 20 MB.
+     */
+    fun prepareVideoUploadFile(
+        context: Context,
+        uri: Uri,
+        onPrepareProgress: ((Int) -> Unit)? = null,
+    ): PrepareVideoResult {
+        onPrepareProgress?.invoke(0)
+        val sourceFile = copyUriToCacheFile(context, uri)
+        val originalSize = sourceFile.length().coerceAtLeast(0L)
+        val compressionRequired = isVideoCompressionRequired(originalSize)
+
+        Log.d(
+            TAG,
+            "Video ${formatMegabytes(originalSize)} — mandatory low-res transcode toward 5–8 MB" +
+                if (compressionRequired) " (must be ≤ 20 MB)" else "",
+        )
+
+        val sourceUri = Uri.fromFile(sourceFile)
+        var bestInBand: File? = null
+        var bestInBandSize = 0L
+        var smallestUnderMax: File? = null
+        var smallestUnderMaxSize = Long.MAX_VALUE
+
+        for ((index, profile) in COMPRESS_PROFILES.withIndex()) {
+            val candidate =
+                File(context.cacheDir, "ai_upload_opt_${System.currentTimeMillis()}_$index.mp4")
+            val progressScale: (Int) -> Unit = { pct ->
+                val slice = 100 / COMPRESS_PROFILES.size.coerceAtLeast(1)
+                val base = index * slice
+                onPrepareProgress?.invoke((base + (pct * slice / 100f)).toInt().coerceIn(0, 99))
+            }
+            val ok =
+                VideoCompressor.compress(
+                    context,
+                    sourceUri,
+                    candidate,
+                    profile.videoBitrate,
+                    profile.maxHeight,
+                    progressScale,
+                )
+            if (!ok || !candidate.isFile || candidate.length() <= 0L) {
+                candidate.delete()
+                continue
+            }
+            val len = candidate.length()
+            when {
+                len <= TARGET_VIDEO_BYTES && len > bestInBandSize -> {
+                    smallestUnderMax?.delete()
+                    smallestUnderMax = null
+                    smallestUnderMaxSize = Long.MAX_VALUE
+                    bestInBand?.delete()
+                    bestInBand = candidate
+                    bestInBandSize = len
+                }
+                len <= MAX_VIDEO_BYTES && len < smallestUnderMaxSize -> {
+                    smallestUnderMax?.delete()
+                    smallestUnderMax = candidate
+                    smallestUnderMaxSize = len
+                }
+                else -> candidate.delete()
+            }
+            if (bestInBandSize in TARGET_VIDEO_BYTES_MIN..TARGET_VIDEO_BYTES) {
+                break
+            }
+        }
+
+        onPrepareProgress?.invoke(100)
+
+        fun finishWithCompressed(file: File, finalSize: Long): PrepareVideoResult {
+            sourceFile.delete()
+            return PrepareVideoResult(
+                file = file,
+                originalSizeBytes = originalSize,
+                finalSizeBytes = finalSize,
+                wasCompressed = true,
+            )
+        }
+
+        bestInBand?.let { return finishWithCompressed(it, bestInBandSize) }
+
+        smallestUnderMax?.let { compressed ->
+            val finalSize = compressed.length()
+            Log.d(
+                TAG,
+                "Using ${formatMegabytes(finalSize)} low-res encode (5–8 MB band not reached)",
+            )
+            return finishWithCompressed(compressed, finalSize)
+        }
+
+        sourceFile.delete()
+        throw VideoTooLargeException(originalSize)
+    }
+
+    fun formatMegabytes(bytes: Long): String =
+        String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
+
     fun analyzeToResultIntent(
         context: Context,
         baseUrl: String,
         userMessage: String?,
         reanalyze: Boolean,
-        deviceLocationShort: String?
+        deviceLocationShort: String?,
+        callbacks: AiAnalyzeCallbacks? = null,
+        preparedVideoFile: File? = null,
     ): Intent {
         val root = normalizeApiBaseUrl(baseUrl)
         val url = "$root/ai"
@@ -62,7 +226,8 @@ object SmartStewardAiClient {
 
         val mediaFile = when {
             bitmap != null -> writeBitmapToCache(context, bitmap)
-            videoUri != null -> copyUriToCacheFile(context, videoUri)
+            preparedVideoFile != null -> preparedVideoFile
+            videoUri != null -> prepareVideoUploadFile(context, videoUri).file
             else -> null
         }
 
@@ -77,7 +242,28 @@ object SmartStewardAiClient {
 
             if (mediaFile != null) {
                 val mime = guessMime(mediaFile)
-                val partBody = mediaFile.asRequestBody(mime.toMediaTypeOrNull())
+                val rawBody = mediaFile.asRequestBody(mime.toMediaTypeOrNull())
+                val total = rawBody.contentLength().coerceAtLeast(0L)
+                callbacks?.onUploadStarted(total)
+                val partBody = if (callbacks != null) {
+                    ProgressRequestBody(
+                        delegate = rawBody,
+                        onProgress = { written, length ->
+                            val pct = if (length > 0L) {
+                                ((written * 100f) / length).roundToInt().coerceIn(0, 100)
+                            } else {
+                                0
+                            }
+                            callbacks.onUploadProgress(pct, written, length)
+                        },
+                        onComplete = {
+                            callbacks.onUploadComplete()
+                            callbacks.onWaitingForServer()
+                        }
+                    )
+                } else {
+                    rawBody
+                }
                 bodyBuilder.addFormDataPart("media", mediaFile.name, partBody)
             } else if (message.isBlank()) {
                 throw IllegalStateException("No media or message to send to AI.")
@@ -90,18 +276,33 @@ object SmartStewardAiClient {
 
             client.newCall(request).execute().use { response ->
                 val raw = response.body?.string().orEmpty()
+                Log.d(TAG, "AI raw response (${response.code}): $raw")
                 if (!response.isSuccessful) {
                     val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
-                    throw IllegalStateException(err?.takeIf { it.isNotBlank() } ?: "HTTP ${response.code}")
+                    val message = when {
+                        response.code == 413 -> "Video file is too large (max 20 MB after compression)."
+                        !err.isNullOrBlank() -> err
+                        else -> "HTTP ${response.code}"
+                    }
+                    throw IllegalStateException(message)
                 }
                 val json = JSONObject(raw)
-                val payload = json.optJSONObject("response")
-                    ?: throw IllegalStateException("Invalid AI response (missing response object).")
+                val payload = parseClassificationPayload(json)
+                Log.d(TAG, "AI classification payload: $payload")
                 return mapPayloadToResultIntent(context, payload, deviceLocationShort)
             }
         } finally {
             mediaFile?.delete()
         }
+    }
+
+    /** Accepts `{ "response": { ... } }` or a legacy flat classification object. */
+    private fun parseClassificationPayload(json: JSONObject): JSONObject {
+        json.optJSONObject("response")?.let { return it }
+        if (json.has("category") || json.has("type") || json.has("summary")) {
+            return json
+        }
+        throw IllegalStateException("Invalid AI response (missing classification fields).")
     }
 
     private fun buildMessage(
@@ -124,30 +325,32 @@ object SmartStewardAiClient {
         payload: JSONObject,
         deviceLocationShort: String?
     ): Intent {
+        val type = payload.optString("type").trim()
         val category = payload.optString("category").ifBlank { "Incident" }
-        val type = payload.optString("type").ifBlank { "incident" }
-        val agency = payload.optString("assignedAgency").ifBlank {
+        val agency = parseAssignedAgency(payload).ifBlank {
             context.getString(R.string.review_detected_agency_title_default)
         }
-        val reportable = isReportablePayload(payload, category, agency)
         val summary = payload.optString("summary").ifBlank {
-            if (reportable) {
-                context.getString(R.string.review_ai_description_default)
-            } else {
-                context.getString(R.string.no_incident_body_default)
-            }
+            context.getString(R.string.review_ai_description_default)
         }
         val severity = payload.optString("severity").ifBlank { "—" }
+        val confidenceScore = payload.optDouble("confidence_score", Double.NaN)
+        val reportable = isReportablePayload(payload, category, agency)
+
+        Log.d(
+            TAG,
+            "AI fields -> type=$type category=$category agency=$agency severity=$severity " +
+                "confidence_score=$confidenceScore reportable=$reportable",
+        )
 
         val incidentTitle = category
         val incidentSubtitle = listOf(
             type.replaceFirstChar { ch ->
                 if (ch.isLowerCase()) ch.titlecase(Locale.getDefault()) else ch.toString()
-            },
-            severity
+            }.ifBlank { "incident" },
+            severity,
         ).joinToString(" · ")
 
-        val agencyShort = agencyShortFromLine(agency)
         val loc = deviceLocationShort?.trim()?.takeIf { it.isNotEmpty() }
             ?: context.getString(R.string.review_location_short_default)
 
@@ -155,10 +358,32 @@ object SmartStewardAiClient {
             putExtra(AiAnalysisActivity.EXTRA_INCIDENT_TITLE, incidentTitle)
             putExtra(AiAnalysisActivity.EXTRA_INCIDENT_SUBTITLE, incidentSubtitle)
             putExtra(AiAnalysisActivity.EXTRA_AGENCY_TITLE, agency)
-            putExtra(AiAnalysisActivity.EXTRA_AGENCY_SUBLINE, agencyShort)
+            putExtra(AiAnalysisActivity.EXTRA_AGENCY_SUBLINE, agency)
             putExtra(AiAnalysisActivity.EXTRA_DESCRIPTION, summary)
             putExtra(AiAnalysisActivity.EXTRA_LOCATION_SHORT, loc)
             putExtra(AiAnalysisActivity.EXTRA_REPORTABLE, reportable)
+            if (!confidenceScore.isNaN()) {
+                putExtra(AiAnalysisActivity.EXTRA_CONFIDENCE_SCORE, confidenceScore.toFloat())
+            }
+        }
+    }
+
+    /**
+     * Server may return one agency string or multiple (e.g. ["BFP","DENR","Barangay"]).
+     * Stored and displayed as a comma-separated string for Firestore/UI.
+     */
+    private fun parseAssignedAgency(payload: JSONObject): String {
+        if (!payload.has("assignedAgency")) return ""
+        return when (val raw = payload.get("assignedAgency")) {
+            is String -> raw.trim()
+            is JSONArray -> {
+                buildList {
+                    for (i in 0 until raw.length()) {
+                        raw.optString(i).trim().takeIf { it.isNotEmpty() }?.let { add(it) }
+                    }
+                }.joinToString(", ")
+            }
+            else -> raw?.toString()?.trim().orEmpty()
         }
     }
 
@@ -172,13 +397,8 @@ object SmartStewardAiClient {
         }
         if (category.equals("Not a valid incident", ignoreCase = true)) return false
         if (agency.equals("N/A", ignoreCase = true)) return false
+        if (agency.split(",").all { it.trim().equals("N/A", ignoreCase = true) }) return false
         return true
-    }
-
-    private fun agencyShortFromLine(assignedAgency: String): String {
-        val inParens = Regex("\\(([^)]+)\\)").find(assignedAgency)?.groupValues?.getOrNull(1)?.trim()
-        if (!inParens.isNullOrBlank()) return inParens
-        return assignedAgency.split(",").firstOrNull()?.trim().orEmpty().ifBlank { assignedAgency }
     }
 
     private fun writeBitmapToCache(context: Context, bitmap: Bitmap): File {

@@ -18,7 +18,11 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.gms.location.LocationServices
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -42,6 +46,8 @@ class IncidentFlowActivity : AppCompatActivity() {
     }
 
     private lateinit var titleText: TextView
+    private lateinit var incidentHeader: View
+    private lateinit var incidentBackButton: ImageView
     private lateinit var previewContainer: View
     private lateinit var analyzingContainer: View
     private lateinit var detectedContainer: View
@@ -68,6 +74,8 @@ class IncidentFlowActivity : AppCompatActivity() {
     /** True after the first AI pass finished; prevents re-analysis on rotation. */
     private var initialAnalysisDone = false
 
+    private var submittedDialogVisible = false
+
     private val aiAnalysisLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -89,6 +97,9 @@ class IncidentFlowActivity : AppCompatActivity() {
         setContentView(R.layout.activity_incident_flow)
 
         titleText = findViewById(R.id.incidentFlowTitle)
+        incidentHeader = findViewById(R.id.incidentHeader)
+        incidentBackButton = findViewById(R.id.incidentBackButton)
+        setupIncidentHeaderInsets()
         previewContainer = findViewById(R.id.previewContainer)
         analyzingContainer = findViewById(R.id.analyzingContainer)
         detectedContainer = findViewById(R.id.detectedContainer)
@@ -158,6 +169,14 @@ class IncidentFlowActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.noIncidentCaptureAgainButton).setOnClickListener {
             navigateHome(openCamera = true)
+        }
+
+        findViewById<TextView>(R.id.noIncidentExampleLink).setOnClickListener {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.no_incident_example)
+                .setMessage(R.string.no_incident_example_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
         }
 
         findViewById<Button>(R.id.trackReportButton).setOnClickListener {
@@ -269,11 +288,8 @@ class IncidentFlowActivity : AppCompatActivity() {
         if (data == null) {
             findViewById<TextView>(R.id.detectedIncidentTypeText).setText(R.string.review_detected_incident_default)
             findViewById<TextView>(R.id.detectedIncidentSubtitle).setText(R.string.review_incident_subtitle_default)
-            findViewById<TextView>(R.id.detectedAgencyText).setText(R.string.review_detected_agency_title_default)
-            findViewById<TextView>(R.id.detectedAgencySubtitle)?.text = getString(
-                R.string.review_agency_subtitle_fmt,
-                getString(R.string.review_detected_agency_short_default)
-            )
+            findViewById<TextView>(R.id.detectedAgencyText).setText(R.string.review_detected_agency_short_default)
+            findViewById<TextView>(R.id.detectedAgencySubtitle)?.visibility = View.GONE
             findViewById<TextView>(R.id.detectedDescriptionText).setText(R.string.review_ai_description_default)
             findViewById<TextView>(R.id.detectedLocationText).setText(R.string.review_location_short_default)
             return
@@ -285,20 +301,12 @@ class IncidentFlowActivity : AppCompatActivity() {
             ?: getString(R.string.review_incident_subtitle_default)
         val typeOnly = incidentSubtitle.split(" · ").firstOrNull() ?: incidentSubtitle
         findViewById<TextView>(R.id.detectedIncidentSubtitle).text = typeOnly
-        val agencyTitle = data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_TITLE)
-            ?: getString(R.string.review_detected_agency_title_default)
-        findViewById<TextView>(R.id.detectedAgencyText).text = agencyTitle
-        val agencySub = data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_SUBLINE)?.trim().orEmpty()
-        findViewById<TextView>(R.id.detectedAgencySubtitle)?.apply {
-            when {
-                agencySub.isEmpty() -> visibility = View.GONE
-                agencySub.equals(agencyTitle.trim(), ignoreCase = true) -> visibility = View.GONE
-                else -> {
-                    visibility = View.VISIBLE
-                    text = agencySub
-                }
-            }
-        }
+        findViewById<TextView>(R.id.detectedAgencyText).text =
+            formatAssignedAgencyLabel(
+                data.getStringExtra(AiAnalysisActivity.EXTRA_AGENCY_TITLE)
+                    ?: getString(R.string.review_detected_agency_short_default),
+            )
+        findViewById<TextView>(R.id.detectedAgencySubtitle)?.visibility = View.GONE
         findViewById<TextView>(R.id.detectedDescriptionText).text =
             data.getStringExtra(AiAnalysisActivity.EXTRA_DESCRIPTION)
                 ?: getString(R.string.review_ai_description_default)
@@ -329,6 +337,82 @@ class IncidentFlowActivity : AppCompatActivity() {
             .trim()
         findViewById<TextView>(R.id.noIncidentExplanationText).text =
             noIncidentExplanationText(summary)
+        populateNoIncidentReportableGrid()
+    }
+
+    private data class NoIncidentReportableItem(
+        val iconRes: Int,
+        val iconPillBgRes: Int,
+        val titleRes: Int,
+        val descRes: Int
+    )
+
+    private fun populateNoIncidentReportableGrid() {
+        val grid = findViewById<LinearLayout>(R.id.noIncidentReportableGrid)
+        grid.removeAllViews()
+        val items = listOf(
+            NoIncidentReportableItem(
+                R.drawable.fire_flame,
+                R.drawable.bg_reportable_icon_pill_orange,
+                R.string.no_incident_reportable_burning_title,
+                R.string.no_incident_reportable_burning_desc
+            ),
+            NoIncidentReportableItem(
+                R.drawable.delete,
+                R.drawable.bg_reportable_icon_pill_red,
+                R.string.no_incident_reportable_dumping_title,
+                R.string.no_incident_reportable_dumping_desc
+            ),
+            NoIncidentReportableItem(
+                R.drawable.tree,
+                R.drawable.bg_reportable_icon_pill_green,
+                R.string.no_incident_reportable_logging_title,
+                R.string.no_incident_reportable_logging_desc
+            ),
+            NoIncidentReportableItem(
+                R.drawable.knife,
+                R.drawable.bg_reportable_icon_pill_grey,
+                R.string.no_incident_reportable_murder_title,
+                R.string.no_incident_reportable_murder_desc
+            ),
+            NoIncidentReportableItem(
+                R.drawable.anti_theft_system,
+                R.drawable.bg_reportable_icon_pill_purple,
+                R.string.no_incident_reportable_theft_title,
+                R.string.no_incident_reportable_theft_desc
+            ),
+            NoIncidentReportableItem(
+                R.drawable.ace_of_spades,
+                R.drawable.bg_reportable_icon_pill_brown,
+                R.string.no_incident_reportable_gambling_title,
+                R.string.no_incident_reportable_gambling_desc
+            )
+        )
+        val gapPx = (6 * resources.displayMetrics.density).toInt()
+        items.chunked(2).forEachIndexed { rowIndex, rowItems ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    if (rowIndex > 0) topMargin = gapPx
+                }
+            }
+            rowItems.forEachIndexed { colIndex, item ->
+                val card = layoutInflater.inflate(R.layout.item_no_incident_reportable, row, false)
+                card.findViewById<View>(R.id.reportableIconPill)
+                    .setBackgroundResource(item.iconPillBgRes)
+                card.findViewById<ImageView>(R.id.reportableIcon).setImageResource(item.iconRes)
+                card.findViewById<TextView>(R.id.reportableTitle).setText(item.titleRes)
+                card.findViewById<TextView>(R.id.reportableDesc).setText(item.descRes)
+                val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                if (colIndex == 0 && rowItems.size > 1) lp.marginEnd = gapPx
+                if (colIndex == 1) lp.marginStart = gapPx
+                row.addView(card, lp)
+            }
+            grid.addView(row)
+        }
     }
 
     private fun updateNoIncidentVideoDurationBadge() {
@@ -426,18 +510,49 @@ class IncidentFlowActivity : AppCompatActivity() {
     }
 
     private fun refreshDetectedTimestamp() {
-        val fmt = SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault())
-        findViewById<TextView>(R.id.detectedTimestampText).text = fmt.format(Date())
+        val now = Date()
+        val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+        val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val combined = "${dateFmt.format(now)} · ${timeFmt.format(now)}"
+        findViewById<TextView>(R.id.detectedDateText)?.text = dateFmt.format(now)
+        findViewById<TextView>(R.id.detectedTimeText)?.text = timeFmt.format(now)
+        findViewById<TextView>(R.id.detectedTimestampText)?.text = combined
     }
 
-    private fun copyAgencySubtitleState(dest: TextView?, src: TextView?) {
-        if (dest == null) return
-        if (src == null) {
-            dest.visibility = View.GONE
-            return
+    private fun setupIncidentHeaderInsets() {
+        val padV = resources.getDimensionPixelSize(R.dimen.incident_header_padding_vertical)
+        ViewCompat.setOnApplyWindowInsetsListener(incidentHeader) { view, insets ->
+            val statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            view.setPadding(view.paddingLeft, statusTop + padV, view.paddingRight, padV)
+            insets
         }
-        dest.visibility = src.visibility
-        dest.text = src.text
+        ViewCompat.requestApplyInsets(incidentHeader)
+    }
+
+    private fun stripLocationPrefix(text: String): String =
+        text.trim().removePrefix("Location:").trim()
+
+    private fun applyIncidentHeaderStyle(brandHeader: Boolean) {
+        val statusBarController = WindowInsetsControllerCompat(window, window.decorView)
+        if (brandHeader) {
+            incidentHeader.setBackgroundColor(getColor(R.color.activity_title_bar))
+            titleText.setTextColor(getColor(R.color.white))
+            incidentBackButton.setColorFilter(getColor(R.color.white))
+            window.statusBarColor = getColor(R.color.activity_title_bar)
+            statusBarController.isAppearanceLightStatusBars = false
+        } else {
+            incidentHeader.setBackgroundColor(getColor(R.color.notif_header_bg))
+            titleText.setTextColor(getColor(R.color.black))
+            incidentBackButton.setColorFilter(getColor(R.color.register_button_green))
+            window.statusBarColor = getColor(R.color.notif_header_bg)
+            statusBarController.isAppearanceLightStatusBars = true
+        }
+    }
+
+    private fun formatAssignedAgencyLabel(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return getString(R.string.review_detected_agency_short_default)
+        return trimmed
     }
 
     private fun populateEditFromDetected() {
@@ -447,15 +562,26 @@ class IncidentFlowActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.detectedIncidentSubtitle).text
         findViewById<TextView>(R.id.editAgencyText).text =
             findViewById<TextView>(R.id.detectedAgencyText).text
-        copyAgencySubtitleState(
-            findViewById(R.id.editAgencySubtitle),
-            findViewById(R.id.detectedAgencySubtitle)
-        )
+        findViewById<TextView>(R.id.editAgencySubtitle)?.visibility = View.GONE
         descriptionInput.setText(findViewById<TextView>(R.id.detectedDescriptionText).text)
         findViewById<TextView>(R.id.editLocationText).text =
-            formatLocationForSubmit(findViewById<TextView>(R.id.detectedLocationText).text.toString())
-        findViewById<TextView>(R.id.editTimestampText).text =
-            findViewById<TextView>(R.id.detectedTimestampText).text
+            stripLocationPrefix(findViewById<TextView>(R.id.detectedLocationText).text.toString())
+        applyEditTimestampDisplay(
+            findViewById<TextView>(R.id.detectedTimestampText).text.toString()
+        )
+        bindMediaPreview(
+            imagePreviewEdit,
+            findViewById(R.id.editVideoPlayOverlay)
+        )
+    }
+
+    private fun applyEditTimestampDisplay(combined: String) {
+        findViewById<TextView>(R.id.editTimestampText)?.text = combined
+        val parts = combined.split(" · ", limit = 2)
+        if (parts.size == 2) {
+            findViewById<TextView>(R.id.editDateText)?.text = parts[0].trim()
+            findViewById<TextView>(R.id.editTimeText)?.text = parts[1].trim()
+        }
     }
 
     private fun syncEditToDetected() {
@@ -465,16 +591,23 @@ class IncidentFlowActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.editIncidentSubtitle).text
         findViewById<TextView>(R.id.detectedAgencyText).text =
             findViewById<TextView>(R.id.editAgencyText).text
-        copyAgencySubtitleState(
-            findViewById(R.id.detectedAgencySubtitle),
-            findViewById(R.id.editAgencySubtitle)
-        )
+        findViewById<TextView>(R.id.detectedAgencySubtitle)?.visibility = View.GONE
         findViewById<TextView>(R.id.detectedDescriptionText).text =
             descriptionInput.text.toString()
         findViewById<TextView>(R.id.detectedLocationText).text =
-            findViewById<TextView>(R.id.editLocationText).text
-        findViewById<TextView>(R.id.detectedTimestampText).text =
-            findViewById<TextView>(R.id.editTimestampText).text
+            stripLocationPrefix(findViewById<TextView>(R.id.editLocationText).text.toString())
+        applyDetectedTimestampDisplay(
+            findViewById<TextView>(R.id.editTimestampText).text.toString()
+        )
+    }
+
+    private fun applyDetectedTimestampDisplay(combined: String) {
+        findViewById<TextView>(R.id.detectedTimestampText)?.text = combined
+        val parts = combined.split(" · ", limit = 2)
+        if (parts.size == 2) {
+            findViewById<TextView>(R.id.detectedDateText)?.text = parts[0].trim()
+            findViewById<TextView>(R.id.detectedTimeText)?.text = parts[1].trim()
+        }
     }
 
     private fun currentUserId(): String? = FirebaseAuth.getInstance().currentUser?.uid
@@ -509,14 +642,13 @@ class IncidentFlowActivity : AppCompatActivity() {
         val thumbnail = bitmapCapture ?: videoUri?.let { loadVideoFrame(it) }
         fun showSubmittedFromDraft(draftId: String) {
             Toast.makeText(this, getString(R.string.submitted_saved_draft), Toast.LENGTH_LONG).show()
-            populateSubmittedSummary(
+            showSubmittedSuccessDialog(
                 draftId,
                 incidentType,
                 assignedAgency,
                 description,
                 locationLine
             )
-            showState(ScreenState.SUBMITTED)
         }
 
         fun saveOfflineDraft(lat: Double?, lng: Double?) {
@@ -557,14 +689,13 @@ class IncidentFlowActivity : AppCompatActivity() {
                 longitude = lng,
                 onSuccess = { docId, _ ->
                 Toast.makeText(this, getString(R.string.submitted_success_toast), Toast.LENGTH_LONG).show()
-                populateSubmittedSummary(
+                showSubmittedSuccessDialog(
                     docId,
                     incidentType,
                     assignedAgency,
                     description,
                     locationLine
                 )
-                showState(ScreenState.SUBMITTED)
             },
             onError = { msg ->
                 if (!OfflineDraftSyncManager.isOnline(this)) {
@@ -594,71 +725,59 @@ class IncidentFlowActivity : AppCompatActivity() {
         }
     }
 
-    private fun populateSubmittedSummary(
+    private fun showSubmittedSuccessDialog(
         docId: String,
         incidentType: String,
         assignedAgency: String,
         description: String,
         locationLine: String
     ) {
+        if (submittedDialogVisible) return
+        initialAnalysisDone = true
+
         val agencyShort = agencyShortName(assignedAgency)
-        findViewById<TextView>(R.id.submittedSuccessSubtitle).text =
-            getString(R.string.submitted_success_subtitle, agencyShort)
-
         val ref = ReportRef.format(docId, Date())
-        findViewById<TextView>(R.id.submittedReceiptNumberText).text = ref
-        findViewById<TextView>(R.id.submittedReceiptReportIdValue).text = ref
-
-        findViewById<TextView>(R.id.submittedReceiptTypeValue).text = incidentType
-
-        val dateFmt = SimpleDateFormat("MMM d, yyyy - h:mm a", Locale.getDefault())
-        findViewById<TextView>(R.id.submittedReceiptDateValue).text = dateFmt.format(Date())
-
+        val now = Date()
+        val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+        val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
         val locationDisplay = when {
             locationLine.startsWith("Location:", ignoreCase = true) ->
                 locationLine.substringAfter(":").trim()
             else -> locationLine.trim()
         }
-        findViewById<TextView>(R.id.submittedReceiptLocationValue).text =
-            locationDisplay.ifBlank { "—" }
 
-        val desc = description.trim()
-        findViewById<TextView>(R.id.submittedReceiptDescriptionValue).text =
-            desc.ifBlank { "—" }
+        val payload = ReportSubmittedDialog.Payload(
+            reportId = ref,
+            incidentType = incidentType,
+            assignedAgency = assignedAgency,
+            agencyShort = agencyShort,
+            description = description,
+            locationDisplay = locationDisplay,
+            dateText = dateFmt.format(now),
+            timeText = timeFmt.format(now),
+            photoBitmap = CapturedMediaStore.capturedBitmap,
+            videoUri = CapturedMediaStore.capturedVideoUri
+        )
 
-        val thumb = findViewById<ImageView>(R.id.submittedReceiptMediaThumb)
-        val kindLabel = findViewById<TextView>(R.id.submittedReceiptMediaKind)
-        val bitmap = CapturedMediaStore.capturedBitmap
-        val videoUri = CapturedMediaStore.capturedVideoUri
-        val placeholder = ContextCompat.getColor(this, R.color.register_field_fill)
-        when {
-            bitmap != null -> {
-                thumb.setImageBitmap(bitmap)
-                thumb.visibility = View.VISIBLE
-                thumb.background = null
-                kindLabel.text = getString(R.string.receipt_attached_one_photo)
-            }
-            videoUri != null -> {
-                val frame = loadVideoFrame(videoUri)
-                if (frame != null) {
-                    thumb.setImageBitmap(frame)
-                    thumb.background = null
-                } else {
-                    thumb.setImageDrawable(null)
-                    thumb.setBackgroundColor(placeholder)
-                }
-                thumb.visibility = View.VISIBLE
-                kindLabel.text = getString(R.string.receipt_attached_one_video)
-            }
-            else -> {
-                thumb.setImageDrawable(null)
-                thumb.setBackgroundColor(placeholder)
-                thumb.visibility = View.VISIBLE
-                kindLabel.text = getString(R.string.receipt_attached_none)
-            }
+        submittedDialogVisible = true
+        if (currentState != ScreenState.DETECTED && currentState != ScreenState.EDIT) {
+            showState(ScreenState.DETECTED)
         }
+        applyIncidentHeaderStyle(true)
 
-        findViewById<TextView>(R.id.submittedReceiptAgencyValue).text = assignedAgency
+        ReportSubmittedDialog.show(
+            activity = this,
+            payload = payload,
+            onTrack = {
+                submittedDialogVisible = false
+                startActivity(Intent(this, MyActivityActivity::class.java))
+                finish()
+            },
+            onDismiss = {
+                submittedDialogVisible = false
+                navigateHome(openCamera = false)
+            }
+        )
     }
 
     private fun agencyShortName(assignedAgency: String): String {
@@ -672,6 +791,7 @@ class IncidentFlowActivity : AppCompatActivity() {
         currentState = state
         if (state == ScreenState.SUBMITTED) {
             initialAnalysisDone = true
+            submittedContainer.visibility = View.GONE
         }
         previewContainer.visibility = if (state == ScreenState.PREVIEW) View.VISIBLE else View.GONE
         analyzingContainer.visibility =
@@ -680,13 +800,13 @@ class IncidentFlowActivity : AppCompatActivity() {
         noIncidentContainer.visibility =
             if (state == ScreenState.NOT_DETECTED) View.VISIBLE else View.GONE
         editContainer.visibility = if (state == ScreenState.EDIT) View.VISIBLE else View.GONE
-        submittedContainer.visibility = if (state == ScreenState.SUBMITTED) View.VISIBLE else View.GONE
+        submittedContainer.visibility = View.GONE
 
         titleText.text = when (state) {
             ScreenState.PREVIEW -> getString(R.string.send_ai_title)
             ScreenState.ANALYZING -> getString(R.string.incident_title_analyzing)
             ScreenState.DETECTED -> getString(R.string.review_ai_detection_title)
-            ScreenState.NOT_DETECTED -> getString(R.string.no_incident_title)
+            ScreenState.NOT_DETECTED -> getString(R.string.review_ai_detection_title)
             ScreenState.EDIT -> getString(R.string.incident_title_edit)
             ScreenState.REANALYZING -> getString(R.string.incident_title_reanalyzing)
             ScreenState.SUBMITTED -> getString(R.string.incident_title_submitted)
@@ -704,6 +824,12 @@ class IncidentFlowActivity : AppCompatActivity() {
             analysisStepTwo.text = "✓ Location Detection"
             analysisStepThree.text = "✓ Activity Classification"
         }
+
+        applyIncidentHeaderStyle(
+            state == ScreenState.DETECTED ||
+                state == ScreenState.EDIT ||
+                state == ScreenState.NOT_DETECTED
+        )
 
         if (state == ScreenState.DETECTED) {
             refreshDetectedTimestamp()

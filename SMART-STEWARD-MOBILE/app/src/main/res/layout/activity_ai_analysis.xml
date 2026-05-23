@@ -9,7 +9,9 @@
     <LinearLayout
         android:id="@+id/aiToolbar"
         android:layout_width="0dp"
-        android:layout_height="56dp"
+        android:layout_height="wrap_content"
+        android:minHeight="@dimen/incident_header_height"
+        android:background="@color/activity_title_bar"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="12dp"
@@ -22,12 +24,11 @@
             android:id="@+id/aiBackButton"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@drawable/bg_notif_back_circle"
             android:contentDescription="@string/content_desc_back"
             android:padding="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_chevron_left"
-            app:tint="@color/ai_muted" />
+            app:tint="@color/white" />
 
         <TextView
             android:id="@+id/aiScreenTitle"
@@ -37,7 +38,7 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="@string/ai_analysis_title"
-            android:textColor="@color/ai_primary"
+            android:textColor="@color/white"
             android:textSize="17sp"
             android:textStyle="bold" />
 
@@ -209,9 +210,9 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="10dp"
                         android:paddingBottom="4dp"
-                        android:text="@string/ai_status_queued"
+                        android:text="@string/ai_report_status_analyzing"
                         android:textAllCaps="true"
-                        android:textColor="@color/ai_secondary"
+                        android:textColor="@color/white"
                         android:textSize="10sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -224,16 +225,18 @@
                     android:orientation="horizontal">
 
                     <FrameLayout
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/bg_ai_icon_chart">
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:background="@drawable/bg_review_media_rounded"
+                        android:clipToOutline="true">
 
                         <ImageView
-                            android:layout_width="26dp"
-                            android:layout_height="26dp"
-                            android:layout_gravity="center"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_ai_chart_bars" />
+                            android:id="@+id/aiReportThumbnail"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@string/cd_evidence_preview"
+                            android:scaleType="centerCrop"
+                            tools:src="@tools:sample/backgrounds/scenic" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -247,34 +250,56 @@
                             android:id="@+id/aiReportIncidentTitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="@string/ai_report_pending_title"
+                            android:text="@string/ai_report_type_video"
                             android:textColor="@color/ai_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
-                        <TextView
-                            android:id="@+id/aiReportMeta"
+                        <include
+                            android:id="@+id/aiReportLocationRow"
+                            layout="@layout/item_ai_report_meta_row"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:textColor="@color/ai_muted"
-                            android:textSize="12sp"
-                            tools:text="Brgy. Labangon · May 4, 2026 · 1 photo" />
+                            android:layout_marginTop="4dp" />
+
+                        <include
+                            android:id="@+id/aiReportDateRow"
+                            layout="@layout/item_ai_report_meta_row"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
+
+                        <include
+                            android:id="@+id/aiReportTimeRow"
+                            layout="@layout/item_ai_report_meta_row"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
                 android:layout_marginBottom="8dp"
-                android:letterSpacing="0.06"
-                android:text="@string/ai_steps_section"
-                android:textAllCaps="true"
-                android:textColor="@color/ai_muted"
-                android:textSize="11sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/robot"
+                    app:tint="@color/ai_primary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/ai_steps_section"
+                    style="@style/TextAppearance.SMARTSTEWARD.SectionLabelGreen" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/aiStep1Card"
@@ -420,7 +445,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/bg_ai_card_active"
+                android:background="@drawable/bg_ai_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:padding="14dp">
@@ -430,8 +455,8 @@
                     android:layout_width="28dp"
                     android:layout_height="28dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_ai_running_icon"
-                    tools:src="@drawable/ic_ai_running_icon" />
+                    android:src="@drawable/ic_ai_check_circle"
+                    tools:src="@drawable/ic_ai_check_circle" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -474,12 +499,12 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_ai_badge_running"
+                    android:background="@drawable/bg_ai_badge_running_blue"
                     android:paddingStart="10dp"
                     android:paddingTop="4dp"
                     android:paddingEnd="10dp"
                     android:paddingBottom="4dp"
-                    android:text="@string/ai_status_running"
+                    android:text="@string/ai_status_queued"
                     android:textAllCaps="true"
                     android:textColor="@color/white"
                     android:textSize="10sp"
@@ -491,7 +516,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:alpha="0.65"
                 android:background="@drawable/bg_ai_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
@@ -502,7 +526,7 @@
                     android:layout_width="28dp"
                     android:layout_height="28dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_ai_clock" />
+                    android:src="@drawable/ic_ai_check_circle" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -555,6 +579,36 @@
                     android:textColor="@color/ai_badge_queued_text"
                     android:textSize="10sp"
                     android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/aiErrorBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_review_disclaimer"
+                android:gravity="top"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_review_warning" />
+
+                <TextView
+                    android:id="@+id/aiErrorBannerText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:lineSpacingMultiplier="1.15"
+                    android:textColor="@color/hint_dark_gray"
+                    android:textSize="12sp"
+                    tools:text="Could not reach AI server. Showing offline preview." />
             </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

@@ -29,6 +29,7 @@
     <color name="activity_accent_line">#7CB342</color>
     <color name="activity_muted">#5C6560</color>
     <color name="activity_title_bar">#0D4A36</color>
+    <color name="receipt_details_header">#083D2B</color>
     <color name="register_header_green">#0A1C13</color>
     <color name="register_button_green">#21734B</color>
     <color name="register_sheet_bg">#F4F5F3</color>
@@ -60,6 +61,7 @@
     <color name="ai_progress_track">#C8DCC6</color>
     <color name="ai_muted">#6B7F74</color>
     <color name="ai_badge_queued_text">#9EAEA3</color>
+    <color name="ai_running_blue">#0077B6</color>
     <color name="ai_step_faded">#A0B0A5</color>
     <color name="ai_hero_icon_tint">#8BC34A</color>
     <color name="no_incident_banner_title">#E65100</color>

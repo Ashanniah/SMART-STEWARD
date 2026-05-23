@@ -2,6 +2,9 @@ package com.example.smart_steward
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,19 +15,23 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.smart_steward.BuildConfig
+import com.example.smart_steward.net.AiAnalyzeCallbacks
 import com.example.smart_steward.net.SmartStewardAiClient
+import com.example.smart_steward.net.VideoTooLargeException
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
-import kotlin.math.ceil
 
 class AiAnalysisActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_REANALYZE = "reanalyze"
-        /** Optional user text (e.g. corrected description) sent as multipart `message`. */
         const val EXTRA_USER_MESSAGE = "extra_user_message"
         const val EXTRA_INCIDENT_TITLE = "extra_incident_title"
         const val EXTRA_INCIDENT_SUBTITLE = "extra_incident_subtitle"
@@ -32,21 +39,48 @@ class AiAnalysisActivity : AppCompatActivity() {
         const val EXTRA_AGENCY_SUBLINE = "extra_agency_subline"
         const val EXTRA_DESCRIPTION = "extra_description"
         const val EXTRA_LOCATION_SHORT = "extra_location_short"
-        /** When false, the capture is not a reportable incident — show the no-incident screen. */
         const val EXTRA_REPORTABLE = "extra_reportable"
+        const val EXTRA_CONFIDENCE_SCORE = "extra_confidence_score"
     }
 
     private val handler = Handler(Looper.getMainLooper())
-    private val totalMs = 5_000L
-    private val countdownSeconds = 5
     private val tickMs = 50L
+    private val minDisplayMs = 1_800L
+    private val localPhaseMs = 2_800L
     private var elapsed = 0L
+
+    private enum class UploadPhase {
+        IDLE,
+        PREPARING,
+        UPLOADING,
+        WAITING_SERVER,
+        FAILED
+    }
+
+    @Volatile
+    private var uploadPhase = UploadPhase.IDLE
+
+    @Volatile
+    private var uploadProgressPercent = 0
+
+    @Volatile
+    private var preparedVideoSizeBytes = 0L
+
+    @Volatile
+    private var preparedVideoOriginalSizeBytes = 0L
+
+    @Volatile
+    private var videoWasCompressed = false
+
+    @Volatile
+    private var videoPrepareProgress = 0
+
+    @Volatile
+    private var videoTooLarge = false
     private var reanalyze = false
     private var userMessage: String? = null
 
     private val executor = Executors.newSingleThreadExecutor()
-    @Volatile
-    private var animationFinished = false
     @Volatile
     private var apiFinished = false
     @Volatile
@@ -55,21 +89,23 @@ class AiAnalysisActivity : AppCompatActivity() {
     private var apiError: String? = null
     private var finalized = false
 
-    /** True after [startAiRequest] has been scheduled (location resolved first so API gets real device label). */
     private var aiRequestStarted = false
-
-    /** Reverse-geocoded or coordinate label; used in UI and passed to the review screen. */
     @Volatile
     private var resolvedLocationShort: String? = null
-
-    private var lastPipelineT = 0f
+    @Volatile
+    private var locationReady = false
+    @Volatile
+    private var mediaReady = false
 
     private lateinit var timeRemaining: TextView
     private lateinit var overallProgress: ProgressBar
     private lateinit var headline: TextView
     private lateinit var subheadline: TextView
-    private lateinit var reportMeta: TextView
     private lateinit var reportIncidentTitle: TextView
+    private lateinit var reportHeaderBadge: TextView
+    private lateinit var reportThumbnail: ImageView
+    private lateinit var errorBanner: View
+    private lateinit var errorBannerText: TextView
 
     private lateinit var step1Card: View
     private lateinit var step1Icon: ImageView
@@ -101,14 +137,12 @@ class AiAnalysisActivity : AppCompatActivity() {
 
     private val tickRunnable = object : Runnable {
         override fun run() {
+            if (finalized || isFinishing) return
             elapsed += tickMs
-            val t = (elapsed.toFloat() / totalMs).coerceIn(0f, 1f)
-            applyPipelineUi(t)
-            if (elapsed < totalMs) {
+            applyPipelineUi()
+            tryFinalize()
+            if (!finalized) {
                 handler.postDelayed(this, tickMs)
-            } else {
-                animationFinished = true
-                tryFinalize()
             }
         }
     }
@@ -117,6 +151,10 @@ class AiAnalysisActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ai_analysis)
 
+        setupToolbarInsets()
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
+        window.statusBarColor = getColor(R.color.activity_title_bar)
+
         reanalyze = intent.getBooleanExtra(EXTRA_REANALYZE, false)
         userMessage = intent.getStringExtra(EXTRA_USER_MESSAGE)
 
@@ -124,8 +162,11 @@ class AiAnalysisActivity : AppCompatActivity() {
         overallProgress = findViewById(R.id.aiOverallProgress)
         headline = findViewById(R.id.aiHeadline)
         subheadline = findViewById(R.id.aiSubheadline)
-        reportMeta = findViewById(R.id.aiReportMeta)
         reportIncidentTitle = findViewById(R.id.aiReportIncidentTitle)
+        reportHeaderBadge = findViewById(R.id.aiReportHeaderBadge)
+        reportThumbnail = findViewById(R.id.aiReportThumbnail)
+        errorBanner = findViewById(R.id.aiErrorBanner)
+        errorBannerText = findViewById(R.id.aiErrorBannerText)
 
         step1Card = findViewById(R.id.aiStep1Card)
         step1Icon = findViewById(R.id.aiStep1Icon)
@@ -160,55 +201,210 @@ class AiAnalysisActivity : AppCompatActivity() {
             subheadline.setText(R.string.ai_subheadline_reanalyze)
         }
 
+        bindReportThumbnail()
         bindStaticCopy()
+
         LocationLabelHelper.resolveShortLabel(this) { label ->
             resolvedLocationShort = label
+            locationReady = true
             bindStaticCopy()
-            applyPipelineUi(lastPipelineT)
+            applyPipelineUi()
             if (!aiRequestStarted) {
                 aiRequestStarted = true
                 startAiRequest()
             }
         }
+
         findViewById<ImageView>(R.id.aiBackButton).setOnClickListener {
             setResult(Activity.RESULT_CANCELED)
             finish()
         }
 
-        applyPipelineUi(0f)
+        applyPipelineUi()
         handler.post(tickRunnable)
     }
 
-    /** Runs after device location label is ready so the AI request and UI show the user’s area (not a stale fallback). */
+    private fun setupToolbarInsets() {
+        val toolbar = findViewById<View>(R.id.aiToolbar)
+        val padV = resources.getDimensionPixelSize(R.dimen.incident_header_padding_vertical)
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { view, insets ->
+            val statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            view.setPadding(view.paddingLeft, statusTop + padV, view.paddingRight, padV)
+            insets
+        }
+        ViewCompat.requestApplyInsets(toolbar)
+    }
+
+    private fun isVideoOnly(): Boolean =
+        CapturedMediaStore.capturedVideoUri != null && CapturedMediaStore.capturedBitmap == null
+
+    private fun bindReportThumbnail() {
+        CapturedMediaStore.capturedBitmap?.let { bitmap ->
+            reportThumbnail.setImageBitmap(bitmap)
+            mediaReady = true
+            return
+        }
+        CapturedMediaStore.capturedVideoUri?.let { uri ->
+            loadVideoFrame(uri)?.let { frame ->
+                reportThumbnail.setImageBitmap(frame)
+            }
+            mediaReady = false
+            return
+        }
+        mediaReady = true
+    }
+
+    private fun loadVideoFrame(uri: Uri): Bitmap? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(this, uri)
+            retriever.frameAtTime
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     private fun startAiRequest() {
         executor.execute {
             try {
+                var preparedVideoFile: java.io.File? = null
+                if (isVideoOnly()) {
+                    val uri = CapturedMediaStore.capturedVideoUri
+                        ?: throw IllegalStateException("No video to analyze.")
+                    runOnUiThread {
+                        uploadPhase = UploadPhase.PREPARING
+                        videoPrepareProgress = 0
+                        applyPipelineUi()
+                    }
+                    val prepared =
+                        SmartStewardAiClient.prepareVideoUploadFile(applicationContext, uri) { pct ->
+                            runOnUiThread {
+                                videoPrepareProgress = pct
+                                applyPipelineUi()
+                            }
+                        }
+                    preparedVideoFile = prepared.file
+                    preparedVideoOriginalSizeBytes = prepared.originalSizeBytes
+                    preparedVideoSizeBytes = prepared.finalSizeBytes
+                    videoWasCompressed = prepared.wasCompressed
+                    runOnUiThread {
+                        mediaReady = true
+                        uploadPhase = UploadPhase.UPLOADING
+                        uploadProgressPercent = 0
+                        applyPipelineUi()
+                    }
+                } else if (CapturedMediaStore.capturedBitmap != null) {
+                    runOnUiThread {
+                        uploadPhase = UploadPhase.PREPARING
+                        applyPipelineUi()
+                    }
+                    preparedVideoOriginalSizeBytes =
+                        estimatePhotoUploadBytes(CapturedMediaStore.capturedBitmap!!)
+                    preparedVideoSizeBytes = preparedVideoOriginalSizeBytes
+                    videoWasCompressed = false
+                    mediaReady = true
+                    runOnUiThread {
+                        uploadPhase = UploadPhase.UPLOADING
+                        uploadProgressPercent = 0
+                        applyPipelineUi()
+                    }
+                }
+
                 val locForApi = resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }
+                val callbacks = object : AiAnalyzeCallbacks {
+                    override fun onUploadStarted(totalBytes: Long) {
+                        runOnUiThread {
+                            uploadPhase = UploadPhase.UPLOADING
+                            uploadProgressPercent = 0
+                            if (totalBytes > 0L && !isVideoOnly()) {
+                                preparedVideoSizeBytes = totalBytes
+                            }
+                            applyPipelineUi()
+                        }
+                    }
+
+                    override fun onUploadProgress(
+                        percent: Int,
+                        bytesWritten: Long,
+                        totalBytes: Long
+                    ) {
+                        runOnUiThread {
+                            uploadProgressPercent = percent
+                            uploadPhase = UploadPhase.UPLOADING
+                            applyPipelineUi()
+                        }
+                    }
+
+                    override fun onUploadComplete() {
+                        runOnUiThread {
+                            uploadProgressPercent = 100
+                            applyPipelineUi()
+                        }
+                    }
+
+                    override fun onWaitingForServer() {
+                        runOnUiThread {
+                            uploadPhase = UploadPhase.WAITING_SERVER
+                            applyPipelineUi()
+                        }
+                    }
+                }
+
                 val result = SmartStewardAiClient.analyzeToResultIntent(
                     applicationContext,
                     BuildConfig.API_BASE_URL,
                     userMessage,
                     reanalyze,
-                    locForApi
+                    locForApi,
+                    callbacks,
+                    preparedVideoFile = preparedVideoFile,
                 )
                 result.apply {
                     locForApi?.let { putExtra(EXTRA_LOCATION_SHORT, it) }
                 }
                 apiResultIntent = result
                 apiError = null
+            } catch (e: VideoTooLargeException) {
+                videoTooLarge = true
+                apiResultIntent = null
+                apiError = getString(
+                    R.string.ai_video_too_large_fmt,
+                    SmartStewardAiClient.formatMegabytes(e.sizeBytes)
+                )
                 runOnUiThread {
-                    result.getStringExtra(EXTRA_INCIDENT_TITLE)
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { reportIncidentTitle.text = it }
+                    uploadPhase = UploadPhase.FAILED
                 }
             } catch (e: Exception) {
                 apiResultIntent = null
                 apiError = e.message ?: e.javaClass.simpleName
             } finally {
                 apiFinished = true
-                runOnUiThread { tryFinalize() }
+                runOnUiThread {
+                    onApiFinished()
+                }
             }
         }
+    }
+
+    private fun onApiFinished() {
+        if (videoTooLarge) {
+            errorBanner.visibility = View.VISIBLE
+            errorBannerText.text = apiError
+        } else if (apiError != null) {
+            errorBanner.visibility = View.VISIBLE
+            errorBannerText.text = getString(R.string.ai_error_banner_fmt, apiError)
+        } else {
+            errorBanner.visibility = View.GONE
+        }
+
+        bindStaticCopy()
+        applyPipelineUi()
+        tryFinalize()
     }
 
     override fun onDestroy() {
@@ -218,12 +414,21 @@ class AiAnalysisActivity : AppCompatActivity() {
     }
 
     private fun tryFinalize() {
-        if (isFinishing) return
-        if (!animationFinished || !apiFinished || finalized) return
+        if (isFinishing || finalized) return
+        if (!apiFinished) return
+        if (videoTooLarge) return
+        if (elapsed < minDisplayMs) return
+
         finalized = true
+        handler.removeCallbacks(tickRunnable)
+
         val intent = apiResultIntent ?: buildAnalysisResultIntent().also {
-            apiError?.let { msg ->
-                Toast.makeText(this, getString(R.string.ai_api_fallback_toast, msg), Toast.LENGTH_LONG).show()
+            if (apiError != null) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.ai_api_fallback_toast, apiError),
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
         resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }?.let { loc ->
@@ -233,51 +438,57 @@ class AiAnalysisActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun mediaLabel(): String =
-        if (CapturedMediaStore.capturedBitmap != null) {
-            getString(R.string.ai_media_photo_one)
-        } else {
-            getString(R.string.ai_media_video_one)
-        }
-
-    private fun mediaScanDoneSubtitle(): String =
-        when {
-            CapturedMediaStore.capturedBitmap != null -> getString(R.string.ai_step_media_done_photo)
-            CapturedMediaStore.capturedVideoUri != null -> getString(R.string.ai_step_media_done_video)
-            else -> getString(R.string.ai_step_media_done_photo)
-        }
-
-    private fun mediaRunningSubtitle(): String =
-        when {
-            CapturedMediaStore.capturedBitmap != null -> getString(R.string.ai_step_media_sub_running_photo)
-            CapturedMediaStore.capturedVideoUri != null -> getString(R.string.ai_step_media_sub_running_video)
-            else -> getString(R.string.ai_step_media_sub_running)
-        }
-
-    /** Card headline driven by re-analysis vs image vs video capture. */
-    private fun preliminaryReportTitle(): String =
+    private fun reportCardTitle(): String =
         when {
             reanalyze -> getString(R.string.ai_report_title_reanalyze)
             CapturedMediaStore.capturedVideoUri != null && CapturedMediaStore.capturedBitmap == null ->
-                getString(R.string.ai_report_title_video_evidence)
-            else -> getString(R.string.ai_report_pending_title)
+                getString(R.string.ai_report_type_video)
+            else -> getString(R.string.ai_report_type_photo)
         }
 
+    private fun bindReportMetaRow(
+        includeId: Int,
+        iconRes: Int,
+        label: String,
+        value: String,
+    ) {
+        val root = findViewById<View>(includeId)
+        root.findViewById<ImageView>(R.id.aiReportMetaIcon).setImageResource(iconRes)
+        root.findViewById<TextView>(R.id.aiReportMetaLabel).text = label
+        root.findViewById<TextView>(R.id.aiReportMetaValue).text = value
+    }
+
     private fun bindStaticCopy() {
-        step1Title.setText(R.string.ai_step_media_title)
-        step2Title.setText(R.string.ai_step_location_title)
-        step3Title.setText(R.string.ai_step_classify_title)
+        step1Title.setText(
+            if (isVideoOnly()) R.string.ai_step_process_video_title
+            else R.string.ai_step_process_photo_title
+        )
+        step2Title.setText(R.string.ai_step_upload_title)
+        step3Title.setText(R.string.ai_step_wait_server_title)
         step4Title.setText(R.string.ai_step_route_title)
 
-        reportIncidentTitle.text = apiResultIntent?.getStringExtra(EXTRA_INCIDENT_TITLE)
-            ?: preliminaryReportTitle()
+        reportIncidentTitle.text = reportCardTitle()
 
-        val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
-        reportMeta.text = getString(
-            R.string.ai_report_meta_fmt,
+        val now = Date()
+        val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(now)
+        val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(now)
+        bindReportMetaRow(
+            R.id.aiReportLocationRow,
+            R.drawable.loc,
+            getString(R.string.receipt_label_location) + ":",
             locationDisplayForUi(),
+        )
+        bindReportMetaRow(
+            R.id.aiReportDateRow,
+            R.drawable.calendar,
+            getString(R.string.receipt_label_date_submitted) + ":",
             dateStr,
-            mediaLabel()
+        )
+        bindReportMetaRow(
+            R.id.aiReportTimeRow,
+            R.drawable.clock,
+            getString(R.string.dashboard_detail_time_label),
+            timeStr,
         )
     }
 
@@ -285,106 +496,234 @@ class AiAnalysisActivity : AppCompatActivity() {
         resolvedLocationShort?.trim()?.takeIf { it.isNotEmpty() }
             ?: getString(R.string.ai_location_placeholder)
 
-    private fun locationStepDoneSubtitle(): String =
-        getString(R.string.ai_step_location_sub_done_fmt, locationDisplayForUi())
+    private fun estimatePhotoUploadBytes(bitmap: Bitmap): Long {
+        val out = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+        return out.size().toLong().coerceAtLeast(1L)
+    }
 
-    private fun applyPipelineUi(t: Float) {
-        lastPipelineT = t
-        overallProgress.progress = (t * 100).toInt().coerceIn(0, 100)
-        val secLeft = ceil((1f - t.coerceIn(0f, 1f)) * countdownSeconds.toDouble()).toInt().coerceAtLeast(0)
-        timeRemaining.text = getString(R.string.ai_time_remaining_fmt, secLeft)
+    private fun processStep1DoneSubtitle(): String {
+        if (isVideoOnly()) {
+            if (preparedVideoSizeBytes <= 0L) {
+                return getString(R.string.ai_step_process_video_checking)
+            }
+            if (videoWasCompressed && preparedVideoOriginalSizeBytes > 0L) {
+                return getString(
+                    R.string.ai_step_process_video_ready_optimized_fmt,
+                    SmartStewardAiClient.formatMegabytes(preparedVideoOriginalSizeBytes),
+                    SmartStewardAiClient.formatMegabytes(preparedVideoSizeBytes),
+                )
+            }
+            return getString(
+                R.string.ai_step_process_video_ready_fmt,
+                SmartStewardAiClient.formatMegabytes(preparedVideoSizeBytes),
+            )
+        }
+        if (preparedVideoSizeBytes > 0L) {
+            return getString(
+                R.string.ai_step_process_photo_ready_fmt,
+                SmartStewardAiClient.formatMegabytes(preparedVideoSizeBytes),
+            )
+        }
+        return getString(R.string.ai_step_media_done_photo)
+    }
 
-        val mediaDoneSubtitle = mediaScanDoneSubtitle()
+    private fun processStep1RunningSubtitle(): String {
+        if (isVideoOnly()) {
+            if (videoPrepareProgress > 0) {
+                return getString(
+                    R.string.ai_step_process_video_optimizing_pct,
+                    videoPrepareProgress.coerceIn(0, 100),
+                )
+            }
+            return getString(R.string.ai_step_process_video_checking)
+        }
+        return getString(R.string.ai_step_process_photo_checking)
+    }
 
+    private fun waitServerRunningSubtitle(): String =
+        if (isVideoOnly()) getString(R.string.ai_step_wait_server_running)
+        else getString(R.string.ai_step_wait_server_running_photo)
+
+    private fun processMediaCheckingStatus(): String =
+        if (isVideoOnly()) getString(R.string.ai_step_process_video_checking)
+        else getString(R.string.ai_step_process_photo_checking)
+
+    private fun applyPipelineUi() {
+        updateReportHeaderBadge()
+        if (isVideoOnly() || CapturedMediaStore.capturedBitmap != null) {
+            applyUploadPipelineUi()
+        }
+    }
+
+    private fun updateReportHeaderBadge() {
         when {
-            t < 0.18f -> {
-                stepRunning(
-                    step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar,
-                    mediaRunningSubtitle(),
-                    activeCard = false
-                )
-                stepQueued(
-                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    alpha = 1f,
-                    line = getString(R.string.ai_location_placeholder)
-                )
-                stepQueued(
-                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
-                    alpha = 1f,
-                    line = getString(R.string.ai_step_queued_generic)
-                )
-                stepQueued(
-                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar,
-                    alpha = 0.65f,
-                    line = getString(R.string.ai_step_route_sub_queued)
-                )
-            }
-            t < 0.38f -> {
-                stepDone(step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar, mediaDoneSubtitle)
-                stepRunning(
-                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    getString(R.string.ai_step_location_sub_running),
-                    activeCard = false
-                )
-                stepQueued(
-                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
-                    alpha = 1f,
-                    line = getString(R.string.ai_step_queued_generic)
-                )
-                stepQueued(
-                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar,
-                    alpha = 0.65f,
-                    line = getString(R.string.ai_step_route_sub_queued)
-                )
-            }
-            t < 0.72f -> {
-                stepDone(step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar, mediaDoneSubtitle)
-                stepDone(
-                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    locationStepDoneSubtitle()
-                )
-                stepRunning(
-                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
-                    getString(R.string.ai_step_classify_sub_running),
-                    activeCard = true
-                )
-                stepQueued(
-                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar,
-                    alpha = 0.65f,
-                    line = getString(R.string.ai_step_route_sub_queued)
-                )
-            }
-            t < 0.94f -> {
-                stepDone(step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar, mediaDoneSubtitle)
-                stepDone(
-                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    locationStepDoneSubtitle()
-                )
-                stepDone(
-                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
-                    getString(R.string.ai_step_classify_sub_done)
-                )
-                stepRunning(
-                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar,
-                    getString(R.string.ai_step_route_sub_running),
-                    activeCard = true
-                )
+            apiFinished && apiError == null -> {
+                reportHeaderBadge.text = getString(R.string.ai_report_status_analyzed)
+                reportHeaderBadge.setBackgroundResource(R.drawable.bg_ai_badge_done_filled)
+                reportHeaderBadge.setTextColor(ContextCompat.getColor(this, R.color.white))
             }
             else -> {
-                stepDone(step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar, mediaDoneSubtitle)
-                stepDone(
-                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
-                    locationStepDoneSubtitle()
+                reportHeaderBadge.text = getString(R.string.ai_report_status_analyzing)
+                reportHeaderBadge.setBackgroundResource(R.drawable.bg_ai_badge_header_queued)
+                reportHeaderBadge.setTextColor(ContextCompat.getColor(this, R.color.white))
+            }
+        }
+    }
+
+    private fun routeDoneSubtitle(): String {
+        val agency = apiResultIntent?.getStringExtra(EXTRA_AGENCY_TITLE)?.trim().orEmpty()
+        return if (agency.isNotEmpty()) {
+            getString(R.string.ai_step_route_sub_done_fmt, agency)
+        } else {
+            getString(R.string.ai_step_route_sub_running)
+        }
+    }
+
+    private fun applyUploadPipelineUi() {
+        val apiDone = apiFinished
+        val phase = uploadPhase
+
+        overallProgress.isIndeterminate = false
+        overallProgress.progress = when {
+            apiDone -> 100
+            phase == UploadPhase.FAILED -> 0
+            phase == UploadPhase.PREPARING -> 8
+            phase == UploadPhase.UPLOADING ->
+                (12 + uploadProgressPercent * 0.58f).toInt().coerceIn(12, 70)
+            phase == UploadPhase.WAITING_SERVER -> {
+                val waitMs = elapsed.coerceAtLeast(0L)
+                val waitT = (waitMs.toFloat() / 30_000f).coerceIn(0f, 1f)
+                (70 + waitT * 25).toInt().coerceIn(70, 95)
+            }
+            else -> 5
+        }
+
+        timeRemaining.text = when {
+            apiDone -> getString(R.string.ai_processing_complete)
+            phase == UploadPhase.FAILED -> getString(R.string.ai_status_failed)
+            phase == UploadPhase.PREPARING -> processMediaCheckingStatus()
+            phase == UploadPhase.UPLOADING && uploadProgressPercent > 0 ->
+                getString(R.string.ai_upload_progress_fmt, uploadProgressPercent)
+            phase == UploadPhase.UPLOADING -> getString(R.string.ai_step_upload_title)
+            phase == UploadPhase.WAITING_SERVER -> getString(R.string.ai_waiting_server)
+            else -> getString(R.string.ai_processing_status)
+        }
+
+        if (phase == UploadPhase.FAILED) {
+            stepFailed(
+                step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar,
+                apiError ?: getString(R.string.ai_status_failed)
+            )
+            stepQueued(
+                step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar, 0.5f,
+                getString(R.string.ai_step_queued_generic)
+            )
+            stepQueued(
+                step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar, 0.5f,
+                getString(R.string.ai_step_queued_generic)
+            )
+            stepQueued(
+                step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar, 0.5f,
+                getString(R.string.ai_step_queued_generic)
+            )
+            return
+        }
+
+        when (phase) {
+            UploadPhase.PREPARING -> {
+                stepRunning(
+                    step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar,
+                    processStep1RunningSubtitle(),
+                    activeCard = true
                 )
-                stepDone(
-                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
-                    getString(R.string.ai_step_classify_sub_done)
+                stepQueued(
+                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
                 )
-                stepDone(
-                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar,
-                    getString(R.string.ai_step_route_sub_queued)
+                stepQueued(
+                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
+                )
+                stepQueued(
+                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
                 )
             }
+            UploadPhase.UPLOADING -> {
+                stepDone(
+                    step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar,
+                    processStep1DoneSubtitle(),
+                )
+                stepRunningDeterminate(
+                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
+                    getString(R.string.ai_step_upload_running_fmt, uploadProgressPercent),
+                    uploadProgressPercent.coerceIn(0, 100),
+                    activeCard = true
+                )
+                stepQueued(
+                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
+                )
+                stepQueued(
+                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
+                )
+            }
+            UploadPhase.WAITING_SERVER -> {
+                stepDone(
+                    step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar,
+                    processStep1DoneSubtitle(),
+                )
+                stepDone(
+                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar,
+                    getString(R.string.ai_step_upload_done)
+                )
+                if (!apiDone) {
+                    stepRunning(
+                        step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
+                        waitServerRunningSubtitle(),
+                        activeCard = true
+                    )
+                    stepQueued(
+                        step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar,
+                        0.85f,
+                        getString(R.string.ai_step_route_sub_queued)
+                    )
+                } else {
+                    stepDone(
+                        step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar,
+                        getString(R.string.ai_step_wait_server_done)
+                    )
+                    stepDone(
+                        step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar,
+                        routeDoneSubtitle()
+                    )
+                }
+            }
+            else -> {
+                stepRunning(
+                    step1Card, step1Icon, step1Subtitle, step1Badge, step1Bar,
+                    processStep1RunningSubtitle(),
+                    activeCard = true
+                )
+                stepQueued(
+                    step2Card, step2Icon, step2Subtitle, step2Badge, step2Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
+                )
+                stepQueued(
+                    step3Card, step3Icon, step3Subtitle, step3Badge, step3Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
+                )
+                stepQueued(
+                    step4Card, step4Icon, step4Subtitle, step4Badge, step4Bar, 0.65f,
+                    getString(R.string.ai_step_queued_generic)
+                )
+            }
+        }
+
+        if (locationReady && !apiDone && phase != UploadPhase.PREPARING) {
+            bindStaticCopy()
         }
     }
 
@@ -403,8 +742,8 @@ class AiAnalysisActivity : AppCompatActivity() {
         bar.visibility = View.GONE
         bar.isIndeterminate = false
         badge.text = getString(R.string.ai_status_done)
-        badge.setBackgroundResource(R.drawable.bg_ai_badge_done)
-        badge.setTextColor(ContextCompat.getColor(this, R.color.ai_primary))
+        badge.setBackgroundResource(R.drawable.bg_ai_badge_done_filled)
+        badge.setTextColor(ContextCompat.getColor(this, R.color.white))
     }
 
     private fun stepRunning(
@@ -417,16 +756,58 @@ class AiAnalysisActivity : AppCompatActivity() {
         activeCard: Boolean
     ) {
         card.alpha = 1f
-        card.setBackgroundResource(
-            if (activeCard) R.drawable.bg_ai_card_active else R.drawable.bg_ai_card
-        )
-        icon.setImageResource(R.drawable.ic_ai_running_icon)
+        card.setBackgroundResource(R.drawable.bg_ai_card)
+        icon.setImageResource(R.drawable.ic_ai_check_circle)
         subtitle.text = subtitleText
         bar.visibility = View.VISIBLE
         bar.isIndeterminate = true
+        bar.max = 100
         badge.text = getString(R.string.ai_status_running)
+        badge.setBackgroundResource(R.drawable.bg_ai_badge_running_blue)
+        badge.setTextColor(ContextCompat.getColor(this, R.color.white))
+    }
+
+    private fun stepRunningDeterminate(
+        card: View,
+        icon: ImageView,
+        subtitle: TextView,
+        badge: TextView,
+        bar: ProgressBar,
+        subtitleText: String,
+        progressPercent: Int,
+        activeCard: Boolean
+    ) {
+        card.alpha = 1f
+        card.setBackgroundResource(R.drawable.bg_ai_card)
+        icon.setImageResource(R.drawable.ic_ai_check_circle)
+        subtitle.text = subtitleText
+        bar.visibility = View.VISIBLE
+        bar.isIndeterminate = false
+        bar.max = 100
+        bar.progress = progressPercent
+        badge.text = getString(R.string.ai_status_running)
+        badge.setBackgroundResource(R.drawable.bg_ai_badge_running_blue)
+        badge.setTextColor(ContextCompat.getColor(this, R.color.white))
+    }
+
+    private fun stepFailed(
+        card: View,
+        icon: ImageView,
+        subtitle: TextView,
+        badge: TextView,
+        bar: ProgressBar,
+        subtitleText: String
+    ) {
+        card.alpha = 1f
+        card.setBackgroundResource(R.drawable.bg_ai_card)
+        icon.setImageResource(R.drawable.ic_review_warning)
+        subtitle.text = subtitleText
+        bar.visibility = View.GONE
+        badge.text = getString(R.string.ai_status_failed)
         badge.setBackgroundResource(R.drawable.bg_ai_badge_running)
         badge.setTextColor(ContextCompat.getColor(this, R.color.white))
+        errorBanner.visibility = View.VISIBLE
+        errorBannerText.text = subtitleText
     }
 
     private fun stepQueued(
@@ -440,7 +821,7 @@ class AiAnalysisActivity : AppCompatActivity() {
     ) {
         card.alpha = alpha
         card.setBackgroundResource(R.drawable.bg_ai_card)
-        icon.setImageResource(R.drawable.ic_ai_clock)
+        icon.setImageResource(R.drawable.ic_ai_check_circle)
         subtitleView.text = line
         bar.visibility = View.GONE
         bar.isIndeterminate = false
@@ -518,6 +899,4 @@ class AiAnalysisActivity : AppCompatActivity() {
             }
         }
     }
-
 }
-

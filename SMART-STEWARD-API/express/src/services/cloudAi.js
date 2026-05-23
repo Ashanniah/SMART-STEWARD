@@ -167,7 +167,7 @@ const generateCloudResponse = async (mediaFile) => {
     });
 
     const parsed = JSON.parse(response.choices[0].message.content);
-    return enrichReportableFlag(parsed);
+    return { response: enrichReportableFlag(parsed) };
   } finally {
     // Clean up extracted video frames
     for (const framePath of tempFramePaths) {
