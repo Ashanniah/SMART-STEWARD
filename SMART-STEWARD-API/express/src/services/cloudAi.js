@@ -37,7 +37,7 @@ const VIDEO_FRAME_TIMESTAMPS = ['0%', '50%', '90%'];
 /**
  * Extract multiple frames from a video for comprehensive analysis
  */
-const extractFramesFromVideo = (videoPath, count = 6) => {
+const extractFramesFromVideo = (videoPath, count = 3) => {
   return new Promise((resolve, reject) => {
     const outputDir = os.tmpdir();
     const timestamp = Date.now();
@@ -64,31 +64,7 @@ const extractFramesFromVideo = (videoPath, count = 6) => {
         timestamps: timestamps,
         filename: outputPattern,
         folder: outputDir,
-        size: '1280x720'
-      });
-  });
-};
-
-/**
- * Extract a single frame from video (for backward compatibility)
- */
-const extractFrameFromVideo = (videoPath) => {
-  return new Promise((resolve, reject) => {
-    const outputFileName = `frame-${Date.now()}.jpg`;
-    const outputPath = path.join(os.tmpdir(), outputFileName);
-
-    ffmpeg(videoPath)
-      .screenshots({
-        timestamps: ['50%'],
-        filename: outputFileName,
-        folder: os.tmpdir(),
-        size: '1280x720'
-      })
-      .on('end', () => {
-        resolve(outputPath);
-      })
-      .on('error', (err) => {
-        reject(err);
+        size: '640x360'
       });
   });
 };
@@ -131,10 +107,10 @@ const generateCloudResponse = async (mediaFile) => {
         const frames = await extractFramesFromVideo(mediaFile.path, 3);
         tempFramePaths.push(...frames);
 
-        // Add note about multi-frame analysis
+        // Add video-specific preprompt for temporal comparison
         contentArray.push({
           type: 'text',
-          text: '(Note: Multiple frames were extracted from this video for comprehensive analysis. Please analyze all frames and provide a unified incident classification.)'
+          text: 'Compare the extracted frames across timestamps and analyze what this video could be. Use the temporal sequence to determine whether the situation escalates, changes, or reveals illegal activity/incident context. Provide one unified classification.'
         });
 
         // Add all extracted frames
@@ -167,7 +143,10 @@ const generateCloudResponse = async (mediaFile) => {
     });
 
     const parsed = JSON.parse(response.choices[0].message.content);
-    return enrichReportableFlag(parsed);
+    return enrichReportableFlag({
+      ...parsed,
+      file: mediaFile?.mimetype?.startsWith('video/') ? 'video' : 'image',
+    });
   } finally {
     // Clean up extracted video frames
     for (const framePath of tempFramePaths) {
@@ -201,7 +180,6 @@ function enrichReportableFlag(parsed) {
 
 module.exports = {
   generateCloudResponse,
-  extractFrameFromVideo,
   extractFramesFromVideo,
   enrichReportableFlag,
 };
