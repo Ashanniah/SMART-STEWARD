@@ -8,6 +8,7 @@ OUTPUT FORMAT (STRICT)
 You MUST return ONLY valid JSON with this structure:
 
 {
+  "raw_visual_description": "string (ONLY include if multiple images/frames are provided. Explain exactly what you see sequentially, step-by-step)",
   "type": "incident | illegal activity",
   "category": "string",
   "assignedAgency": "string",

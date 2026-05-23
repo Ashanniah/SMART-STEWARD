@@ -31,20 +31,16 @@ try {
 // OpenRouter model - Gemini 3 Flash Preview (no fallbacks)
 const OPENROUTER_MODEL = 'google/gemini-3-flash-preview';
 
-// Video frame extraction settings - 3 frames for balanced analysis
-const VIDEO_FRAME_TIMESTAMPS = ['0%', '50%', '90%'];
-
 /**
- * Extract multiple frames from a video for comprehensive analysis
+ * Extract multiple frames evenly distributed across the video
  */
-const extractFramesFromVideo = (videoPath, count = 3) => {
+const extractFramesFromVideo = (videoPath, frameCount = 6) => {
   return new Promise((resolve, reject) => {
     const outputDir = os.tmpdir();
     const timestamp = Date.now();
     const frames = [];
 
-    // Use ffmpeg to extract frames at different timestamps
-    const command = ffmpeg(videoPath)
+    ffmpeg(videoPath)
       .on('filenames', (filenames) => {
         frames.push(...filenames);
       })
@@ -52,17 +48,12 @@ const extractFramesFromVideo = (videoPath, count = 3) => {
         resolve(frames.map(f => path.join(outputDir, f)));
       })
       .on('error', (err) => {
+        console.error('FFmpeg extraction error:', err);
         reject(err);
-      });
-
-    // Extract frames at regular intervals
-    const timestamps = VIDEO_FRAME_TIMESTAMPS.slice(0, count);
-    const outputPattern = `frame-${timestamp}-%02d.jpg`;
-    
-    command
+      })
       .screenshots({
-        timestamps: timestamps,
-        filename: outputPattern,
+        count: frameCount, // Automatically evenly spaces frames
+        filename: `frame-${timestamp}-%02d.jpg`,
         folder: outputDir,
         size: '640x360'
       });
@@ -104,7 +95,7 @@ const generateCloudResponse = async (mediaFile) => {
         // Handle Video - Extract multiple frames for better analysis
         console.log(`Extracting frames from video: ${mediaFile.path}`);
         
-        const frames = await extractFramesFromVideo(mediaFile.path, 3);
+        const frames = await extractFramesFromVideo(mediaFile.path, 6);
         tempFramePaths.push(...frames);
 
         // Add video-specific preprompt for temporal comparison
@@ -113,11 +104,18 @@ const generateCloudResponse = async (mediaFile) => {
           text: 'Compare the extracted frames across timestamps and analyze what this video could be. Use the temporal sequence to determine whether the situation escalates, changes, or reveals illegal activity/incident context. Provide one unified classification.'
         });
 
-        // Add all extracted frames
-        for (const framePath of frames) {
+        // Add all extracted frames with specific labels
+        for (let i = 0; i < frames.length; i++) {
+          const framePath = frames[i];
           if (fs.existsSync(framePath)) {
             const imageBuffer = fs.readFileSync(framePath);
             const base64Image = imageBuffer.toString('base64');
+            
+            // Add a text label before each image to force sequential reasoning
+            contentArray.push({
+              type: 'text',
+              text: `Frame ${i + 1}:`
+            });
             
             contentArray.push({
               type: 'image_url',
