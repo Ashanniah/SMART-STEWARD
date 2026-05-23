@@ -10,7 +10,7 @@ You MUST return ONLY valid JSON with this structure:
 {
   "frame_analysis": [
     {
-      "frame_number": "number",
+      "frame_number": 1,
       "physical_description": "Objective description of geometry and movement only."
     }
   ],
@@ -179,7 +179,7 @@ If multiple images are provided:
 If an image or frame is provided:
 - prioritize visual evidence
 - do not assume missing details
-- actively look for **illegal gambling** (mahjong tiles, betting tables, cash on table), **illegal drugs** (shabu packs, PDEA busts, seized contraband), and other **PNP** violations, not only fire/flood/garbage
+- passively observe for specific cues of law violations, but do not hallucinate them if the visual evidence is blurry, obscured by dust/smoke, or ambiguous.
 
 --------------------------------------------------
 NON-INCIDENT RULE
