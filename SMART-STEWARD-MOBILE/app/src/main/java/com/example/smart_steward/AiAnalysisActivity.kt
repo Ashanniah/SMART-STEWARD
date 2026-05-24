@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.ProgressBar
@@ -31,6 +32,7 @@ import java.util.concurrent.Executors
 class AiAnalysisActivity : AppCompatActivity() {
 
     companion object {
+        private const val TAG = "SmartStewardAiClient"
         const val EXTRA_REANALYZE = "reanalyze"
         const val EXTRA_USER_MESSAGE = "extra_user_message"
         const val EXTRA_INCIDENT_TITLE = "extra_incident_title"
@@ -270,6 +272,7 @@ class AiAnalysisActivity : AppCompatActivity() {
     }
 
     private fun startAiRequest() {
+        Log.i(TAG, "startAiRequest() — API=${BuildConfig.API_BASE_URL}")
         executor.execute {
             try {
                 var preparedVideoFile: java.io.File? = null
@@ -370,6 +373,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                 apiResultIntent = result
                 apiError = null
             } catch (e: VideoTooLargeException) {
+                Log.e(TAG, "Video too large: ${e.sizeBytes} bytes", e)
                 videoTooLarge = true
                 apiResultIntent = null
                 apiError = getString(
@@ -380,6 +384,7 @@ class AiAnalysisActivity : AppCompatActivity() {
                     uploadPhase = UploadPhase.FAILED
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "AI analysis failed: ${e.message}", e)
                 apiResultIntent = null
                 apiError = e.message ?: e.javaClass.simpleName
             } finally {

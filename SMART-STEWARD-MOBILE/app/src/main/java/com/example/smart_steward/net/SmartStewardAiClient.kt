@@ -220,6 +220,7 @@ object SmartStewardAiClient {
     ): Intent {
         val root = normalizeApiBaseUrl(baseUrl)
         val url = "$root/ai"
+        Log.i(TAG, "AI request starting -> POST $url (baseUrl=$baseUrl)")
 
         val bitmap = CapturedMediaStore.capturedBitmap
         val videoUri = CapturedMediaStore.capturedVideoUri
@@ -274,22 +275,33 @@ object SmartStewardAiClient {
                 .post(bodyBuilder.build())
                 .build()
 
-            client.newCall(request).execute().use { response ->
-                val raw = response.body?.string().orEmpty()
-                Log.d(TAG, "AI raw response (${response.code}): $raw")
-                if (!response.isSuccessful) {
-                    val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
-                    val message = when {
-                        response.code == 413 -> "Video file is too large (max 20 MB after compression)."
-                        !err.isNullOrBlank() -> err
-                        else -> "HTTP ${response.code}"
+            Log.i(
+                TAG,
+                "AI upload -> media=${mediaFile?.name ?: "none"} " +
+                    "size=${mediaFile?.length()?.let { formatMegabytes(it) } ?: "0 B"}",
+            )
+
+            try {
+                client.newCall(request).execute().use { response ->
+                    val raw = response.body?.string().orEmpty()
+                    Log.i(TAG, "AI raw response (${response.code}): $raw")
+                    if (!response.isSuccessful) {
+                        val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
+                        val message = when {
+                            response.code == 413 -> "Video file is too large (max 20 MB after compression)."
+                            !err.isNullOrBlank() -> err
+                            else -> "HTTP ${response.code}"
+                        }
+                        throw IllegalStateException(message)
                     }
-                    throw IllegalStateException(message)
+                    val json = JSONObject(raw)
+                    val payload = parseClassificationPayload(json)
+                    Log.i(TAG, "AI classification payload: $payload")
+                    return mapPayloadToResultIntent(context, payload, deviceLocationShort)
                 }
-                val json = JSONObject(raw)
-                val payload = parseClassificationPayload(json)
-                Log.d(TAG, "AI classification payload: $payload")
-                return mapPayloadToResultIntent(context, payload, deviceLocationShort)
+            } catch (e: Exception) {
+                Log.e(TAG, "AI request failed: ${e.javaClass.simpleName}: ${e.message}", e)
+                throw e
             }
         } finally {
             mediaFile?.delete()
@@ -337,7 +349,7 @@ object SmartStewardAiClient {
         val confidenceScore = payload.optDouble("confidence_score", Double.NaN)
         val reportable = isReportablePayload(payload, category, agency)
 
-        Log.d(
+        Log.i(
             TAG,
             "AI fields -> type=$type category=$category agency=$agency severity=$severity " +
                 "confidence_score=$confidenceScore reportable=$reportable",

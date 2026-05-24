@@ -7,6 +7,8 @@ import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -76,6 +78,16 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     private var submittedDialogVisible = false
 
+    @Volatile
+    private var submitInProgress = false
+
+    private lateinit var submitDetectedButton: Button
+    private lateinit var confirmSubmitButton: Button
+    private lateinit var editButton: Button
+    private lateinit var editAgainButton: Button
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private val aiAnalysisLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -128,12 +140,12 @@ class IncidentFlowActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<Button>(R.id.editButton).setOnClickListener {
+        findViewById<Button>(R.id.editButton).also { editButton = it }.setOnClickListener {
             populateEditFromDetected()
             showState(ScreenState.EDIT)
         }
 
-        findViewById<Button>(R.id.submitDetectedButton).setOnClickListener {
+        findViewById<Button>(R.id.submitDetectedButton).also { submitDetectedButton = it }.setOnClickListener {
             submitReportAndShowSubmitted(
                 incidentType = findViewById<TextView>(R.id.detectedIncidentTypeText).text.toString(),
                 assignedAgency = findViewById<TextView>(R.id.detectedAgencyText).text.toString(),
@@ -144,12 +156,12 @@ class IncidentFlowActivity : AppCompatActivity() {
             )
         }
 
-        findViewById<Button>(R.id.editAgainButton).setOnClickListener {
+        findViewById<Button>(R.id.editAgainButton).also { editAgainButton = it }.setOnClickListener {
             syncEditToDetected()
             showState(ScreenState.DETECTED)
         }
 
-        findViewById<Button>(R.id.confirmSubmitButton).setOnClickListener {
+        findViewById<Button>(R.id.confirmSubmitButton).also { confirmSubmitButton = it }.setOnClickListener {
             syncEditToDetected()
             val description = descriptionInput.text.toString()
             findViewById<TextView>(R.id.detectedDescriptionText).text = description
@@ -261,6 +273,11 @@ class IncidentFlowActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         MainBottomNav.updateBadge(this)
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     private fun loadVideoFrame(uri: Uri): Bitmap? {
@@ -612,12 +629,32 @@ class IncidentFlowActivity : AppCompatActivity() {
 
     private fun currentUserId(): String? = FirebaseAuth.getInstance().currentUser?.uid
 
+    private fun setSubmitInProgress(active: Boolean) {
+        submitInProgress = active
+        if (!::submitDetectedButton.isInitialized) return
+        submitDetectedButton.isEnabled = !active
+        confirmSubmitButton.isEnabled = !active
+        editButton.isEnabled = !active
+        editAgainButton.isEnabled = !active
+        submitDetectedButton.text = if (active) {
+            getString(R.string.submit_in_progress)
+        } else {
+            getString(R.string.submit)
+        }
+        confirmSubmitButton.text = if (active) {
+            getString(R.string.submit_confirm_in_progress)
+        } else {
+            getString(R.string.incident_confirm_submit)
+        }
+    }
+
     private fun submitReportAndShowSubmitted(
         incidentType: String,
         assignedAgency: String,
         description: String,
         locationLine: String
     ) {
+        if (submitInProgress) return
         if (!isLastAnalysisReportable()) {
             showState(ScreenState.NOT_DETECTED)
             Toast.makeText(
@@ -637,6 +674,8 @@ class IncidentFlowActivity : AppCompatActivity() {
             return
         }
 
+        setSubmitInProgress(true)
+
         val bitmapCapture = CapturedMediaStore.capturedBitmap
         val videoUri = CapturedMediaStore.capturedVideoUri
         val thumbnail = bitmapCapture ?: videoUri?.let { loadVideoFrame(it) }
@@ -654,6 +693,7 @@ class IncidentFlowActivity : AppCompatActivity() {
         fun saveOfflineDraft(lat: Double?, lng: Double?) {
             val uid = currentUserId().orEmpty()
             if (uid.isBlank()) {
+                setSubmitInProgress(false)
                 Toast.makeText(this, "Sign in to save draft reports.", Toast.LENGTH_LONG).show()
                 return
             }
@@ -701,6 +741,7 @@ class IncidentFlowActivity : AppCompatActivity() {
                 if (!OfflineDraftSyncManager.isOnline(this)) {
                     saveOfflineDraft(lat, lng)
                 } else {
+                    setSubmitInProgress(false)
                     Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
                 }
             },
@@ -708,6 +749,16 @@ class IncidentFlowActivity : AppCompatActivity() {
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
             }
             )
+        }
+
+        var coordsResolved = false
+        var locationTimeout: Runnable? = null
+
+        fun proceed(lat: Double?, lng: Double?) {
+            if (coordsResolved) return
+            coordsResolved = true
+            locationTimeout?.let { mainHandler.removeCallbacks(it) }
+            submitWithCoords(lat, lng)
         }
 
         val locOk = ContextCompat.checkSelfPermission(
@@ -718,10 +769,12 @@ class IncidentFlowActivity : AppCompatActivity() {
             LocationServices.getFusedLocationProviderClient(this).lastLocation
                 .addOnCompleteListener { task ->
                     val loc = if (task.isSuccessful) task.result else null
-                    submitWithCoords(loc?.latitude, loc?.longitude)
+                    proceed(loc?.latitude, loc?.longitude)
                 }
+            locationTimeout = Runnable { proceed(null, null) }
+            mainHandler.postDelayed(locationTimeout!!, 2_500L)
         } else {
-            submitWithCoords(null, null)
+            proceed(null, null)
         }
     }
 

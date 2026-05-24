@@ -36,6 +36,8 @@
     <string name="verification_code">Verification Code</string>
     <string name="enter_code_sent">Enter code sent to your Email</string>
     <string name="submit">Submit</string>
+    <string name="submit_in_progress">Submitting…</string>
+    <string name="submit_confirm_in_progress">Submitting…</string>
     <string name="resend">Resend</string>
     <string name="new_password">New Password</string>
     <string name="change_password_title">Change password</string>
