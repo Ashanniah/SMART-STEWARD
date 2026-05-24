@@ -10,6 +10,7 @@ export default function SummaryStatCard({ Icon, label, value, accent }) {
         <div className="summary-stat-card__label">{label}</div>
         <div className="summary-stat-card__value">{value}</div>
       </div>
+      <span className="summary-stat-card__accent-bar" aria-hidden />
     </div>
   );
 }

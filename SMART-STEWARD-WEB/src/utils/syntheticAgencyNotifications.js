@@ -1,6 +1,5 @@
 import { AGENCY_NOTIFICATION_KINDS, AGENCY_NOTIFICATION_SEVERITY } from '../constants/agencyNotificationKinds';
-
-const AI_LOW_THRESHOLD = 70;
+import { AI_CLASSIFICATION_REVIEW_THRESHOLD } from './normalizeReportDoc';
 
 /**
  * Ephemeral notifications derived from current report state (no Firestore write).
@@ -38,17 +37,16 @@ export function buildSyntheticAgencyNotifications(reports) {
       });
     }
 
-    if (aiConf != null && aiConf < AI_LOW_THRESHOLD) {
+    if (aiConf != null && aiConf < AI_CLASSIFICATION_REVIEW_THRESHOLD) {
       out.push({
         id: `syn-ai-low-${docId}`,
         synthetic: true,
-        title: 'Low-confidence AI classification',
-        body: `${Math.round(aiConf)}% confidence on "${activity}" — review required (${loc}).`,
+        title: 'Verify AI classification',
+        body: `"${activity}" at ${loc} — please confirm the report type and details.`,
         kind: AGENCY_NOTIFICATION_KINDS.AI_LOW_CONFIDENCE,
         severity: AGENCY_NOTIFICATION_SEVERITY.WARNING,
         pinned: false,
         reportDocId: docId,
-        confidence: aiConf,
         createdAt: new Date(),
       });
     }

@@ -33,7 +33,9 @@ data class UserReport(
     val longitude: Double? = null,
     /** Latest agency/admin note from a status update on the web panel (`lastStatusNote`). */
     val lastStatusNote: String = "",
-    val statusUpdatedAt: Date? = null
+    val statusUpdatedAt: Date? = null,
+    /** Set by web admin status updates so mobile does not duplicate inbox notifications. */
+    val lastCitizenNotifyFingerprint: String = "",
 ) {
     val progressPercent: Int
         get() = when (status) {
@@ -133,11 +135,12 @@ data class UserReport(
                 statusLabel = statusLabel,
                 assignedAgency = doc.getString("assignedAgency").orEmpty(),
                 description = doc.getString("description").orEmpty(),
-                photoUrl = doc.getString("photoUrl").orEmpty(),
-                videoUrl = doc.getString("videoUrl").orEmpty(),
+                photoUrl = resolvePhotoUrl(doc),
+                videoUrl = resolveVideoUrl(doc),
                 latitude = latitude,
                 longitude = longitude,
                 lastStatusNote = lastStatusNote,
+                lastCitizenNotifyFingerprint = doc.getString("lastCitizenNotifyFingerprint").orEmpty(),
                 statusUpdatedAt = statusUpdatedAt
             )
         }
@@ -157,6 +160,27 @@ data class UserReport(
                     }
                 }
         }
+
+        /** Matches web [normalizeReportDoc] so list thumbnails work on older report shapes. */
+        private fun resolvePhotoUrl(doc: DocumentSnapshot): String =
+            sequenceOf(
+                doc.getString("photoUrl"),
+                doc.getString("imageUrl"),
+                doc.getString("mediaUrl"),
+                doc.getString("image"),
+            )
+                .mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }
+                .firstOrNull()
+                .orEmpty()
+
+        private fun resolveVideoUrl(doc: DocumentSnapshot): String =
+            sequenceOf(
+                doc.getString("videoUrl"),
+                doc.getString("mediaVideoUrl"),
+            )
+                .mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }
+                .firstOrNull()
+                .orEmpty()
 
         private fun defaultStatusLabel(bucket: ReportStatusUi): String =
             when (bucket) {

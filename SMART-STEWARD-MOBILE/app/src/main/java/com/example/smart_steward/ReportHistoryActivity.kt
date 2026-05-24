@@ -31,8 +31,6 @@ class ReportHistoryActivity : AppCompatActivity() {
     private enum class StatusFilter {
         ALL,
         RESOLVED,
-        PENDING,
-        IN_PROGRESS,
         REJECTED
     }
 
@@ -40,7 +38,7 @@ class ReportHistoryActivity : AppCompatActivity() {
     private var allReports: List<UserReport> = emptyList()
     private var statusFilter = StatusFilter.ALL
     private var searchQuery = ""
-    private var newestFirst = true
+    private val newestFirst = true
     private lateinit var adapter: ReportHistoryAdapter
     private lateinit var recycler: RecyclerView
     private lateinit var empty: TextView
@@ -48,6 +46,8 @@ class ReportHistoryActivity : AppCompatActivity() {
     private lateinit var statusSpinner: Spinner
     private var spinnerSkipCallback = false
     private var reportsListener: ListenerRegistration? = null
+
+    private fun archiveReports(): List<UserReport> = ReportStatusColors.filterArchiveReports(allReports)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,7 +66,7 @@ class ReportHistoryActivity : AppCompatActivity() {
         bindStatCard(
             R.id.reportHistoryStatTotalBlock,
             iconRes = R.drawable.ic_stat_total,
-            label = getString(R.string.my_activity_total)
+            label = getString(R.string.history_stat_archived)
         ) { applyStatusFilter(StatusFilter.ALL) }
 
         bindStatCard(
@@ -74,12 +74,6 @@ class ReportHistoryActivity : AppCompatActivity() {
             iconRes = R.drawable.ic_stat_resolved,
             label = getString(R.string.my_activity_resolved)
         ) { applyStatusFilter(StatusFilter.RESOLVED) }
-
-        bindStatCard(
-            R.id.reportHistoryStatPendingBlock,
-            iconRes = R.drawable.ic_stat_pending,
-            label = getString(R.string.my_activity_pending)
-        ) { applyStatusFilter(StatusFilter.PENDING) }
 
         bindStatCard(
             R.id.reportHistoryStatRejectedBlock,
@@ -124,10 +118,8 @@ class ReportHistoryActivity : AppCompatActivity() {
 
     private fun setupStatusFilterSpinner() {
         val labels = listOf(
-            getString(R.string.my_activity_select_status),
+            getString(R.string.history_filter_all),
             getString(R.string.my_activity_resolved),
-            getString(R.string.my_activity_pending),
-            getString(R.string.my_activity_in_progress),
             getString(R.string.my_activity_rejected)
         )
         statusSpinner.adapter = spinnerAdapter(labels)
@@ -145,17 +137,13 @@ class ReportHistoryActivity : AppCompatActivity() {
 
     private fun spinnerIndexToFilter(index: Int): StatusFilter = when (index) {
         1 -> StatusFilter.RESOLVED
-        2 -> StatusFilter.PENDING
-        3 -> StatusFilter.IN_PROGRESS
-        4 -> StatusFilter.REJECTED
+        2 -> StatusFilter.REJECTED
         else -> StatusFilter.ALL
     }
 
     private fun filterToSpinnerIndex(value: StatusFilter): Int = when (value) {
         StatusFilter.RESOLVED -> 1
-        StatusFilter.PENDING -> 2
-        StatusFilter.IN_PROGRESS -> 3
-        StatusFilter.REJECTED -> 4
+        StatusFilter.REJECTED -> 2
         StatusFilter.ALL -> 0
     }
 
@@ -192,19 +180,15 @@ class ReportHistoryActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateStatValues(list: List<UserReport>) {
-        setStatValue(R.id.reportHistoryStatTotalBlock, list.size.toString())
+    private fun updateStatValues(archive: List<UserReport>) {
+        setStatValue(R.id.reportHistoryStatTotalBlock, archive.size.toString())
         setStatValue(
             R.id.reportHistoryStatResolvedBlock,
-            list.count { it.status == ReportStatusUi.RESOLVED }.toString()
-        )
-        setStatValue(
-            R.id.reportHistoryStatPendingBlock,
-            list.count { it.status == ReportStatusUi.PENDING }.toString()
+            archive.count { it.status == ReportStatusUi.RESOLVED }.toString()
         )
         setStatValue(
             R.id.reportHistoryStatRejectedBlock,
-            list.count { it.status == ReportStatusUi.REJECTED }.toString()
+            archive.count { it.status == ReportStatusUi.REJECTED }.toString()
         )
     }
 
@@ -227,7 +211,8 @@ class ReportHistoryActivity : AppCompatActivity() {
             uid,
             onUpdate = { list ->
                 allReports = list
-                updateStatValues(list)
+                ReportStatusNotificationSync.sync(applicationContext, uid, list)
+                updateStatValues(archiveReports())
                 refreshList()
             },
             onError = { msg ->
@@ -240,12 +225,11 @@ class ReportHistoryActivity : AppCompatActivity() {
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid.isNullOrBlank()) return
 
-        var list = when (statusFilter) {
-            StatusFilter.ALL -> allReports
-            StatusFilter.RESOLVED -> allReports.filter { it.status == ReportStatusUi.RESOLVED }
-            StatusFilter.PENDING -> allReports.filter { it.status == ReportStatusUi.PENDING }
-            StatusFilter.IN_PROGRESS -> allReports.filter { it.status == ReportStatusUi.IN_PROGRESS }
-            StatusFilter.REJECTED -> allReports.filter { it.status == ReportStatusUi.REJECTED }
+        var list = archiveReports()
+        list = when (statusFilter) {
+            StatusFilter.ALL -> list
+            StatusFilter.RESOLVED -> list.filter { it.status == ReportStatusUi.RESOLVED }
+            StatusFilter.REJECTED -> list.filter { it.status == ReportStatusUi.REJECTED }
         }
 
         val q = searchQuery.trim().lowercase(Locale.getDefault())
@@ -258,7 +242,8 @@ class ReportHistoryActivity : AppCompatActivity() {
                     report.description,
                     report.statusLabel,
                     report.id,
-                    report.displayReportRef()
+                    report.displayReportRef(),
+                    report.lastStatusNote
                 ).joinToString(" ").lowercase(Locale.getDefault())
                 haystack.contains(q)
             }
@@ -279,6 +264,8 @@ class ReportHistoryActivity : AppCompatActivity() {
             }
             if (index >= 0) {
                 recycler.scrollToPosition(index)
+                val report = (grouped[index] as ReportHistoryListItem.ReportRow).report
+                ReportReceiptDialog.show(this, report)
                 pendingFocusReportId = null
             }
         }
@@ -288,6 +275,7 @@ class ReportHistoryActivity : AppCompatActivity() {
         recycler.visibility = if (showEmpty) View.GONE else View.VISIBLE
         when {
             allReports.isEmpty() -> empty.setText(R.string.my_activity_no_reports)
+            archiveReports().isEmpty() -> empty.setText(R.string.history_archive_empty)
             showEmpty -> empty.setText(R.string.my_activity_no_filtered)
         }
     }

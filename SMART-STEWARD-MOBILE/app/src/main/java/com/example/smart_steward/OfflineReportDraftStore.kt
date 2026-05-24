@@ -22,7 +22,9 @@ data class OfflineReportDraft(
     val videoPath: String,
     val latitude: Double?,
     val longitude: Double?,
-    val createdAtMs: Long
+    val createdAtMs: Long,
+    val severity: String? = null,
+    val aiConfidence: Int? = null,
 )
 
 object OfflineReportDraftStore {
@@ -42,7 +44,9 @@ object OfflineReportDraftStore {
         photoBitmap: Bitmap?,
         videoUri: Uri?,
         latitude: Double?,
-        longitude: Double?
+        longitude: Double?,
+        severity: String? = null,
+        aiConfidence: Int? = null,
     ): OfflineReportDraft {
         val id = "draft_" + UUID.randomUUID().toString().replace("-", "").take(16)
         val draftsDir = File(context.filesDir, "report_drafts").apply { mkdirs() }
@@ -59,7 +63,9 @@ object OfflineReportDraftStore {
             videoPath = videoPath,
             latitude = latitude,
             longitude = longitude,
-            createdAtMs = System.currentTimeMillis()
+            createdAtMs = System.currentTimeMillis(),
+            severity = severity,
+            aiConfidence = aiConfidence,
         )
         val arr = loadArray(context)
         arr.put(toJson(draft))
@@ -146,6 +152,8 @@ object OfflineReportDraftStore {
         put("latitude", d.latitude ?: JSONObject.NULL)
         put("longitude", d.longitude ?: JSONObject.NULL)
         put("createdAtMs", d.createdAtMs)
+        d.severity?.takeIf { it.isNotBlank() }?.let { put("severity", it) }
+        d.aiConfidence?.takeIf { it in 0..100 }?.let { put("aiConfidence", it) }
     }
 
     private fun fromJson(o: JSONObject): OfflineReportDraft? {
@@ -154,6 +162,11 @@ object OfflineReportDraftStore {
         if (id.isBlank() || userId.isBlank()) return null
         val lat = if (o.isNull("latitude")) null else o.optDouble("latitude")
         val lng = if (o.isNull("longitude")) null else o.optDouble("longitude")
+        val aiConf = if (o.has("aiConfidence") && !o.isNull("aiConfidence")) {
+            o.optInt("aiConfidence").takeIf { it in 0..100 }
+        } else {
+            null
+        }
         return OfflineReportDraft(
             id = id,
             userId = userId,
@@ -165,7 +178,9 @@ object OfflineReportDraftStore {
             videoPath = o.optString("videoPath"),
             latitude = lat,
             longitude = lng,
-            createdAtMs = o.optLong("createdAtMs")
+            createdAtMs = o.optLong("createdAtMs"),
+            severity = o.optString("severity").takeIf { it.isNotBlank() },
+            aiConfidence = aiConf,
         )
     }
 }

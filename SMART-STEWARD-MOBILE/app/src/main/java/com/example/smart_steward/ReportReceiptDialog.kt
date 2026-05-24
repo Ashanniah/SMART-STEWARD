@@ -25,10 +25,11 @@ object ReportReceiptDialog {
 
         bindDetailRow(
             dialogView.findViewById(R.id.receiptRowStatus),
-            iconRes = R.drawable.check,
+            iconRes = R.drawable.ic_receipt_detail_check,
             label = activity.getString(R.string.receipt_current_status),
             value = null,
-            badgeText = report.statusLabel
+            badgeText = report.statusLabel,
+            tintIcon = false
         )
         applyStatusBadge(activity, dialogView.findViewById(R.id.receiptRowStatus), report)
 
@@ -46,10 +47,11 @@ object ReportReceiptDialog {
 
         bindDetailRow(
             dialogView.findViewById(R.id.receiptRowDate),
-            iconRes = R.drawable.calendar,
+            iconRes = R.drawable.ic_dashboard_detail_calendar,
             label = activity.getString(R.string.my_activity_detail_date_submitted),
             value = submitted?.let { dateFmt.format(it) } ?: "—",
-            badgeText = null
+            badgeText = null,
+            tintIcon = false
         )
         bindDetailRow(
             dialogView.findViewById(R.id.receiptRowTime),
@@ -122,14 +124,19 @@ object ReportReceiptDialog {
         iconRes: Int,
         label: String,
         value: String?,
-        badgeText: String?
+        badgeText: String?,
+        tintIcon: Boolean = true
     ) {
         val icon = rowRoot.findViewById<ImageView>(R.id.receiptDetailIcon)
         icon.setImageResource(iconRes)
-        icon.setColorFilter(
-            ContextCompat.getColor(rowRoot.context, R.color.activity_title_bar),
-            PorterDuff.Mode.SRC_IN
-        )
+        if (tintIcon) {
+            icon.setColorFilter(
+                ContextCompat.getColor(rowRoot.context, R.color.activity_title_bar),
+                PorterDuff.Mode.SRC_IN
+            )
+        } else {
+            icon.clearColorFilter()
+        }
         rowRoot.findViewById<TextView>(R.id.receiptDetailLabel).text = label
         val valueView = rowRoot.findViewById<TextView>(R.id.receiptDetailValue)
         val badgeView = rowRoot.findViewById<TextView>(R.id.receiptDetailBadge)
@@ -187,21 +194,8 @@ object ReportReceiptDialog {
 
     private fun applyStatusBadge(activity: AppCompatActivity, statusRow: View, report: UserReport) {
         val badge = statusRow.findViewById<TextView>(R.id.receiptDetailBadge)
-        val (bgColor, textColor) = when (report.status) {
-            ReportStatusUi.PENDING -> Pair(
-                ContextCompat.getColor(activity, R.color.activity_pending_orange),
-                ContextCompat.getColor(activity, R.color.white)
-            )
-            ReportStatusUi.IN_PROGRESS -> Pair(0xFF1565C0.toInt(), ContextCompat.getColor(activity, R.color.white))
-            ReportStatusUi.RESOLVED -> Pair(
-                ContextCompat.getColor(activity, R.color.activity_resolved_green),
-                ContextCompat.getColor(activity, R.color.white)
-            )
-            ReportStatusUi.REJECTED -> Pair(
-                ContextCompat.getColor(activity, R.color.activity_rejected_gray),
-                ContextCompat.getColor(activity, R.color.white)
-            )
-        }
+        val bgColor = ReportStatusColors.fillColor(activity, report.status)
+        val textColor = ReportStatusColors.textColor(activity, report.status)
         badge.setTextColor(textColor)
         badge.background = roundedRect(bgColor, dp(activity, 20f))
     }

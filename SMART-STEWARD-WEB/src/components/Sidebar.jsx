@@ -20,8 +20,8 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', Icon: Squares2X2Icon },
   { path: '/reports', label: 'Reports', Icon: DocumentTextIcon },
   { path: '/incident-analytics', label: 'Incident Analytics', Icon: ChartBarIcon },
-  { path: '/profile', label: 'User Profile', Icon: UserIcon },
   { path: '/report-history', label: 'History of Reports', Icon: ClipboardDocumentListIcon },
+  { path: '/profile', label: 'User Profile', Icon: UserIcon },
 ];
 
 export default function Sidebar({ expanded = true }) {

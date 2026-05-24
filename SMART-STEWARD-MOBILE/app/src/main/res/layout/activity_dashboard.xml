@@ -63,6 +63,15 @@
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackgroundBorderless">
 
+                <ImageView
+                    android:id="@+id/dashboardHeaderProfileAvatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/profile_avatar_content_desc"
+                    android:padding="6dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/default_profile" />
+
                 <TextView
                     android:id="@+id/dashboardHeaderProfileInitials"
                     android:layout_width="match_parent"
@@ -71,6 +80,7 @@
                     android:textColor="@color/profile_avatar_text"
                     android:textSize="14sp"
                     android:textStyle="bold"
+                    android:visibility="gone"
                     tools:text="RC" />
             </FrameLayout>
         </LinearLayout>
@@ -380,7 +390,7 @@
                 android:layout_height="22dp"
                 android:contentDescription="@null"
                 android:scaleType="fitCenter"
-                android:src="@drawable/calendar" />
+                android:src="@drawable/ic_dashboard_detail_calendar" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -484,8 +494,7 @@
                     android:layout_marginTop="2dp"
                     android:textColor="#1A1F1C"
                     android:textSize="14sp"
-                    android:textStyle="bold"
-                    tools:text="PNP" />
+                    tools:text="DENR, PNP" />
             </LinearLayout>
         </LinearLayout>
 

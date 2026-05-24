@@ -6,15 +6,31 @@ import {
   ArrowPathIcon,
   CheckCircleIcon,
   FunnelIcon,
+  InboxArrowDownIcon,
+  MapIcon,
 } from '@heroicons/react/24/outline';
-import { getDashboardConfig } from '../config/dashboardConfig';
 import { useAgencyUser } from '../context/AgencyUserContext';
 import SummaryStatCard from '../components/SummaryStatCard';
 import RecentReportRow from '../components/RecentReportRow';
 import GoogleMapComponent from '../components/GoogleMap';
 import MediaLightbox from '../components/MediaLightbox';
 import { useReportsData } from '../context/ReportsDataContext';
-import { reportsToMapIncidents, statusToLabel } from '../utils/normalizeReportDoc';
+import {
+  formatReportDateOnly,
+  formatReportTimeOnly,
+  reportsToMapIncidents,
+  statusToLabel,
+} from '../utils/normalizeReportDoc';
+import {
+  buildAgencyFilterOptions,
+  buildTypeFilterOptions,
+  dashboardCountsFromReports,
+  DEFAULT_DASHBOARD_FILTERS,
+  filterDashboardReports,
+  FILTER_ALL_AGENCIES,
+  FILTER_ALL_STATUS,
+  FILTER_ALL_TYPES,
+} from '../utils/dashboardFilters';
 
 const MAP_DEFAULT_CENTER = { lat: 10.2979, lng: 123.8965 };
 
@@ -25,19 +41,68 @@ const SUMMARY_CONFIG = [
   { key: 'resolved', Icon: CheckCircleIcon, label: 'Resolved Reports', accent: 'teal' },
 ];
 
+const STATUS_FILTER_OPTIONS = [
+  FILTER_ALL_STATUS,
+  'Pending',
+  'In Progress',
+  'Resolved',
+  'Rejected',
+];
+
 export default function Dashboard() {
   const [searchParams] = useSearchParams();
   const { viewerAgencyKey } = useAgencyUser();
-  const cfg = useMemo(() => getDashboardConfig(viewerAgencyKey), [viewerAgencyKey]);
-  const { reports, loading, error, counts } = useReportsData();
+  const { reports, loading, error } = useReportsData();
   const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
-  const [filterType, setFilterType] = useState('All Types');
-  const [filterStatus, setFilterStatus] = useState('All Status');
-  const [filterAgency] = useState(cfg.filterAgencyDefault);
-  const [filterDate] = useState('May 23, 2025');
+
+  const [draftFilters, setDraftFilters] = useState({ ...DEFAULT_DASHBOARD_FILTERS });
+  const [appliedFilters, setAppliedFilters] = useState({ ...DEFAULT_DASHBOARD_FILTERS });
 
   const reportMapPanelRef = useRef(null);
+  const agencyFilterInitialized = useRef(false);
   const [reportMapFullscreen, setReportMapFullscreen] = useState(false);
+
+  const typeOptions = useMemo(() => buildTypeFilterOptions(reports), [reports]);
+  const agencyOptions = useMemo(
+    () => buildAgencyFilterOptions(reports, viewerAgencyKey),
+    [reports, viewerAgencyKey]
+  );
+
+  const defaultAgencyFilter = useMemo(() => {
+    if (agencyOptions.length === 0) return FILTER_ALL_AGENCIES;
+    if (agencyOptions.length === 1) return agencyOptions[0];
+    if (viewerAgencyKey && agencyOptions.includes(viewerAgencyKey)) return viewerAgencyKey;
+    return agencyOptions[0];
+  }, [agencyOptions, viewerAgencyKey]);
+
+  useEffect(() => {
+    if (!agencyFilterInitialized.current && viewerAgencyKey && defaultAgencyFilter !== FILTER_ALL_AGENCIES) {
+      agencyFilterInitialized.current = true;
+      setDraftFilters((f) => ({ ...f, agency: defaultAgencyFilter }));
+      setAppliedFilters((f) => ({ ...f, agency: defaultAgencyFilter }));
+    }
+  }, [viewerAgencyKey, defaultAgencyFilter]);
+
+  useEffect(() => {
+    const fixAgency = (prev) => {
+      if (prev.agency !== FILTER_ALL_AGENCIES && !agencyOptions.includes(prev.agency)) {
+        return { ...prev, agency: defaultAgencyFilter };
+      }
+      return prev;
+    };
+    setDraftFilters(fixAgency);
+    setAppliedFilters(fixAgency);
+  }, [agencyOptions, defaultAgencyFilter]);
+
+  const filteredReports = useMemo(
+    () => filterDashboardReports(reports, appliedFilters),
+    [reports, appliedFilters]
+  );
+
+  const counts = useMemo(
+    () => dashboardCountsFromReports(filteredReports),
+    [filteredReports]
+  );
 
   const summaryStats = useMemo(
     () =>
@@ -51,9 +116,9 @@ export default function Dashboard() {
     [counts]
   );
 
-  const recentSlice = useMemo(() => reports.slice(0, 6), [reports]);
+  const recentSlice = useMemo(() => filteredReports.slice(0, 6), [filteredReports]);
 
-  const mapIncidents = useMemo(() => reportsToMapIncidents(reports), [reports]);
+  const mapIncidents = useMemo(() => reportsToMapIncidents(filteredReports), [filteredReports]);
   const focusedReportId = searchParams.get('focusReport') || '';
 
   const mapCenter = useMemo(() => {
@@ -81,6 +146,19 @@ export default function Dashboard() {
     }
   }, []);
 
+  const applyFilters = () => setAppliedFilters({ ...draftFilters });
+
+  const resetFilters = () => {
+    const reset = {
+      type: FILTER_ALL_TYPES,
+      status: FILTER_ALL_STATUS,
+      agency: defaultAgencyFilter,
+      date: '',
+    };
+    setDraftFilters(reset);
+    setAppliedFilters(reset);
+  };
+
   return (
     <div className="denr-dashboard fade-in">
       {error ? (
@@ -98,7 +176,10 @@ export default function Dashboard() {
       <div className="denr-dashboard__grid">
         <section className="denr-panel denr-panel--reports">
           <div className="denr-panel__head">
-            <h3 className="denr-panel__title">Recent Receive Reports</h3>
+            <h3 className="denr-panel__title denr-panel__title--branded">
+              <InboxArrowDownIcon aria-hidden />
+              Recent Receive Reports
+            </h3>
             <Link to="/reports" className="denr-link-all">
               View all reports
             </Link>
@@ -108,22 +189,30 @@ export default function Dashboard() {
               <p className="denr-dashboard__muted">Loading reports…</p>
             ) : recentSlice.length === 0 ? (
               <p className="denr-dashboard__muted">
-                No reports yet. Submissions from the mobile app will appear here.
+                {reports.length === 0
+                  ? 'No reports yet. Submissions from the mobile app will appear here.'
+                  : 'No reports match the current filters.'}
               </p>
             ) : (
               recentSlice.map((r) => (
                 <RecentReportRow
                   key={r.docId}
-                  title={r.activity}
+                  docId={r.docId}
+                  reportType={r.activity}
                   location={r.location}
-                  dateTime={r.date}
+                  dateSubmitted={formatReportDateOnly(r.createdAt)}
+                  timeOfReport={formatReportTimeOnly(r.createdAt)}
+                  assignedAgency={r.assignedAgency}
                   imageUrl={r.imageUrl || undefined}
                   hasVideo={Boolean(r.hasVideo)}
                   onMediaClick={() =>
                     setMediaPreview({
                       open: true,
                       type: r.hasVideo && r.videoUrl ? 'video' : 'image',
-                      src: (r.hasVideo && r.videoUrl) ? r.videoUrl : (r.imageUrl || r.mediaUrl || ''),
+                      src:
+                        r.hasVideo && r.videoUrl
+                          ? r.videoUrl
+                          : r.imageUrl || r.mediaUrl || '',
                     })
                   }
                   statusLabel={statusToLabel(r.status)}
@@ -132,13 +221,13 @@ export default function Dashboard() {
               ))
             )}
           </div>
-          <Link to="/reports" className="denr-view-all-bottom">
-            View all reports
-          </Link>
         </section>
 
         <section ref={reportMapPanelRef} className="denr-panel denr-panel--map">
-          <h3 className="denr-panel__title denr-panel__title--map">Report Location</h3>
+          <h3 className="denr-panel__title denr-panel__title--map denr-panel__title--branded">
+            <MapIcon aria-hidden />
+            Report Map Location
+          </h3>
           <div className="denr-map-wrap">
             <button
               type="button"
@@ -164,59 +253,96 @@ export default function Dashboard() {
             />
           </div>
           <div className="denr-map-legend">
-            <span><i className="denr-dot denr-dot--pending" /> Pending</span>
-            <span><i className="denr-dot denr-dot--review" /> In Progress</span>
-            <span><i className="denr-dot denr-dot--resolved" /> Resolved</span>
-            <span><i className="denr-dot denr-dot--rejected" /> Rejected</span>
+            <span>
+              <i className="denr-dot denr-dot--pending" /> Pending
+            </span>
+            <span>
+              <i className="denr-dot denr-dot--review" /> In Progress
+            </span>
+            <span>
+              <i className="denr-dot denr-dot--resolved" /> Resolved
+            </span>
+            <span>
+              <i className="denr-dot denr-dot--rejected" /> Rejected
+            </span>
           </div>
         </section>
       </div>
 
       <section className="denr-filters">
-        <h3 className="denr-filters__title">Quick filters</h3>
+        <div className="denr-filters__head">
+          <h3 className="denr-filters__title">
+            <FunnelIcon aria-hidden />
+            Quick filters
+          </h3>
+          <p className="denr-filters__hint">Narrow reports by type, status, agency, or date</p>
+        </div>
         <div className="denr-filters__row">
           <label className="denr-filter-field">
             <span>By Type</span>
-            <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-              <option>All Types</option>
-              <option>Fire</option>
-              <option>Environmental</option>
+            <select
+              value={draftFilters.type}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, type: e.target.value }))}
+            >
+              {typeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
           </label>
           <label className="denr-filter-field">
             <span>By Status</span>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option>All Status</option>
-              <option>Pending</option>
-              <option>In Progress</option>
-              <option>Resolved</option>
+            <select
+              value={draftFilters.status}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, status: e.target.value }))}
+            >
+              {STATUS_FILTER_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
           </label>
           <label className="denr-filter-field">
             <span>By Agency</span>
-            <select defaultValue={filterAgency}>
-              <option value="DENR">DENR</option>
-              <option value="BFP">BFP</option>
-              <option value="PNP">PNP</option>
-              <option value="Barangay">Barangay</option>
+            <select
+              value={draftFilters.agency}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, agency: e.target.value }))}
+              disabled={agencyOptions.length === 0}
+            >
+              {agencyOptions.length === 0 ? (
+                <option value="">No agencies</option>
+              ) : (
+                agencyOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))
+              )}
             </select>
           </label>
           <label className="denr-filter-field">
             <span>By Date</span>
-            <input type="text" readOnly value={filterDate} />
+            <input
+              type="date"
+              value={draftFilters.date}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, date: e.target.value }))}
+            />
           </label>
           <div className="denr-filters__actions">
-            <button type="button" className="denr-btn-apply">
+            <button type="button" className="denr-btn-apply" onClick={applyFilters}>
               <FunnelIcon aria-hidden />
               Apply Filters
             </button>
-            <button type="button" className="denr-btn-reset">
+            <button type="button" className="denr-btn-reset" onClick={resetFilters}>
               <ArrowPathIcon aria-hidden />
               Reset
             </button>
           </div>
         </div>
       </section>
+
       <MediaLightbox
         open={mediaPreview.open}
         type={mediaPreview.type}

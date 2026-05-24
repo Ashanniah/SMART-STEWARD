@@ -8,25 +8,43 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { TREND_SERIES_COLORS } from '../utils/incidentAnalytics';
 
-export default function IncidentVolumeTrendChart({ data, height = 320 }) {
-  const maxSingle = data.reduce(
-    (m, row) => Math.max(m, row.burning, row.dumping, row.otherViolations),
-    0
-  );
-  const yMax = Math.max(10, Math.ceil(maxSingle * 1.2));
-  const step = yMax <= 10 ? 2 : yMax <= 24 ? 4 : 5;
+export default function IncidentVolumeTrendChart({
+  data,
+  series = [],
+  height = 320,
+  emptyMessage = 'No reports in this date range.',
+}) {
+  const activeSeries = series.length > 0 ? series : [{ key: 'total', name: 'Reports', color: '#21734b' }];
+
+  const maxSingle = data.reduce((m, row) => {
+    let max = m;
+    for (const s of activeSeries) {
+      max = Math.max(max, Number(row[s.key] ?? 0));
+    }
+    return max;
+  }, 0);
+
+  const totalInRange = data.reduce((sum, row) => {
+    let day = 0;
+    for (const s of activeSeries) {
+      day += Number(row[s.key] ?? 0);
+    }
+    return sum + day;
+  }, 0);
+
+  const yMax = Math.max(4, Math.ceil(Math.max(maxSingle, 1) * 1.25));
+  const step = yMax <= 8 ? 2 : yMax <= 20 ? 4 : 5;
   const yTicks = [];
   for (let v = 0; v <= yMax; v += step) {
     yTicks.push(v);
   }
   if (yTicks[yTicks.length - 1] < yMax) yTicks.push(yMax);
 
-  if (!data.length) {
+  if (!data.length || totalInRange === 0) {
     return (
       <div className="incident-analytics-chart-empty" style={{ height }}>
-        No data in this date range.
+        {emptyMessage}
       </div>
     );
   }
@@ -34,20 +52,6 @@ export default function IncidentVolumeTrendChart({ data, height = 320 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={data} margin={{ top: 12, right: 8, left: -12, bottom: 4 }}>
-        <defs>
-          <linearGradient id="volBurning" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={TREND_SERIES_COLORS.burning} stopOpacity={0.35} />
-            <stop offset="100%" stopColor={TREND_SERIES_COLORS.burning} stopOpacity={0.05} />
-          </linearGradient>
-          <linearGradient id="volDumping" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={TREND_SERIES_COLORS.dumping} stopOpacity={0.35} />
-            <stop offset="100%" stopColor={TREND_SERIES_COLORS.dumping} stopOpacity={0.05} />
-          </linearGradient>
-          <linearGradient id="volOther" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={TREND_SERIES_COLORS.otherViolations} stopOpacity={0.35} />
-            <stop offset="100%" stopColor={TREND_SERIES_COLORS.otherViolations} stopOpacity={0.05} />
-          </linearGradient>
-        </defs>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
         <XAxis
           dataKey="label"
@@ -78,41 +82,25 @@ export default function IncidentVolumeTrendChart({ data, height = 320 }) {
         />
         <Legend
           wrapperStyle={{ paddingTop: '0.5rem' }}
-          formatter={(value) => <span style={{ color: '#475569', fontSize: '0.82rem' }}>{value}</span>}
+          formatter={(value) => (
+            <span style={{ color: '#475569', fontSize: '0.82rem' }}>{value}</span>
+          )}
         />
-        <Area
-          name="Open burning"
-          type="monotone"
-          dataKey="burning"
-          stackId="a"
-          stroke={TREND_SERIES_COLORS.burning}
-          strokeWidth={2}
-          fill="url(#volBurning)"
-          dot={{ r: 3, strokeWidth: 1, stroke: '#fff', fill: TREND_SERIES_COLORS.burning }}
-          activeDot={{ r: 5 }}
-        />
-        <Area
-          name="Illegal dumping"
-          type="monotone"
-          dataKey="dumping"
-          stackId="b"
-          stroke={TREND_SERIES_COLORS.dumping}
-          strokeWidth={2}
-          fill="url(#volDumping)"
-          dot={{ r: 3, strokeWidth: 1, stroke: '#fff', fill: TREND_SERIES_COLORS.dumping }}
-          activeDot={{ r: 5 }}
-        />
-        <Area
-          name="Other violations"
-          type="monotone"
-          dataKey="otherViolations"
-          stackId="c"
-          stroke={TREND_SERIES_COLORS.otherViolations}
-          strokeWidth={2}
-          fill="url(#volOther)"
-          dot={{ r: 3, strokeWidth: 1, stroke: '#fff', fill: TREND_SERIES_COLORS.otherViolations }}
-          activeDot={{ r: 5 }}
-        />
+        {activeSeries.map((s) => (
+          <Area
+            key={s.key}
+            name={s.name}
+            type="monotone"
+            dataKey={s.key}
+            stackId="volume"
+            stroke={s.color}
+            strokeWidth={2}
+            fill={s.color}
+            fillOpacity={0.22}
+            dot={{ r: 3, strokeWidth: 1, stroke: '#fff', fill: s.color }}
+            activeDot={{ r: 5 }}
+          />
+        ))}
       </ComposedChart>
     </ResponsiveContainer>
   );

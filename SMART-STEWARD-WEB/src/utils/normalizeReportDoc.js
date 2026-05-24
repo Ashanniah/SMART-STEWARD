@@ -1,3 +1,5 @@
+import { resolveMapMarkerStatus } from './mapMarkerStatus';
+
 /**
  * Maps Firestore `reports` documents to the web dashboard shape.
  * Mobile / backend can use any of the alternate field names below.
@@ -6,6 +8,52 @@
 const DEFAULT_CENTER = { lat: 10.3547, lng: 123.8986 };
 const PLACEHOLDER_MEDIA =
   'https://images.unsplash.com/photo-1448375240586-882707db8887?w=960&q=80&fit=crop';
+
+/** Below this AI score (0–100), agency UI suggests verifying the classification. */
+export const AI_CLASSIFICATION_REVIEW_THRESHOLD = 70;
+
+const INCIDENT_SEVERITY_LABELS = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
+};
+
+function parseAiConfidenceFromDoc(d) {
+  if (typeof d.aiConfidence === 'number' && !Number.isNaN(d.aiConfidence)) {
+    const n = d.aiConfidence;
+    return n > 0 && n <= 1 ? Math.round(n * 100) : Math.round(n);
+  }
+  if (
+    typeof d.aiClassificationConfidence === 'number' &&
+    !Number.isNaN(d.aiClassificationConfidence)
+  ) {
+    const n = d.aiClassificationConfidence;
+    return n > 0 && n <= 1 ? Math.round(n * 100) : Math.round(n);
+  }
+  if (typeof d.confidence_score === 'number' && !Number.isNaN(d.confidence_score)) {
+    const n = d.confidence_score;
+    return n > 0 && n <= 1 ? Math.round(n * 100) : Math.round(n);
+  }
+  if (typeof d.confidence === 'number' && !Number.isNaN(d.confidence)) {
+    const n = d.confidence;
+    return n > 0 && n <= 1 ? Math.round(n * 100) : Math.round(n);
+  }
+  return null;
+}
+
+function normalizeIncidentSeverityKey(d) {
+  const raw = String(d.severity ?? d.incidentSeverity ?? d.incidentPriority ?? '')
+    .trim()
+    .toLowerCase();
+  if (['low', 'medium', 'high', 'critical'].includes(raw)) return raw;
+  return '';
+}
+
+export function formatIncidentSeverityLabel(key) {
+  const k = String(key ?? '').toLowerCase();
+  return INCIDENT_SEVERITY_LABELS[k] ?? '';
+}
 
 export function toJsDate(val) {
   if (!val) return null;
@@ -42,6 +90,33 @@ export function formatReportDateTime(d) {
     minute: '2-digit',
     hour12: true,
   });
+}
+
+export function formatReportDateOnly(d) {
+  if (!d) return '—';
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+export function formatReportTimeOnly(d) {
+  if (!d) return '—';
+  return d.toLocaleString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+/** `yyyy-MM-dd` for &lt;input type="date"&gt; comparison */
+export function reportDateIso(d) {
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function formatReportDateTimeHistory(d) {
@@ -113,9 +188,14 @@ export function normalizeReportDocument(docId, data) {
     if (typeof d.location.longitude === 'number') lng = d.location.longitude;
   }
 
-  const location =
-    String(d.locationName ?? d.address ?? (typeof d.location === 'string' ? d.location : '') ?? '').trim() ||
-    'Location not specified';
+  const locationRaw = String(
+    d.locationLine ??
+      d.locationName ??
+      d.address ??
+      (typeof d.location === 'string' ? d.location : '') ??
+      ''
+  ).trim();
+  const location = locationRaw.replace(/^location:\s*/i, '').trim() || 'Location not specified';
 
   const activity = String(
     d.activity ?? d.incidentType ?? d.title ?? d.category ?? d.type ?? 'Environmental report'
@@ -146,18 +226,18 @@ export function normalizeReportDocument(docId, data) {
   /** Must match the viewer's canonical agency (see `agencyScope.js`). Omit on older docs until backfilled. */
   const assignedAgency = String(d.assignedAgency ?? d.agency ?? '').trim();
 
-  const confidence =
-    typeof d.confidence === 'number' && !Number.isNaN(d.confidence) ? Math.round(d.confidence) : 88;
+  /** Internal only — not shown as a % in agency UI. */
+  const aiConfidenceValue = parseAiConfidenceFromDoc(d);
 
-  /** Explicit AI score when present (avoid treating default confidence as AI). */
-  const aiConfidenceValue =
-    typeof d.aiConfidence === 'number' && !Number.isNaN(d.aiConfidence)
-      ? Math.round(d.aiConfidence)
-      : typeof d.aiClassificationConfidence === 'number' && !Number.isNaN(d.aiClassificationConfidence)
-        ? Math.round(d.aiClassificationConfidence)
-        : null;
+  const incidentSeverityKey = normalizeIncidentSeverityKey(d);
+  const incidentSeverity = incidentSeverityKey;
+  const incidentSeverityLabel = incidentSeverityKey
+    ? formatIncidentSeverityLabel(incidentSeverityKey)
+    : '';
 
-  const incidentSeverity = String(d.incidentSeverity ?? d.incidentPriority ?? '').toLowerCase();
+  const needsAiReview =
+    d.needsAiReview === true ||
+    (aiConfidenceValue != null && aiConfidenceValue < AI_CLASSIFICATION_REVIEW_THRESHOLD);
 
   const aiLabel = String(d.aiLabel ?? d.aiClassification ?? '').trim();
 
@@ -183,11 +263,14 @@ export function normalizeReportDocument(docId, data) {
     videoUrl,
     hasVideo,
     reportedBy,
+    userId: String(d.userId ?? d.submitterId ?? '').trim(),
     assignedAgency,
-    confidence,
     aiConfidenceValue,
     aiLabel,
     incidentSeverity,
+    incidentSeverityKey,
+    incidentSeverityLabel,
+    needsAiReview,
     priority,
     deptReportId: d.deptReportId ? String(d.deptReportId) : `DEPT – ${createdAt?.getFullYear() ?? new Date().getFullYear()} – ${numericTail}`,
     categoryLabel: String(d.categoryLabel ?? 'Environment'),
@@ -216,26 +299,15 @@ export function normalizedToDetailView(n) {
     description: n.description,
     reportedBy: n.reportedBy,
     assignedAgency: n.assignedAgency,
-    confidence: n.confidence,
+    incidentSeverityKey: n.incidentSeverityKey,
+    incidentSeverityLabel: n.incidentSeverityLabel,
+    needsAiReview: n.needsAiReview,
     hasVideo: n.hasVideo,
     videoUrl: n.videoUrl,
     mediaUrl: n.mediaUrl,
     mapCenter: n.mapCenter,
     mapZoom: n.mapZoom,
   };
-}
-
-export function reportsToMapIncidents(reports) {
-  return reports
-    .filter((r) => r.lat != null && r.lng != null && Number.isFinite(r.lat) && Number.isFinite(r.lng))
-    .map((r) => ({
-      id: r.docId,
-      lat: r.lat,
-      lng: r.lng,
-      title: r.activity,
-      type: r.activity,
-      status: r.status === 'resolved' ? 'resolved' : 'pending',
-    }));
 }
 
 const STATUS_LABEL = {
@@ -248,4 +320,47 @@ const STATUS_LABEL = {
 
 export function statusToLabel(status) {
   return STATUS_LABEL[status] ?? STATUS_LABEL.pending;
+}
+
+/** Summary payload for map floating panel / cluster lists. */
+export function buildMapReportSummary(r) {
+  return {
+    docId: r.docId,
+    activity: r.activity,
+    location: r.location,
+    date: formatReportDateOnly(r.createdAt),
+    time: formatReportTimeOnly(r.createdAt),
+    displayId: r.id,
+    imageUrl: r.imageUrl || '',
+    hasVideo: Boolean(r.hasVideo),
+    videoUrl: r.videoUrl || '',
+    createdAtMs: r.createdAt instanceof Date ? r.createdAt.getTime() : 0,
+    assignedAgency: r.assignedAgency || '',
+    statusLabel: statusToLabel(r.status),
+    statusKey: r.status,
+  };
+}
+
+export function reportsToMapIncidents(reports) {
+  return reports
+    .filter((r) => r.lat != null && r.lng != null && Number.isFinite(r.lat) && Number.isFinite(r.lng))
+    .map((r) => {
+      const markerStatus = resolveMapMarkerStatus(r.status);
+      const summary = buildMapReportSummary(r);
+      return {
+        id: r.docId,
+        lat: r.lat,
+        lng: r.lng,
+        title: r.activity,
+        type: r.activity,
+        status: markerStatus,
+        markerStatus,
+        location: r.location,
+        reportSummary: {
+          ...summary,
+          statusKey: markerStatus,
+          statusLabel: statusToLabel(r.status),
+        },
+      };
+    });
 }

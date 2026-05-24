@@ -86,6 +86,15 @@
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackgroundBorderless">
 
+                <ImageView
+                    android:id="@+id/myActivityHeaderProfileAvatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/profile_avatar_content_desc"
+                    android:padding="6dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/default_profile" />
+
                 <TextView
                     android:id="@+id/myActivityHeaderProfileInitials"
                     android:layout_width="match_parent"
@@ -94,6 +103,7 @@
                     android:textColor="@color/profile_avatar_text"
                     android:textSize="14sp"
                     android:textStyle="bold"
+                    android:visibility="gone"
                     tools:text="RK" />
             </FrameLayout>
         </LinearLayout>
@@ -113,16 +123,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingStart="14dp"
-            android:paddingTop="14dp"
-            android:paddingEnd="14dp">
+            android:paddingStart="10dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="10dp"
+            android:baselineAligned="false">
 
             <include
                 android:id="@+id/myActivityStatTotalBlock"
                 layout="@layout/include_my_activity_stat_card"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
                 android:layout_weight="1" />
 
             <include
@@ -130,11 +141,27 @@
                 layout="@layout/include_my_activity_stat_card"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/myActivityStatInProgressBlock"
+                layout="@layout/include_my_activity_stat_card"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
                 android:layout_weight="1" />
 
             <include
                 android:id="@+id/myActivityStatResolvedBlock"
+                layout="@layout/include_my_activity_stat_card"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/myActivityStatRejectedBlock"
                 layout="@layout/include_my_activity_stat_card"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -150,22 +177,29 @@
 
             <androidx.appcompat.widget.AppCompatSpinner
                 android:id="@+id/myActivityFilterStatusSpinner"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
                 android:background="@drawable/bg_spinner_filter_green"
                 android:backgroundTint="@null"
                 android:dropDownVerticalOffset="4dp"
                 android:elevation="0dp"
-                android:minWidth="200dp"
-                android:minHeight="44dp"
+                android:minHeight="48dp"
                 android:paddingStart="14dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="36dp"
-                android:paddingBottom="10dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="40dp"
+                android:paddingBottom="12dp"
                 android:popupBackground="@android:color/white"
                 android:spinnerMode="dropdown"
                 android:stateListAnimator="@null" />
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="14dp"
+                android:contentDescription="@null"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_chevron_down" />
         </FrameLayout>
 
         <TextView

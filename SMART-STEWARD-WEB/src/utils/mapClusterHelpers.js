@@ -1,3 +1,5 @@
+import { resolveMapMarkerStatus } from './mapMarkerStatus';
+
 /**
  * Helpers for Google Maps marker clustering (dashboard).
  */
@@ -20,8 +22,8 @@ export function clusterIconDataUrl(count, accentHex) {
 export function aggregateReportCounts(incidents) {
   const out = { total: incidents.length, pending: 0, review: 0, resolved: 0, rejected: 0 };
   for (const inc of incidents) {
-    const s = inc.markerStatus ?? inc.status ?? 'pending';
-    if (s === 'review' || s === 'in_progress') out.review += 1;
+    const s = resolveMapMarkerStatus(inc.markerStatus ?? inc.status);
+    if (s === 'in_progress') out.review += 1;
     else if (s === 'resolved') out.resolved += 1;
     else if (s === 'rejected') out.rejected += 1;
     else out.pending += 1;

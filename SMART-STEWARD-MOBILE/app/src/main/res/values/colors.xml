@@ -54,7 +54,9 @@
     <color name="profile_tile_peach">#FFE0B2</color>
     <color name="profile_tile_blue">#E3F2FD</color>
     <color name="profile_section_label">#8A9B91</color>
-    <color name="profile_item_title">#1B5E20</color>
+    <color name="profile_item_title">#0D4A36</color>
+    <color name="profile_tile_neutral">#EEF2F0</color>
+    <color name="profile_chevron">#9BB0A5</color>
     <color name="ai_primary">#1B3D2F</color>
     <color name="ai_secondary">#D5E8D4</color>
     <color name="ai_page_bg">#F5F9F5</color>

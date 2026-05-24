@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BellIcon, CheckIcon } from '@heroicons/react/24/outline';
+import {
+  BellIcon,
+  CalendarIcon,
+  ClockIcon,
+  ExclamationTriangleIcon as ExclamationTriangleOutlineIcon,
+  IdentificationIcon,
+  MapPinIcon,
+} from '@heroicons/react/24/outline';
 import {
   DocumentPlusIcon,
   ExclamationTriangleIcon,
   ClipboardDocumentListIcon,
-  ClockIcon,
+  ClockIcon as ClockIconSolid,
   ArrowPathIcon,
   ArrowsRightLeftIcon,
   CpuChipIcon,
@@ -18,8 +25,12 @@ import { useAgencyNotifications } from '../context/AgencyNotificationsContext';
 import { useReportsData } from '../context/ReportsDataContext';
 import { formatRelativeTime } from '../utils/normalizeReportDoc';
 import { buildSyntheticAgencyNotifications } from '../utils/syntheticAgencyNotifications';
+import { AGENCY_NOTIFICATION_KINDS } from '../constants/agencyNotificationKinds';
 import {
+  buildNotificationDetailLines,
+  findReportForNotification,
   mergeAndSortAgencyNotifications,
+  resolveNotificationDisplayCopy,
   resolveNotificationDot,
   resolveNotificationVisualKind,
 } from '../utils/agencyNotificationPresentation';
@@ -56,84 +67,76 @@ function resolveNotificationReportDocId(rawId, reports) {
   return id;
 }
 
-function NotificationGlyph({ visual }) {
+const DETAIL_LABEL_ICONS = {
+  'Report Type': ExclamationTriangleOutlineIcon,
+  'Report ID': IdentificationIcon,
+  'Date Submitted': CalendarIcon,
+  'Time of Report': ClockIcon,
+  Location: MapPinIcon,
+};
+
+function NotificationGlyph({ visual, compact = false }) {
+  const boxClass = compact
+    ? 'notification-card__icon-box notification-card__icon-box--compact'
+    : 'notification-card__icon-box';
+  const glyphClass = compact
+    ? 'notification-card__glyph notification-card__glyph--compact'
+    : 'notification-card__glyph';
+
+  const wrap = (tone, icon, withClock = false) => (
+    <div
+      className={`${boxClass} notification-card__icon-box--${tone}${withClock ? ' notification-card__icon-box--with-clock' : ''}`}
+    >
+      {icon}
+      {withClock ? (
+        <span className="notification-card__clock-badge" aria-hidden>
+          <ClockIconSolid />
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const toneGlyph = (tone) => `${glyphClass} notification-card__glyph--tone-${tone}`;
+  const light = `${glyphClass} notification-card__glyph--light`;
+  const blue = `${glyphClass} notification-card__glyph--blue`;
+  const g = (tone, fallback) => (compact ? toneGlyph(tone) : fallback);
+
   switch (visual) {
     case 'new_report':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--danger">
-          <DocumentPlusIcon aria-hidden className="notification-card__glyph notification-card__glyph--light" />
-        </div>
-      );
+      return wrap('muted', <DocumentPlusIcon aria-hidden className={g('muted', blue)} />);
     case 'citizen_urgent':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--warn">
-          <ExclamationTriangleIcon aria-hidden className="notification-card__glyph notification-card__glyph--light" />
-        </div>
-      );
+      return wrap('warn', <ExclamationTriangleIcon aria-hidden className={g('warn', light)} />);
     case 'critical_incident':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--danger">
-          <ExclamationTriangleIcon aria-hidden className="notification-card__glyph notification-card__glyph--light" />
-        </div>
-      );
+      return wrap('danger', <ExclamationTriangleIcon aria-hidden className={g('danger', light)} />);
     case 'status_changed':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--muted">
-          <ArrowPathIcon aria-hidden className="notification-card__glyph notification-card__glyph--blue" />
-        </div>
-      );
+      return wrap('muted', <ArrowPathIcon aria-hidden className={g('muted', blue)} />);
     case 'reassigned':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--muted">
-          <ArrowsRightLeftIcon aria-hidden className="notification-card__glyph notification-card__glyph--blue" />
-        </div>
-      );
+      return wrap('muted', <ArrowsRightLeftIcon aria-hidden className={g('muted', blue)} />);
     case 'ai_classified':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--muted">
-          <CpuChipIcon aria-hidden className="notification-card__glyph notification-card__glyph--blue" />
-        </div>
-      );
+      return wrap('muted', <CpuChipIcon aria-hidden className={g('muted', blue)} />);
     case 'ai_low_confidence':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--warn">
-          <SignalSlashIcon aria-hidden className="notification-card__glyph notification-card__glyph--light" />
-        </div>
-      );
+      return wrap('warn', <SignalSlashIcon aria-hidden className={g('warn', light)} />);
     case 'ai_override':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--muted">
-          <CheckBadgeIcon aria-hidden className="notification-card__glyph notification-card__glyph--blue" />
-        </div>
-      );
+      return wrap('muted', <CheckBadgeIcon aria-hidden className={g('muted', blue)} />);
     case 'sla_warning':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--muted notification-card__icon-box--with-clock">
-          <ClockIcon aria-hidden className="notification-card__glyph notification-card__glyph--blue" />
-          <span className="notification-card__clock-badge" aria-hidden>
-            <ClockIcon />
-          </span>
-        </div>
-      );
+      return wrap('muted', <ClockIconSolid aria-hidden className={g('muted', blue)} />, true);
     case 'sla_escalation':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--warn">
-          <ShieldExclamationIcon aria-hidden className="notification-card__glyph notification-card__glyph--light" />
-        </div>
-      );
+      return wrap('warn', <ShieldExclamationIcon aria-hidden className={g('warn', light)} />);
     case 'system_access':
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--muted">
-          <WifiIcon aria-hidden className="notification-card__glyph notification-card__glyph--blue" />
-        </div>
-      );
+      return wrap('muted', <WifiIcon aria-hidden className={g('muted', blue)} />);
     default:
-      return (
-        <div className="notification-card__icon-box notification-card__icon-box--muted">
-          <ClipboardDocumentListIcon aria-hidden className="notification-card__glyph notification-card__glyph--blue" />
-        </div>
-      );
+      return wrap('muted', <ClipboardDocumentListIcon aria-hidden className={g('muted', blue)} />);
   }
+}
+
+function DetailFieldLabel({ label }) {
+  const Icon = DETAIL_LABEL_ICONS[label];
+  return (
+    <dt className="notification-card__detail-label">
+      {Icon ? <Icon aria-hidden className="notification-card__detail-label-icon" /> : null}
+      <span>{label}:</span>
+    </dt>
+  );
 }
 
 export default function NotificationsDropdown() {
@@ -152,8 +155,11 @@ export default function NotificationsDropdown() {
   const items = useMemo(() => {
     return mergedList.map((n) => {
       const visual = resolveNotificationVisualKind(n.kind);
-      const dot = resolveNotificationDot(n.kind, n.severity);
+      const dot = resolveNotificationDot();
       const unread = !readIds.has(n.id);
+      const report = findReportForNotification(n.reportDocId, reports);
+      const details = buildNotificationDetailLines(report);
+      const copy = resolveNotificationDisplayCopy(n);
       return {
         id: n.id,
         kind: n.kind,
@@ -161,16 +167,21 @@ export default function NotificationsDropdown() {
         dot,
         unread,
         pinned: Boolean(n.pinned),
-        title: n.title,
-        body: n.body,
+        title: copy.title,
+        body: copy.body,
         timeLabel: formatRelativeTime(n.createdAt),
-        reportDocId: n.reportDocId || '',
+        reportDocId: report?.docId || n.reportDocId || '',
+        details,
         synthetic: Boolean(n.synthetic),
       };
     });
-  }, [mergedList, readIds]);
+  }, [mergedList, readIds, reports]);
 
   const hasUnread = useMemo(() => items.some((n) => n.unread), [items]);
+  const allRead = useMemo(
+    () => items.length > 0 && items.every((n) => !n.unread),
+    [items]
+  );
   const unreadCount = useMemo(() => items.filter((n) => n.unread).length, [items]);
 
   const markAllRead = useCallback(() => {
@@ -181,6 +192,18 @@ export default function NotificationsDropdown() {
       return next;
     });
   }, [items]);
+
+  const markAllUnread = useCallback(() => {
+    setReadIds(() => {
+      saveReadIds(new Set());
+      return new Set();
+    });
+  }, []);
+
+  const toggleMarkAll = useCallback(() => {
+    if (hasUnread) markAllRead();
+    else markAllUnread();
+  }, [hasUnread, markAllRead, markAllUnread]);
 
   const markOneRead = useCallback((id) => {
     setReadIds((prev) => {
@@ -245,12 +268,12 @@ export default function NotificationsDropdown() {
             <h2 className="notifications-dropdown__title">Notifications</h2>
             <button
               type="button"
-              className="notifications-mark-all"
-              onClick={markAllRead}
-              disabled={!hasUnread}
+              className="notifications-mark-all-pill"
+              onClick={toggleMarkAll}
+              disabled={items.length === 0}
+              aria-pressed={allRead}
             >
-              <CheckIcon aria-hidden className="notifications-mark-all__icon" />
-              Mark all as read
+              {hasUnread ? 'Mark all as read' : 'Mark all unread'}
             </button>
           </header>
 
@@ -265,35 +288,56 @@ export default function NotificationsDropdown() {
               items.map((n) => (
                 <li key={n.id}>
                   <article
-                    className={`notification-card ${n.unread ? 'notification-card--unread' : ''} ${n.pinned ? 'notification-card--pinned' : ''}`.trim()}
+                    className={`notification-card ${n.unread ? 'notification-card--unread' : ''} ${n.pinned ? 'notification-card--pinned' : ''} ${n.kind === AGENCY_NOTIFICATION_KINDS.NEW_REPORT ? 'notification-card--new-report' : ''} ${n.kind === AGENCY_NOTIFICATION_KINDS.CITIZEN_NOTIFY ? 'notification-card--citizen-notify' : ''}`.trim()}
                   >
                     <div className="notification-card__grow">
-                      <button
-                        type="button"
-                        className="notification-card__main"
-                        onClick={() => {
-                          markOneRead(n.id);
-                          if (n.reportDocId) goView(n.reportDocId);
-                        }}
-                        aria-label={`${n.title}. ${n.body}`}
-                      >
-                        <NotificationGlyph visual={n.visual} />
+                      <div className="notification-card__main">
                         <div className="notification-card__text">
                           {n.pinned ? (
                             <p className="notification-card__badge-urgent" role="status">
                               Urgent
                             </p>
                           ) : null}
-                          <h3 className="notification-card__title">{n.title}</h3>
-                          <p className="notification-card__body">{n.body}</p>
-                          <time className="notification-card__time">{n.timeLabel}</time>
+                          <div className="notification-card__title-row">
+                            <NotificationGlyph visual={n.visual} compact />
+                            <h3 className="notification-card__title">{n.title}</h3>
+                          </div>
+                          {n.details.length > 0 ? (
+                            <dl className="notification-card__details">
+                              {n.details.map((row) => (
+                                <div key={row.label} className="notification-card__detail-row">
+                                  <DetailFieldLabel label={row.label} />
+                                  <dd>{row.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          ) : (
+                            <p className="notification-card__body">{n.body}</p>
+                          )}
+                          <div className="notification-card__footer">
+                            {n.reportDocId ? (
+                              <button
+                                type="button"
+                                className="notification-card__view-link"
+                                onClick={() => {
+                                  markOneRead(n.id);
+                                  goView(n.reportDocId);
+                                }}
+                              >
+                                View Full Details
+                              </button>
+                            ) : null}
+                            <time className="notification-card__time">{n.timeLabel}</time>
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     </div>
-                    <span
-                      className={`notification-card__dot notification-card__dot--${n.dot}`}
-                      aria-hidden
-                    />
+                    {n.unread ? (
+                      <span
+                        className={`notification-card__dot notification-card__dot--${n.dot}`}
+                        aria-hidden
+                      />
+                    ) : null}
                   </article>
                 </li>
               ))

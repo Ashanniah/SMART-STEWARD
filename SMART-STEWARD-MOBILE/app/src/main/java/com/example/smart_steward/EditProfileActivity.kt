@@ -1,15 +1,21 @@
 package com.example.smart_steward
 
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import java.util.Calendar
 
 class EditProfileActivity : AppCompatActivity() {
 
@@ -21,93 +27,164 @@ class EditProfileActivity : AppCompatActivity() {
     private lateinit var lastNameInput: EditText
     private lateinit var emailInput: EditText
     private lateinit var phoneInput: EditText
-    private lateinit var barangayInput: EditText
+    private lateinit var homeAddressInput: EditText
     private lateinit var saveButton: TextView
-    private lateinit var headerInitials: TextView
+    private lateinit var headerAvatar: ImageView
     private lateinit var headerName: TextView
     private lateinit var headerEmail: TextView
+    private lateinit var joinedBadge: TextView
+
+    private var isSaving = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_profile)
+
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.editProfileRoot)) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
 
         firstNameInput = findViewById(R.id.editProfileFirstNameInput)
         middleNameInput = findViewById(R.id.editProfileMiddleNameInput)
         lastNameInput = findViewById(R.id.editProfileLastNameInput)
         emailInput = findViewById(R.id.editProfileEmailInput)
         phoneInput = findViewById(R.id.editProfilePhoneInput)
-        barangayInput = findViewById(R.id.editProfileBarangayInput)
+        homeAddressInput = findViewById(R.id.editProfileHomeAddressInput)
         saveButton = findViewById(R.id.editProfileSaveButton)
-        headerInitials = findViewById(R.id.editProfileHeaderInitials)
+        headerAvatar = findViewById(R.id.editProfileAvatarImage)
+        ProfileInitials.bindDefaultAvatar(headerAvatar)
         headerName = findViewById(R.id.editProfileHeaderName)
         headerEmail = findViewById(R.id.editProfileHeaderEmail)
+        joinedBadge = findViewById(R.id.editProfileJoinedBadge)
 
         findViewById<ImageView>(R.id.editProfileBackButton).setOnClickListener { finish() }
+        saveButton.setOnClickListener { saveProfile() }
+
+        val nameWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                bindHeaderName(
+                    firstNameInput.text.toString(),
+                    middleNameInput.text.toString(),
+                    lastNameInput.text.toString()
+                )
+            }
+        }
+        firstNameInput.addTextChangedListener(nameWatcher)
+        middleNameInput.addTextChangedListener(nameWatcher)
+        lastNameInput.addTextChangedListener(nameWatcher)
 
         loadCurrentProfile()
-
-        saveButton.setOnClickListener { saveProfile() }
     }
 
     private fun loadCurrentProfile() {
         val user = auth.currentUser
         if (user == null) {
-            Toast.makeText(this, "Sign in to edit your profile.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.edit_profile_sign_in_required, Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        emailInput.setText(user.email.orEmpty())
-        headerEmail.text = user.email.orEmpty()
-        val uid = user.uid
-        firestore.collection("users").document(uid).get()
+
+        val email = user.email.orEmpty()
+        emailInput.setText(email)
+        headerEmail.text = email.ifBlank { getString(R.string.profile_email_placeholder) }
+
+        Toast.makeText(this, R.string.edit_profile_loading, Toast.LENGTH_SHORT).show()
+
+        firestore.collection("users").document(user.uid).get()
             .addOnSuccessListener { doc ->
                 val first = doc.getString("firstName").orEmpty()
                 val middle = doc.getString("middleName").orEmpty()
                 val last = doc.getString("lastName").orEmpty()
                 phoneInput.setText(doc.getString("phoneNumber").orEmpty())
-                barangayInput.setText(doc.getString("homeBarangay").orEmpty())
+                val home = doc.getString("homeAddress")
+                    ?: doc.getString("homeBarangay")
+                    ?: ""
+                homeAddressInput.setText(home)
+
                 if (first.isNotBlank() || middle.isNotBlank() || last.isNotBlank()) {
                     firstNameInput.setText(first)
                     middleNameInput.setText(middle)
                     lastNameInput.setText(last)
-                    bindHeaderName(first, middle, last)
                 } else {
-                    val parts = user.displayName.orEmpty().trim().split(Regex("\\s+"))
-                        .filter { it.isNotBlank() }
-                    if (parts.isNotEmpty()) {
-                        firstNameInput.setText(parts.first())
-                        if (parts.size >= 3) {
-                            middleNameInput.setText(parts.subList(1, parts.size - 1).joinToString(" "))
-                            lastNameInput.setText(parts.last())
-                        } else if (parts.size == 2) {
-                            lastNameInput.setText(parts.last())
-                        }
-                    }
-                    bindHeaderName(
-                        firstNameInput.text.toString(),
-                        middleNameInput.text.toString(),
-                        lastNameInput.text.toString()
-                    )
+                    splitDisplayNameIntoFields(user.displayName.orEmpty())
                 }
+
+                bindHeaderName(
+                    firstNameInput.text.toString(),
+                    middleNameInput.text.toString(),
+                    lastNameInput.text.toString()
+                )
+
+                val joinedYear = resolveJoinedYear(doc.getTimestamp("createdAt"), user)
+                joinedBadge.text = getString(R.string.edit_profile_joined_since, joinedYear)
+            }
+            .addOnFailureListener {
+                splitDisplayNameIntoFields(user.displayName.orEmpty())
+                bindHeaderName(
+                    firstNameInput.text.toString(),
+                    middleNameInput.text.toString(),
+                    lastNameInput.text.toString()
+                )
+                joinedBadge.text = getString(
+                    R.string.edit_profile_joined_since,
+                    Calendar.getInstance().get(Calendar.YEAR)
+                )
+                Toast.makeText(this, R.string.edit_profile_load_failed, Toast.LENGTH_LONG).show()
             }
     }
 
+    private fun splitDisplayNameIntoFields(displayName: String) {
+        val parts = displayName.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (parts.isEmpty()) return
+        firstNameInput.setText(parts.first())
+        if (parts.size >= 3) {
+            middleNameInput.setText(parts.subList(1, parts.size - 1).joinToString(" "))
+            lastNameInput.setText(parts.last())
+        } else if (parts.size == 2) {
+            lastNameInput.setText(parts.last())
+        }
+    }
+
+    private fun resolveJoinedYear(
+        createdAt: com.google.firebase.Timestamp?,
+        user: com.google.firebase.auth.FirebaseUser
+    ): Int {
+        createdAt?.toDate()?.let { return Calendar.getInstance().apply { time = it }.get(Calendar.YEAR) }
+        user.metadata?.creationTimestamp?.let { ms ->
+            if (ms > 0L) {
+                return Calendar.getInstance().apply { timeInMillis = ms }.get(Calendar.YEAR)
+            }
+        }
+        return Calendar.getInstance().get(Calendar.YEAR)
+    }
+
     private fun saveProfile() {
-        val user = auth.currentUser ?: return
+        if (isSaving) return
+        val user = auth.currentUser
+        if (user == null) {
+            Toast.makeText(this, R.string.edit_profile_sign_in_required, Toast.LENGTH_LONG).show()
+            return
+        }
+
         val first = firstNameInput.text.toString().trim()
         val middle = middleNameInput.text.toString().trim()
         val last = lastNameInput.text.toString().trim()
         val phone = phoneInput.text.toString().trim()
-        val barangay = barangayInput.text.toString().trim()
+        val homeAddress = homeAddressInput.text.toString().trim()
 
         if (first.isBlank() || last.isBlank()) {
-            Toast.makeText(this, "First name and last name are required.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.edit_profile_name_required, Toast.LENGTH_LONG).show()
             return
         }
 
         val displayName = listOf(first, middle, last).filter { it.isNotBlank() }.joinToString(" ")
-        saveButton.isEnabled = false
-        saveButton.alpha = 0.7f
+        isSaving = true
+        setSaveEnabled(false)
+        Toast.makeText(this, R.string.edit_profile_saving, Toast.LENGTH_SHORT).show()
 
         val updates = hashMapOf<String, Any>(
             "firstName" to first,
@@ -115,7 +192,9 @@ class EditProfileActivity : AppCompatActivity() {
             "lastName" to last,
             "displayName" to displayName,
             "phoneNumber" to phone,
-            "homeBarangay" to barangay
+            "homeAddress" to homeAddress,
+            "homeBarangay" to homeAddress,
+            "updatedAt" to com.google.firebase.Timestamp.now()
         )
 
         firestore.collection("users").document(user.uid)
@@ -125,18 +204,50 @@ class EditProfileActivity : AppCompatActivity() {
                     .setDisplayName(displayName)
                     .build()
                 user.updateProfile(profile)
-                    .addOnCompleteListener {
-                        bindHeaderName(first, middle, last)
-                        Toast.makeText(this, "Profile updated.", Toast.LENGTH_SHORT).show()
-                        setResult(RESULT_OK)
-                        finish()
+                    .addOnSuccessListener {
+                        onSaveComplete(first, middle, last, success = true, authFailed = false)
+                    }
+                    .addOnFailureListener {
+                        onSaveComplete(first, middle, last, success = true, authFailed = true)
                     }
             }
             .addOnFailureListener { e ->
-                saveButton.isEnabled = true
-                saveButton.alpha = 1f
-                Toast.makeText(this, e.message ?: "Failed to update profile.", Toast.LENGTH_LONG).show()
+                isSaving = false
+                setSaveEnabled(true)
+                Toast.makeText(
+                    this,
+                    e.message?.takeIf { it.isNotBlank() }
+                        ?: getString(R.string.edit_profile_save_failed),
+                    Toast.LENGTH_LONG
+                ).show()
             }
+    }
+
+    private fun onSaveComplete(
+        first: String,
+        middle: String,
+        last: String,
+        success: Boolean,
+        authFailed: Boolean
+    ) {
+        isSaving = false
+        setSaveEnabled(true)
+        bindHeaderName(first, middle, last)
+        if (success) {
+            Toast.makeText(
+                this,
+                if (authFailed) R.string.edit_profile_auth_update_failed
+                else R.string.edit_profile_saved,
+                Toast.LENGTH_LONG
+            ).show()
+            setResult(RESULT_OK)
+            finish()
+        }
+    }
+
+    private fun setSaveEnabled(enabled: Boolean) {
+        saveButton.isEnabled = enabled
+        saveButton.alpha = if (enabled) 1f else 0.65f
     }
 
     private fun bindHeaderName(first: String, middle: String, last: String) {
@@ -145,13 +256,5 @@ class EditProfileActivity : AppCompatActivity() {
             .joinToString(" ")
             .ifBlank { getString(R.string.profile_name_placeholder) }
         headerName.text = displayName
-        headerInitials.text = initialsFrom(displayName)
-    }
-
-    private fun initialsFrom(displayName: String): String {
-        val parts = displayName.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-        if (parts.isEmpty()) return "?"
-        if (parts.size == 1) return parts[0].take(2).uppercase()
-        return (parts[0].first().toString() + parts[parts.lastIndex].first().toString()).uppercase()
     }
 }

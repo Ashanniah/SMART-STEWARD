@@ -84,26 +84,18 @@ class DashboardNearIncidentsAdapter(
 
             val tag = card.findViewById<TextView>(R.id.nearRowStatus)
             tag.text = report.statusLabel
-            val color = when (report.status) {
-                ReportStatusUi.PENDING ->
-                    ContextCompat.getColor(ctx, R.color.activity_pending_orange)
-                ReportStatusUi.IN_PROGRESS ->
-                    ContextCompat.getColor(ctx, R.color.activity_progress_blue)
-                ReportStatusUi.RESOLVED ->
-                    ContextCompat.getColor(ctx, R.color.activity_resolved_green)
-                ReportStatusUi.REJECTED ->
-                    ContextCompat.getColor(ctx, R.color.activity_rejected_gray)
-            }
-            styleTag(tag, color)
+            val fill = ReportStatusColors.fillColor(ctx, report.status)
+            val text = ReportStatusColors.textColor(ctx, report.status)
+            styleTag(tag, fill, text)
             card.setOnClickListener { onTap(report) }
         }
 
-        private fun styleTag(view: TextView, color: Int) {
-            view.setTextColor(ContextCompat.getColor(view.context, R.color.white))
+        private fun styleTag(view: TextView, fillColor: Int, textColor: Int) {
+            view.setTextColor(textColor)
             view.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 18f * view.resources.displayMetrics.density
-                setColor(ColorStateList.valueOf(color))
+                setColor(ColorStateList.valueOf(fillColor))
             }
         }
     }

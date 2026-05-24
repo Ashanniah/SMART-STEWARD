@@ -25,16 +25,16 @@ export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
         subtitle: 'Update current status and add remarks for this report.',
       };
     }
-    if (pathname.startsWith('/reports/')) {
+    if (pathname.startsWith('/reports/') && !pathname.endsWith('/update')) {
       return {
         title: 'REPORT DETAILS',
-        subtitle: 'View complete report information, evidence, and location.',
+        subtitle: '',
       };
     }
     if (pathname === '/incident-analytics') {
       return {
         title: 'INCIDENT ANALYTICS',
-        subtitle: `Volume and type breakdown for reports assigned to ${cfg.userDisplayName}.`,
+        subtitle: '',
       };
     }
     if (pathname === '/profile') {
@@ -72,7 +72,17 @@ export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
         </button>
         <div className="topbar-headings">
           <h1 className="topbar-title">{pageMeta.title}</h1>
-          <p className="topbar-subtitle">{pageMeta.subtitle}</p>
+          {pathname !== '/dashboard' &&
+          pathname !== '/reports' &&
+          !(
+            pathname.startsWith('/reports/') && !pathname.endsWith('/update')
+          ) &&
+          pathname !== '/report-history' &&
+          pathname !== '/profile' &&
+          pathname !== '/incident-analytics' &&
+          pageMeta.subtitle ? (
+            <p className="topbar-subtitle">{pageMeta.subtitle}</p>
+          ) : null}
         </div>
       </div>
       <div className="topbar-right">

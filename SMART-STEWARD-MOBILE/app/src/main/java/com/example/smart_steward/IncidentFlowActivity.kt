@@ -260,6 +260,23 @@ class IncidentFlowActivity : AppCompatActivity() {
         return lastAnalysisResult?.getBooleanExtra(AiAnalysisActivity.EXTRA_REPORTABLE, true) != false
     }
 
+    private fun analysisSeverity(): String? {
+        val raw = lastAnalysisResult?.getStringExtra(AiAnalysisActivity.EXTRA_SEVERITY)?.trim().orEmpty()
+        return raw.takeIf { it.isNotBlank() && !it.equals("—", ignoreCase = true) }
+    }
+
+    private fun analysisAiConfidencePercent(): Int? {
+        val result = lastAnalysisResult ?: return null
+        val score = result.getFloatExtra(AiAnalysisActivity.EXTRA_CONFIDENCE_SCORE, Float.NaN)
+        if (score.isNaN()) return null
+        val pct = if (score in 0f..1f) {
+            (score * 100f).toInt()
+        } else {
+            score.toInt()
+        }
+        return pct.coerceIn(0, 100)
+    }
+
     private fun navigateHome(openCamera: Boolean) {
         val intent = Intent(this, DashboardActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -569,7 +586,7 @@ class IncidentFlowActivity : AppCompatActivity() {
     private fun formatAssignedAgencyLabel(raw: String): String {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return getString(R.string.review_detected_agency_short_default)
-        return trimmed
+        return AgencyCanonical.shortName(trimmed).ifBlank { trimmed }
     }
 
     private fun populateEditFromDetected() {
@@ -664,7 +681,7 @@ class IncidentFlowActivity : AppCompatActivity() {
             ).show()
             return
         }
-        val agency = assignedAgency.trim()
+        val agency = AgencyCanonical.shortName(assignedAgency).ifBlank { assignedAgency.trim() }
         if (agency.equals("N/A", ignoreCase = true) || agency.isEmpty()) {
             Toast.makeText(
                 this,
@@ -684,7 +701,7 @@ class IncidentFlowActivity : AppCompatActivity() {
             showSubmittedSuccessDialog(
                 draftId,
                 incidentType,
-                assignedAgency,
+                agency,
                 description,
                 locationLine
             )
@@ -701,13 +718,15 @@ class IncidentFlowActivity : AppCompatActivity() {
                 context = this,
                 userId = uid,
                 incidentType = incidentType,
-                assignedAgency = assignedAgency,
+                assignedAgency = agency,
                 description = description,
                 locationLine = locationLine,
                 photoBitmap = thumbnail,
                 videoUri = videoUri,
                 latitude = lat,
-                longitude = lng
+                longitude = lng,
+                severity = analysisSeverity(),
+                aiConfidence = analysisAiConfidencePercent(),
             )
             showSubmittedFromDraft(draft.id)
         }
@@ -720,19 +739,21 @@ class IncidentFlowActivity : AppCompatActivity() {
             ReportFirestore.submitReport(
                 userId = currentUserId(),
                 incidentType = incidentType,
-                assignedAgency = assignedAgency,
+                assignedAgency = agency,
                 description = description,
                 locationLine = locationLine,
                 photo = thumbnail,
                 videoUri = videoUri,
                 latitude = lat,
                 longitude = lng,
+                severity = analysisSeverity(),
+                aiConfidence = analysisAiConfidencePercent(),
                 onSuccess = { docId, _ ->
                 Toast.makeText(this, getString(R.string.submitted_success_toast), Toast.LENGTH_LONG).show()
                 showSubmittedSuccessDialog(
                     docId,
                     incidentType,
-                    assignedAgency,
+                    agency,
                     description,
                     locationLine
                 )
@@ -788,7 +809,7 @@ class IncidentFlowActivity : AppCompatActivity() {
         if (submittedDialogVisible) return
         initialAnalysisDone = true
 
-        val agencyShort = agencyShortName(assignedAgency)
+        val agencyShort = AgencyCanonical.shortName(assignedAgency)
         val ref = ReportRef.format(docId, Date())
         val now = Date()
         val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
@@ -831,13 +852,6 @@ class IncidentFlowActivity : AppCompatActivity() {
                 navigateHome(openCamera = false)
             }
         )
-    }
-
-    private fun agencyShortName(assignedAgency: String): String {
-        val inParens = Regex("\\(([^)]+)\\)").find(assignedAgency)?.groupValues?.getOrNull(1)?.trim()
-        if (!inParens.isNullOrBlank()) return inParens
-        val first = assignedAgency.split(",").firstOrNull()?.trim().orEmpty()
-        return first.ifBlank { assignedAgency }
     }
 
     private fun showState(state: ScreenState) {

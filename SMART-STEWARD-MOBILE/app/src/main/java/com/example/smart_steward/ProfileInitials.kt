@@ -1,11 +1,20 @@
 package com.example.smart_steward
 
 import android.content.Context
+import android.widget.ImageView
 import android.widget.TextView
 import com.google.firebase.auth.FirebaseAuth
 import java.util.Locale
 
 object ProfileInitials {
+
+    /** Default silhouette avatar (`default_profile.png`). */
+    fun bindDefaultAvatar(imageView: ImageView) {
+        imageView.setImageResource(R.drawable.default_profile)
+        imageView.scaleType = ImageView.ScaleType.FIT_CENTER
+        imageView.contentDescription =
+            imageView.context.getString(R.string.profile_avatar_content_desc)
+    }
 
     fun fromDisplayName(displayName: String): String {
         val parts = displayName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }

@@ -22,8 +22,8 @@ object AgencyNotificationsFirestore {
     ) {
         val targets = AgencyCanonical.parseAssignedAgencies(assignedAgency)
             .ifEmpty { listOf(AgencyCanonical.targetKey(assignedAgency)) }
-        val title = "New report received: $incidentType"
-        val body = locationLine.ifBlank { "Location not specified" }
+        val title = "New citizen report"
+        val body = ""
         val db = FirebaseFirestore.getInstance()
         for (target in targets) {
             val data = hashMapOf<String, Any>(
@@ -47,8 +47,7 @@ object AgencyNotificationsFirestore {
     ) {
         val targets = AgencyCanonical.parseAssignedAgencies(report.assignedAgency)
             .ifEmpty { listOf(AgencyCanonical.targetKey(report.assignedAgency)) }
-        val title = "Citizen alert: ${report.displayTitle()}"
-        val body = "${report.locationDisplay()} · ${report.incidentType}"
+        val title = "A citizen requested agency attention on this pending report."
         val db = FirebaseFirestore.getInstance()
         var pending = targets.size
         var failed = false
@@ -61,9 +60,8 @@ object AgencyNotificationsFirestore {
                 "targetAgency" to target,
                 "reportDocId" to report.id,
                 "title" to title,
-                "body" to body,
                 "kind" to "citizen_notify",
-                "severity" to "warning",
+                "severity" to "info",
                 "pinned" to false,
                 "incidentType" to report.incidentType,
                 "createdAt" to FieldValue.serverTimestamp()

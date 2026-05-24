@@ -374,6 +374,9 @@ object SmartStewardAiClient {
             putExtra(AiAnalysisActivity.EXTRA_DESCRIPTION, summary)
             putExtra(AiAnalysisActivity.EXTRA_LOCATION_SHORT, loc)
             putExtra(AiAnalysisActivity.EXTRA_REPORTABLE, reportable)
+            if (severity.isNotBlank() && severity != "—") {
+                putExtra(AiAnalysisActivity.EXTRA_SEVERITY, severity)
+            }
             if (!confidenceScore.isNaN()) {
                 putExtra(AiAnalysisActivity.EXTRA_CONFIDENCE_SCORE, confidenceScore.toFloat())
             }

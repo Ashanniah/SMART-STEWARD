@@ -47,6 +47,14 @@ export function parseAssignedAgencies(raw) {
   return single ? [single] : [];
 }
 
+/** Display label for UI tables and cards (canonical list, comma-separated). */
+export function formatAssignedAgenciesLabel(raw) {
+  const list = parseAssignedAgencies(raw);
+  if (list.length > 0) return list.join(', ');
+  const trimmed = String(raw ?? '').trim();
+  return trimmed || '—';
+}
+
 export function agenciesMatch(reportAgencyRaw, viewerAgencyKeyRaw) {
   const v = toCanonicalAgency(viewerAgencyKeyRaw);
   if (!v) return false;
