@@ -10,4 +10,8 @@
     <dimen name="bottom_nav_fab_lift">-22dp</dimen>
     <dimen name="dashboard_bottom_sheet_peek">268dp</dimen>
     <dimen name="report_receipt_scroll_max_height">480dp</dimen>
+    <dimen name="incident_header_height">72dp</dimen>
+    <dimen name="incident_header_padding_vertical">14dp</dimen>
+    <dimen name="notification_header_row_height">56dp</dimen>
+    <dimen name="notification_header_padding_vertical">16dp</dimen>
 </resources>

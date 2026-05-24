@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Predict incident class for one image. Prints JSON to stdout for Express hybrid layer."""
+"""
+Predict incident class for one image. Prints JSON to stdout for Express hybrid layer.
+
+DEPRECATED as of May 2026 - Replaced by cloud-based AI (Gemini 2.0 Flash via OpenRouter).
+This script is kept for reference only and will be removed in a future version.
+"""
 from __future__ import annotations
 
 import argparse

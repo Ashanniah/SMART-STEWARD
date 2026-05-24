@@ -26,23 +26,6 @@ const STAT_CONFIG = [
   },
 ];
 
-function getPaginationRange(current, total, delta = 2) {
-  if (total <= 0) return [];
-  const pages = new Set([1, total]);
-  for (let i = current - delta; i <= current + delta; i += 1) {
-    if (i >= 1 && i <= total) pages.add(i);
-  }
-  const sorted = [...pages].sort((a, b) => a - b);
-  const out = [];
-  let prev = 0;
-  for (const p of sorted) {
-    if (prev && p - prev > 1) out.push('ellipsis');
-    out.push(p);
-    prev = p;
-  }
-  return out;
-}
-
 function HistoryStatusPill({ status }) {
   const labels = {
     pending: 'Pending',

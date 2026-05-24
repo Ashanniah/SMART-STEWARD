@@ -243,7 +243,11 @@ class NotificationsListAdapter(
             title.text = item.title
             body.text = formatBody(item, agency)
             dot.visibility = if (item.read) View.GONE else View.VISIBLE
-            applyStatusBadge(ctx, statusBadgeFor(item))
+            if (!item.read) {
+                statusBadge.visibility = View.GONE
+            } else {
+                applyStatusBadge(ctx, statusBadgeFor(item))
+            }
 
             root.setOnClickListener { onClick(item) }
         }
@@ -260,6 +264,7 @@ class NotificationsListAdapter(
         }
 
         private fun applyStatusBadge(ctx: android.content.Context, badge: NotificationStatusBadge) {
+            statusBadge.visibility = View.VISIBLE
             val (labelRes, bgColor, textColor) = when (badge) {
                 NotificationStatusBadge.ALERT -> Triple(
                     R.string.notif_status_alert,
@@ -268,9 +273,9 @@ class NotificationsListAdapter(
                 )
 
                 NotificationStatusBadge.NEW -> Triple(
-                    R.string.notif_status_new,
-                    ContextCompat.getColor(ctx, R.color.register_button_green),
-                    ContextCompat.getColor(ctx, R.color.white)
+                    R.string.notif_status_read,
+                    0xFFE8F5EC.toInt(),
+                    ContextCompat.getColor(ctx, R.color.notif_title_green)
                 )
 
                 NotificationStatusBadge.READ -> Triple(

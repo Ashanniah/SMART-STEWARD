@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { generateHybridResponse } = require('../services/hybridAi');
+const { generateCloudResponse } = require('../services/cloudAi');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -10,27 +10,31 @@ const os = require('os');
 const upload = multer({ 
   dest: os.tmpdir(), // Use system temp directory
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 20 * 1024 * 1024, // 20MB limit (matches mobile app)
   }
 });
 
 router.post('/', upload.single('media'), async (req, res) => {
   try {
-    const { message } = req.body;
     const file = req.file;
 
-    if (!message && !file) {
-      return res.status(400).json({ error: 'Message or media file is required.' });
+    if (!file) {
+      return res.status(400).json({ error: 'Media file is required.' });
     }
 
-    const aiResponse = await generateHybridResponse(message, file);
+    const aiResponse = await generateCloudResponse(file);
     
     // Clean up the uploaded file if it exists
     if (file && fs.existsSync(file.path)) {
       fs.unlinkSync(file.path);
     }
 
-    res.json(aiResponse);
+  // Mobile client expects `{ response: { category, type, ... } }`; older deploys returned a flat object.
+    const body =
+      aiResponse && typeof aiResponse === 'object' && aiResponse.response != null
+        ? aiResponse
+        : { response: aiResponse };
+    res.json(body);
 
   } catch (error) {
     console.error('AI Service Error:', error);
@@ -40,8 +44,8 @@ router.post('/', upload.single('media'), async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
     
-    if (error.message === 'OPENAI_API_KEY is not configured') {
-      return res.status(500).json({ error: 'Server configuration error: OpenAI API Key missing.' });
+    if (error.message === 'OPENROUTER_API_KEY is not configured') {
+      return res.status(500).json({ error: 'Server configuration error: OpenRouter API Key missing. Please set OPENROUTER_API_KEY in your .env file.' });
     }
     
     res.status(500).json({ error: error.message || 'Failed to generate AI response. Please try again later.' });

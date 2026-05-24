@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AgencyUserProvider } from './context/AgencyUserContext';
+import { AgencyNotificationsProvider } from './context/AgencyNotificationsContext';
 import AuthLayout from './layouts/AuthLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
@@ -14,6 +16,8 @@ import Profile from './pages/Profile';
 export default function App() {
   return (
     <BrowserRouter>
+      <AgencyUserProvider>
+      <AgencyNotificationsProvider>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
 
@@ -37,6 +41,8 @@ export default function App() {
           <Route path="/report-history" element={<ReportHistory />} />
         </Route>
       </Routes>
+      </AgencyNotificationsProvider>
+      </AgencyUserProvider>
     </BrowserRouter>
   );
 }

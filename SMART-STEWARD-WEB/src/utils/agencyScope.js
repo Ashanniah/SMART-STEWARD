@@ -9,7 +9,7 @@ export function toCanonicalAgency(raw) {
   const s = String(raw ?? '')
     .trim()
     .toLowerCase();
-  if (!s) return null;
+  if (!s || s === 'n/a') return null;
 
   if (s === 'denr' || s.includes('environment and natural resources') || s === 'env') {
     return 'DENR';
@@ -31,11 +31,30 @@ export function toCanonicalAgency(raw) {
   return null;
 }
 
+/** One or more canonical agencies from Firestore (comma-separated string or array). */
+export function parseAssignedAgencies(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return [...new Set(raw.map((part) => toCanonicalAgency(part)).filter(Boolean))];
+  }
+  const s = String(raw).trim();
+  if (!s || s.toUpperCase() === 'N/A') return [];
+  const parts = s.split(/[,;]/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return [];
+  const mapped = parts.map((part) => toCanonicalAgency(part)).filter(Boolean);
+  if (mapped.length > 0) return [...new Set(mapped)];
+  const single = toCanonicalAgency(s);
+  return single ? [single] : [];
+}
+
 export function agenciesMatch(reportAgencyRaw, viewerAgencyKeyRaw) {
   const v = toCanonicalAgency(viewerAgencyKeyRaw);
-  const r = toCanonicalAgency(reportAgencyRaw);
-  if (!v || !r) return false;
-  return r === v;
+  if (!v) return false;
+  const reportAgencies = parseAssignedAgencies(reportAgencyRaw);
+  if (reportAgencies.length === 0) {
+    return toCanonicalAgency(reportAgencyRaw) === v;
+  }
+  return reportAgencies.includes(v);
 }
 
 /**

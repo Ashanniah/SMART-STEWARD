@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Fine-tune MobileNetV3 on datasets/incident-images (train/val folders)."""
+"""
+Fine-tune MobileNetV3 on datasets/incident-images (train/val folders).
+
+DEPRECATED as of May 2026 - Replaced by cloud-based AI (Gemini 2.0 Flash via OpenRouter).
+This script is kept for reference only and will be removed in a future version.
+"""
 from __future__ import annotations
 
 import json

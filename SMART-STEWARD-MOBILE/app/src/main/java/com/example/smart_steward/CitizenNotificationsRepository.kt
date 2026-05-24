@@ -101,9 +101,22 @@ object CitizenNotificationsRepository {
     }
 
     fun markAllRead(userId: String, onDone: (() -> Unit)? = null, onError: ((String) -> Unit)? = null) {
+        markAllReadState(userId, read = true, onDone, onError)
+    }
+
+    fun markAllUnread(userId: String, onDone: (() -> Unit)? = null, onError: ((String) -> Unit)? = null) {
+        markAllReadState(userId, read = false, onDone, onError)
+    }
+
+    private fun markAllReadState(
+        userId: String,
+        read: Boolean,
+        onDone: (() -> Unit)?,
+        onError: ((String) -> Unit)?
+    ) {
         if (userId.isBlank()) return
         inboxCollection(userId)
-            .whereEqualTo("read", false)
+            .whereEqualTo("read", !read)
             .get()
             .addOnSuccessListener { snap ->
                 if (snap.isEmpty) {
@@ -113,18 +126,20 @@ object CitizenNotificationsRepository {
                 val batch = firestore.batch()
                 var count = 0
                 for (doc in snap.documents) {
-                    batch.update(doc.reference, "read", true)
+                    batch.update(doc.reference, "read", read)
                     count++
                     if (count >= 450) break
                 }
                 batch.commit()
                     .addOnSuccessListener { onDone?.invoke() }
                     .addOnFailureListener { ex ->
-                        onError?.invoke(ex.message ?: "Could not mark all read.")
+                        val action = if (read) "read" else "unread"
+                        onError?.invoke(ex.message ?: "Could not mark all $action.")
                     }
             }
             .addOnFailureListener { ex ->
-                onError?.invoke(ex.message ?: "Could not mark all read.")
+                val action = if (read) "read" else "unread"
+                onError?.invoke(ex.message ?: "Could not mark all $action.")
             }
     }
 
