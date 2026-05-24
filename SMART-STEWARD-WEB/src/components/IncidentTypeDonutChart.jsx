@@ -1,13 +1,17 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
-export default function IncidentTypeDonutChart({ segments, height = 280 }) {
+export default function IncidentTypeDonutChart({
+  segments,
+  height = 280,
+  emptyMessage = 'No reports submitted this month yet.',
+}) {
   const data = segments.filter((s) => s.value > 0);
   const hasAny = segments.some((s) => s.value > 0);
 
   if (!hasAny) {
     return (
       <div className="incident-analytics-chart-empty" style={{ minHeight: height }}>
-        No reports submitted this month yet.
+        {emptyMessage}
       </div>
     );
   }
@@ -44,14 +48,17 @@ export default function IncidentTypeDonutChart({ segments, height = 280 }) {
         </PieChart>
       </ResponsiveContainer>
       <div className="incident-analytics-donut-legend">
-        {segments.map((s) => (
-          <span key={s.key} className="incident-analytics-donut-legend__item">
-            <i className="incident-analytics-donut-legend__swatch" style={{ background: s.color }} />
-            <span className="incident-analytics-donut-legend__text">
-              {s.name} <strong>{s.percent}%</strong>
+        {segments
+          .filter((s) => s.value > 0)
+          .map((s) => (
+            <span key={s.key} className="incident-analytics-donut-legend__item">
+              <i className="incident-analytics-donut-legend__swatch" style={{ background: s.color }} />
+              <span className="incident-analytics-donut-legend__text">
+                {s.name} <strong>{s.percent}%</strong>
+                <span className="incident-analytics-donut-legend__count"> ({s.value})</span>
+              </span>
             </span>
-          </span>
-        ))}
+          ))}
       </div>
     </div>
   );

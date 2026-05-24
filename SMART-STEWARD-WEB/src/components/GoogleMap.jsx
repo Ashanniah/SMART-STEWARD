@@ -9,6 +9,10 @@ import {
   inferClusterHeadline,
   mostRecentIncident,
 } from '../utils/mapClusterHelpers';
+import {
+  mapIncidentsStatusSignature,
+  resolveMapMarkerStatus,
+} from '../utils/mapMarkerStatus';
 
 const mapContainerStyle = {
   width: '100%',
@@ -91,15 +95,6 @@ function markerKey(incident) {
   return String(incident.id);
 }
 
-function resolveMarkerStatus(incident) {
-  const s = incident.markerStatus ?? incident.status ?? 'pending';
-  if (s === 'resolved') return 'resolved';
-  if (s === 'rejected') return 'rejected';
-  if (s === 'review') return 'review';
-  if (s === 'in_progress') return 'in_progress';
-  return 'pending';
-}
-
 const defaultIncidents = [];
 
 export default function GoogleMapComponent({
@@ -126,6 +121,7 @@ export default function GoogleMapComponent({
   const mapRef = useRef(null);
   const geocodeRunRef = useRef(0);
   const clustererRef = useRef(null);
+  const incidentsRef = useRef([]);
 
   const mergedIncidents = useMemo(() => {
     return incidents.map((inc) => {
@@ -174,6 +170,49 @@ export default function GoogleMapComponent({
     });
     return out;
   }, [placedIncidents]);
+
+  const incidentsStatusSignature = useMemo(
+    () => mapIncidentsStatusSignature(placedIncidents),
+    [placedIncidents]
+  );
+
+  useEffect(() => {
+    incidentsRef.current = adjustedIncidents;
+  }, [adjustedIncidents]);
+
+  useEffect(() => {
+    setFloating((prev) => {
+      if (!prev) return prev;
+
+      if (prev.variant === 'single' && prev.incident) {
+        const latest =
+          adjustedIncidents.find((i) => String(i.id) === String(prev.incident.id)) ??
+          prev.incident;
+        if (resolveMapMarkerStatus(prev.incident) === resolveMapMarkerStatus(latest)) {
+          return prev;
+        }
+        return { variant: 'single', incident: latest };
+      }
+
+      if (prev.variant === 'cluster' && prev.clusterPayload?.incidents?.length) {
+        const idSet = new Set(prev.clusterPayload.incidents.map((i) => String(i.id)));
+        const refreshed = adjustedIncidents.filter((i) => idSet.has(String(i.id)));
+        if (refreshed.length < 2) return prev;
+        const prevSig = mapIncidentsStatusSignature(prev.clusterPayload.incidents);
+        const nextSig = mapIncidentsStatusSignature(refreshed);
+        if (prevSig === nextSig) return prev;
+        const counts = aggregateReportCounts(refreshed);
+        const { headline, sub } = inferClusterHeadline(refreshed);
+        const recent = mostRecentIncident(refreshed);
+        return {
+          variant: 'cluster',
+          clusterPayload: { counts, headline, sub, recent, incidents: refreshed },
+        };
+      }
+
+      return prev;
+    });
+  }, [incidentsStatusSignature, adjustedIncidents]);
 
   useEffect(() => {
     const ids = new Set(incidents.map((i) => i.id));
@@ -286,13 +325,16 @@ export default function GoogleMapComponent({
     }
 
     const markers = list.map((inc) => {
+      const markerStatus = resolveMapMarkerStatus(inc);
       const m = new g.Marker({
         position: { lat: inc.lat, lng: inc.lng },
-        icon: buildMapPinIcon(resolveMarkerStatus(inc), g),
+        icon: buildMapPinIcon(markerStatus, g),
       });
       m.set('incident', inc);
       m.addListener('click', () => {
-        setFloating({ variant: 'single', incident: inc });
+        const latest =
+          incidentsRef.current.find((i) => String(i.id) === String(inc.id)) ?? inc;
+        setFloating({ variant: 'single', incident: latest });
       });
       return m;
     });
@@ -306,7 +348,13 @@ export default function GoogleMapComponent({
         const group = cluster.markers || [];
         if (group.length < 2) return;
         const incidentsInCluster = group
-          .map((mk) => (typeof mk.get === 'function' ? mk.get('incident') : null))
+          .map((mk) => {
+            const stored = typeof mk.get === 'function' ? mk.get('incident') : null;
+            if (!stored) return null;
+            return (
+              incidentsRef.current.find((i) => String(i.id) === String(stored.id)) ?? stored
+            );
+          })
           .filter(Boolean);
         if (incidentsInCluster.length < 2) return;
         const counts = aggregateReportCounts(incidentsInCluster);
@@ -332,7 +380,7 @@ export default function GoogleMapComponent({
         clustererRef.current = null;
       }
     };
-  }, [clustering, isLoaded, mapInstance, adjustedIncidents]);
+  }, [clustering, isLoaded, mapInstance, adjustedIncidents, incidentsStatusSignature]);
 
   useEffect(() => {
     if (!selectedIncident) return;
@@ -407,7 +455,7 @@ export default function GoogleMapComponent({
         <Marker
           key={markerKey(incident)}
           position={{ lat: incident.lat, lng: incident.lng }}
-          icon={buildMapPinIcon(resolveMarkerStatus(incident), window.google.maps)}
+          icon={buildMapPinIcon(resolveMapMarkerStatus(incident), window.google.maps)}
           onClick={() => onMarkerClick(incident)}
         />
       ))}
@@ -428,10 +476,10 @@ export default function GoogleMapComponent({
                 style={{
                   margin: '2px 0 0',
                   fontSize: '0.77rem',
-                  color: statusColorForMarker(resolveMarkerStatus(selectedIncident)),
+                  color: statusColorForMarker(resolveMapMarkerStatus(selectedIncident)),
                 }}
               >
-                Status: {statusLabelForMarker(resolveMarkerStatus(selectedIncident))}
+                Status: {statusLabelForMarker(resolveMapMarkerStatus(selectedIncident))}
               </p>
             </div>
           </InfoWindow>

@@ -8,9 +8,10 @@ import {
   PlayIcon,
 } from '@heroicons/react/24/solid';
 import { statusBadgeLabel } from '../utils/mapClusterHelpers';
-
-const PLACEHOLDER_IMG =
-  'https://images.unsplash.com/photo-1448375240586-882707db8887?w=160&h=100&fit=crop&q=80';
+import { resolveMapMarkerStatus } from '../utils/mapMarkerStatus';
+import { statusToLabel } from '../utils/normalizeReportDoc';
+import RecentReportRow from './RecentReportRow';
+import MediaLightbox from './MediaLightbox';
 
 function buildLocationDescription(incidents) {
   const activities = incidents
@@ -34,20 +35,67 @@ function StatChip({ color, label, value }) {
   );
 }
 
+function resolveSingleReportProps(incident) {
+  const s = incident.reportSummary || {};
+  const statusKey = resolveMapMarkerStatus(
+    incident.markerStatus ?? incident.status ?? s.statusKey ?? 'pending'
+  );
+  const imageUrl = (s.imageUrl || '').trim();
+  const videoUrl = (s.videoUrl || '').trim();
+  const hasVideo = Boolean(s.hasVideo) || videoUrl.length > 0;
+
+  return {
+    docId: String(s.docId ?? incident.id ?? '').trim(),
+    reportType: s.activity ?? incident.title ?? 'Report',
+    location: s.location ?? incident.location ?? '—',
+    dateSubmitted: s.date ?? '—',
+    timeOfReport: s.time ?? '—',
+    assignedAgency: s.assignedAgency ?? '',
+    imageUrl: imageUrl || undefined,
+    hasVideo,
+    videoUrl,
+    statusLabel: s.statusLabel ?? statusToLabel(statusKey),
+    statusKey,
+  };
+}
+
+function ClusterThumb({ summary, activity, title }) {
+  const imageUrl = (summary.imageUrl || '').trim();
+  const hasVideo = Boolean(summary.hasVideo);
+  if (!imageUrl) {
+    return (
+      <span
+        className="map-overlay-detail__row-thumb map-overlay-detail__row-thumb--empty"
+        aria-hidden
+      />
+    );
+  }
+  return (
+    <span className="map-overlay-detail__row-thumb-wrap">
+      <span
+        className="map-overlay-detail__row-thumb"
+        style={{ backgroundImage: `url(${imageUrl})` }}
+        role="img"
+        aria-label={activity ?? title ?? 'Report media'}
+      />
+      {hasVideo ? (
+        <span className="map-overlay-detail__row-play" aria-hidden>
+          <PlayIcon />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export default function MapReportFloatingPanel({ open, variant, onClose, incident, clusterPayload }) {
   const navigate = useNavigate();
   const [showClusterDetails, setShowClusterDetails] = useState(false);
+  const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
 
   if (!open) return null;
 
   if (variant === 'single' && incident) {
-    const s = incident.reportSummary || {};
-    const docId = s.docId ?? incident.id;
-    const title = s.activity ?? incident.title ?? 'Report';
-    const loc = s.location ?? '—';
-    const date = s.date ?? '—';
-    const status = incident.markerStatus ?? incident.status ?? 'pending';
-    const img = (s.imageUrl || '').trim() || PLACEHOLDER_IMG;
+    const row = resolveSingleReportProps(incident);
 
     return (
       <div className="map-overlay-root" role="dialog" aria-modal="true" aria-label="Report details">
@@ -56,32 +104,33 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
           <button type="button" className="map-overlay-close" onClick={onClose} aria-label="Close">
             <XMarkIcon className="map-overlay-close__icon" />
           </button>
-          <div className="map-overlay-single__row">
-            <div className="map-overlay-single__text">
-              <h3 className="map-overlay-single__title">{title}</h3>
-              <p className="map-overlay-single__meta">{loc}</p>
-              <span className={`map-overlay-badge map-overlay-badge--${status}`}>
-                {statusBadgeLabel(status)}
-              </span>
-              <p className="map-overlay-single__date">
-                <CalendarDaysIcon className="map-overlay-single__cal" aria-hidden />
-                {date}
-              </p>
-            </div>
-            <img className="map-overlay-single__thumb" src={img} alt="" />
-          </div>
-          <button
-            type="button"
-            className="map-overlay-cta"
-            onClick={() => {
-              onClose();
-              navigate(`/reports/${encodeURIComponent(String(docId))}`);
-            }}
-          >
-            View report
-            <ChevronRightIcon className="map-overlay-cta__chev" aria-hidden />
-          </button>
+          <RecentReportRow
+            docId={row.docId}
+            reportType={row.reportType}
+            location={row.location}
+            dateSubmitted={row.dateSubmitted}
+            timeOfReport={row.timeOfReport}
+            assignedAgency={row.assignedAgency}
+            imageUrl={row.imageUrl}
+            hasVideo={row.hasVideo}
+            statusLabel={row.statusLabel}
+            statusKey={row.statusKey}
+            onMediaClick={() =>
+              setMediaPreview({
+                open: true,
+                type: row.hasVideo && row.videoUrl ? 'video' : 'image',
+                src: row.hasVideo && row.videoUrl ? row.videoUrl : row.imageUrl || '',
+              })
+            }
+          />
         </div>
+        <MediaLightbox
+          open={mediaPreview.open}
+          type={mediaPreview.type}
+          src={mediaPreview.src}
+          alt={row.reportType}
+          onClose={() => setMediaPreview({ open: false, type: 'image', src: '' })}
+        />
       </div>
     );
   }
@@ -90,7 +139,7 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
     const { counts, headline, sub, recent, incidents = [] } = clusterPayload;
     const rs = recent?.reportSummary || {};
     const recentStatus = recent?.markerStatus ?? recent?.status ?? 'pending';
-    const recentImg = (rs.imageUrl || '').trim() || PLACEHOLDER_IMG;
+    const recentImage = (rs.imageUrl || '').trim();
     const locationLabel = [headline, sub].filter(Boolean).join(', ');
 
     const detailRows = [...incidents]
@@ -145,7 +194,6 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
                 {detailRows.map((inc) => {
                   const summary = inc.reportSummary || {};
                   const status = inc.markerStatus ?? inc.status ?? 'pending';
-                  const img = (summary.imageUrl || '').trim() || PLACEHOLDER_IMG;
                   return (
                     <button
                       key={inc.id}
@@ -157,14 +205,11 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
                         navigate(`/reports/${encodeURIComponent(String(summary.docId ?? inc.id))}`);
                       }}
                     >
-                      <span className="map-overlay-detail__row-thumb-wrap">
-                        <img src={img} alt="" className="map-overlay-detail__row-thumb" />
-                        {summary.hasVideo ? (
-                          <span className="map-overlay-detail__row-play" aria-hidden>
-                            <PlayIcon />
-                          </span>
-                        ) : null}
-                      </span>
+                      <ClusterThumb
+                        summary={summary}
+                        activity={summary.activity}
+                        title={inc.title}
+                      />
                       <span className="map-overlay-detail__row-main">
                         <strong>{summary.activity ?? inc.title}</strong>
                         <small>{summary.displayId ?? inc.id}</small>
@@ -195,7 +240,11 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
             <MapPinIcon className="map-overlay-cluster__pin" aria-hidden />
             <div>
               <h3 className="map-overlay-cluster__title">{headline}</h3>
-              {sub ? <p className="map-overlay-cluster__sub">{sub}</p> : <p className="map-overlay-cluster__sub">{locationLabel}</p>}
+              {sub ? (
+                <p className="map-overlay-cluster__sub">{sub}</p>
+              ) : (
+                <p className="map-overlay-cluster__sub">{locationLabel}</p>
+              )}
             </div>
           </header>
 
@@ -222,7 +271,16 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
                     {rs.date ?? '—'}
                   </p>
                 </div>
-                <img className="map-overlay-cluster__recent-thumb" src={recentImg} alt="" />
+                {recentImage ? (
+                  <span
+                    className="map-overlay-cluster__recent-thumb"
+                    style={{ backgroundImage: `url(${recentImage})` }}
+                    role="img"
+                    aria-label="Recent report"
+                  />
+                ) : (
+                  <span className="map-overlay-cluster__recent-thumb map-overlay-cluster__recent-thumb--empty" />
+                )}
               </div>
             </section>
           ) : null}

@@ -28,7 +28,8 @@ class ReportHistoryAdapter(
     }
 
     private val items = ArrayList<ReportHistoryListItem>()
-    private val dayFmt = SimpleDateFormat("MMM d", Locale.getDefault())
+    private val dayFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    private val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
 
     fun submitItems(newItems: List<ReportHistoryListItem>) {
         items.clear()
@@ -58,7 +59,12 @@ class ReportHistoryAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val item = items[position]) {
             is ReportHistoryListItem.MonthHeader -> (holder as MonthVH).bind(item)
-            is ReportHistoryListItem.ReportRow -> (holder as ReportVH).bind(item.report, dayFmt, onViewReport)
+            is ReportHistoryListItem.ReportRow -> (holder as ReportVH).bind(
+                item.report,
+                dayFmt,
+                timeFmt,
+                onViewReport
+            )
         }
     }
 
@@ -76,6 +82,7 @@ class ReportHistoryAdapter(
         fun bind(
             report: UserReport,
             dayFmt: SimpleDateFormat,
+            timeFmt: SimpleDateFormat,
             onViewReport: (UserReport) -> Unit
         ) {
             val ctx = itemView.context
@@ -88,29 +95,33 @@ class ReportHistoryAdapter(
                 .ifBlank { "—" }
             itemView.findViewById<TextView>(R.id.historyLocation).text = loc
 
-            itemView.findViewById<TextView>(R.id.historyDate).text =
-                report.submittedAt?.let { dayFmt.format(it) } ?: "—"
+            val submitted = report.submittedAt
+            val dateLine = when {
+                submitted == null -> "—"
+                else -> "${dayFmt.format(submitted)} · ${timeFmt.format(submitted)}"
+            }
+            itemView.findViewById<TextView>(R.id.historyDate).text = dateLine
 
             val statusBadge = itemView.findViewById<TextView>(R.id.historyStatusBadge)
             statusBadge.text = report.statusLabel
-            val statusColor = statusColorFor(report.status, ctx)
-            stylePill(statusBadge, statusColor, textOnFill = true)
+            val fill = ReportStatusColors.fillColor(ctx, report.status)
+            val text = ReportStatusColors.textColor(ctx, report.status)
+            stylePill(statusBadge, fill, text)
 
-            val dot = itemView.findViewById<View>(R.id.historyTimelineDot)
-            dot.background = circleDrawable(statusColor)
+            itemView.findViewById<View>(R.id.historyStatusAccent).setBackgroundColor(fill)
 
             val (emoji, tileColor) = typeVisuals(report.incidentType)
             val iconView = itemView.findViewById<TextView>(R.id.historyTypeIcon)
             val thumb = itemView.findViewById<ImageView>(R.id.historyThumb)
             iconView.text = emoji
-            iconView.background = roundedRect(ContextCompat.getColor(ctx, tileColor), dp(ctx, 10f))
+            iconView.background = roundedRect(ContextCompat.getColor(ctx, tileColor), dp(ctx, 12f))
             val photoUrl = report.photoUrl.trim()
             if (photoUrl.isNotEmpty()) {
                 thumb.visibility = View.VISIBLE
                 iconView.visibility = View.GONE
                 thumb.load(photoUrl) {
                     crossfade(true)
-                    transformations(RoundedCornersTransformation(dp(ctx, 10f)))
+                    transformations(RoundedCornersTransformation(dp(ctx, 12f)))
                     listener(
                         onError = { _, _ ->
                             thumb.visibility = View.GONE
@@ -125,29 +136,24 @@ class ReportHistoryAdapter(
             }
 
             val agencyChip = itemView.findViewById<TextView>(R.id.historyAgencyChip)
-            val agency = AgencyCanonical.shortName(report.assignedAgency)
-            agencyChip.text = agency
+            agencyChip.text = AgencyCanonical.shortName(report.assignedAgency).ifBlank { "—" }
             stylePill(
                 agencyChip,
                 ContextCompat.getColor(ctx, R.color.activity_chip_bg),
-                textOnFill = false,
-                textColor = ContextCompat.getColor(ctx, R.color.activity_muted)
+                ContextCompat.getColor(ctx, R.color.activity_muted)
             )
 
             val metaChip = itemView.findViewById<TextView>(R.id.historyMetaChip)
-            if (report.status == ReportStatusUi.REJECTED) {
-                val reason = report.description.trim().take(48).ifBlank {
-                    report.displayReportRef()
-                }
-                metaChip.text = reason
-            } else {
-                metaChip.text = report.displayReportRef()
+            val note = report.lastStatusNote.trim()
+            metaChip.text = when {
+                report.status == ReportStatusUi.REJECTED && note.isNotEmpty() ->
+                    note.take(56).let { if (note.length > 56) "$it…" else it }
+                else -> report.displayReportRef()
             }
             stylePill(
                 metaChip,
                 ContextCompat.getColor(ctx, R.color.activity_chip_bg),
-                textOnFill = false,
-                textColor = ContextCompat.getColor(ctx, R.color.activity_muted)
+                ContextCompat.getColor(ctx, R.color.activity_muted)
             )
 
             itemView.findViewById<TextView>(R.id.historyViewAction).setOnClickListener {
@@ -156,36 +162,10 @@ class ReportHistoryAdapter(
             itemView.setOnClickListener { onViewReport(report) }
         }
 
-        private fun statusColorFor(status: ReportStatusUi, ctx: android.content.Context): Int =
-            when (status) {
-                ReportStatusUi.PENDING ->
-                    ContextCompat.getColor(ctx, R.color.activity_progress_blue)
-                ReportStatusUi.IN_PROGRESS ->
-                    ContextCompat.getColor(ctx, R.color.activity_progress_blue)
-                ReportStatusUi.RESOLVED ->
-                    ContextCompat.getColor(ctx, R.color.activity_resolved_green)
-                ReportStatusUi.REJECTED ->
-                    ContextCompat.getColor(ctx, R.color.activity_rejected_gray)
-            }
-
-        private fun stylePill(
-            tv: TextView,
-            fillColor: Int,
-            textOnFill: Boolean,
-            textColor: Int? = null
-        ) {
+        private fun stylePill(tv: TextView, fillColor: Int, textColor: Int) {
             tv.background = roundedRect(fillColor, dp(tv.context, 20f))
-            tv.setTextColor(
-                textColor ?: if (textOnFill) 0xFFFFFFFF.toInt()
-                else ContextCompat.getColor(tv.context, R.color.activity_title_bar)
-            )
+            tv.setTextColor(textColor)
         }
-
-        private fun circleDrawable(color: Int): GradientDrawable =
-            GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(color)
-            }
 
         private fun roundedRect(color: Int, radiusPx: Float): GradientDrawable =
             GradientDrawable().apply {
@@ -199,14 +179,13 @@ class ReportHistoryAdapter(
         private fun typeVisuals(incidentType: String): Pair<String, Int> {
             val t = incidentType.lowercase(Locale.getDefault())
             return when {
-                t.contains("burn") || t.contains("fire") -> "🔥" to R.color.activity_pending_orange
+                t.contains("burn") || t.contains("fire") || t.contains("arson") ->
+                    "🔥" to R.color.profile_tile_peach
                 t.contains("dump") || t.contains("waste") || t.contains("garbage") ->
-                    "🗑️" to R.color.activity_progress_blue
+                    "🗑️" to R.color.profile_tile_blue
                 t.contains("log") || t.contains("tree") || t.contains("forest") ->
-                    "🌳" to R.color.activity_resolved_green
-                t.contains("poach") || t.contains("hunt") || t.contains("wildlife") ->
-                    "🛡️" to R.color.activity_progress_blue
-                else -> "📋" to R.color.activity_chip_bg
+                    "🌳" to R.color.profile_tile_green
+                else -> "📋" to R.color.profile_tile_neutral
             }
         }
     }

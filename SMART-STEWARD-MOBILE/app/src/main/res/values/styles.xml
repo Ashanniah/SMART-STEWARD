@@ -36,6 +36,26 @@
         <item name="android:textFontWeight">700</item>
     </style>
 
+    <style name="TextAppearance.SMARTSTEWARD.ProfileMenuTitle">
+        <item name="android:textColor">@color/profile_item_title</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.SMARTSTEWARD.ProfileMenuSubtitle">
+        <item name="android:textColor">@color/activity_muted</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="TextAppearance.SMARTSTEWARD.ProfileSectionLabel">
+        <item name="android:textColor">@color/profile_section_label</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
     <style name="HistoryFilterChip">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">36dp</item>

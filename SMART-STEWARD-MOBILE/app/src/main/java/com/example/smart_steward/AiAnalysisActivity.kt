@@ -42,6 +42,7 @@ class AiAnalysisActivity : AppCompatActivity() {
         const val EXTRA_DESCRIPTION = "extra_description"
         const val EXTRA_LOCATION_SHORT = "extra_location_short"
         const val EXTRA_REPORTABLE = "extra_reportable"
+        const val EXTRA_SEVERITY = "extra_severity"
         const val EXTRA_CONFIDENCE_SCORE = "extra_confidence_score"
     }
 

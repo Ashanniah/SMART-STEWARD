@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  UserCircleIcon,
+  MapPinIcon,
+  ShieldCheckIcon,
+  ClockIcon,
+  EnvelopeIcon,
+  BellAlertIcon,
+  KeyIcon,
+  Cog6ToothIcon,
+} from '@heroicons/react/24/outline';
 import { PROFILE_CONFIG } from '../config/profileConfig';
 import { USERS_COLLECTION } from '../constants/agencyAuth';
 import { getFirebaseAuth, getFirestoreDb } from '../firebase/config';
@@ -14,7 +24,7 @@ const TABS = [
 
 function Toggle({ id, label, checked, onChange }) {
   return (
-    <div className="profile-toggle">
+    <div className="profile-toggle-card">
       <span className="profile-toggle__label" id={`${id}-label`}>
         {label}
       </span>
@@ -29,6 +39,20 @@ function Toggle({ id, label, checked, onChange }) {
       >
         <span className="profile-toggle__knob" />
       </button>
+    </div>
+  );
+}
+
+function MetaRow({ Icon, label, children }) {
+  return (
+    <div className="profile-summary__meta-row">
+      <span className="profile-summary__meta-icon" aria-hidden>
+        <Icon />
+      </span>
+      <div>
+        <dt>{label}</dt>
+        <dd>{children}</dd>
+      </div>
     </div>
   );
 }
@@ -222,35 +246,30 @@ export default function Profile() {
   }, [email, firstName, middleName, lastName, notifEmail, notifPush, notifWeekly]);
 
   return (
-    <div className="profile-page profile-page--fill fade-in">
-      <header className="profile-page__header">
-        <h1 className="profile-page__title">PROFILE &amp; SETTINGS</h1>
-        <p className="profile-page__subtitle">
-          Manage your account and system preferences for {PROFILE_CONFIG.subtitleJurisdiction}
-        </p>
-      </header>
-
+    <div className="profile-page fade-in">
       <div className="profile-page__grid">
         <aside className="profile-summary" aria-label="Profile summary">
-          <div className="profile-summary__avatar">
-            <img src={avatarDefault} alt="" width={72} height={72} />
+          <div className="profile-summary__avatar-wrap">
+            <div className="profile-summary__avatar">
+              <img src={avatarDefault} alt="" width={88} height={88} />
+            </div>
           </div>
           <div className="profile-summary__name">{profileDisplayName}</div>
           <div className="profile-summary__role">{roleLabel || PROFILE_CONFIG.roleLabel}</div>
-          <hr className="profile-summary__rule" />
+          <span className="profile-summary__status-pill">
+            <ShieldCheckIcon aria-hidden />
+            {PROFILE_CONFIG.accountStatus}
+          </span>
           <dl className="profile-summary__meta">
-            <div>
-              <dt>Jurisdiction</dt>
-              <dd>{PROFILE_CONFIG.jurisdiction}</dd>
-            </div>
-            <div>
-              <dt>Account Status</dt>
-              <dd className="profile-summary__status">{PROFILE_CONFIG.accountStatus}</dd>
-            </div>
-            <div>
-              <dt>Last Login</dt>
-              <dd>{PROFILE_CONFIG.lastLogin}</dd>
-            </div>
+            <MetaRow Icon={MapPinIcon} label="Jurisdiction">
+              {PROFILE_CONFIG.jurisdiction}
+            </MetaRow>
+            <MetaRow Icon={ClockIcon} label="Last Login">
+              {PROFILE_CONFIG.lastLogin}
+            </MetaRow>
+            <MetaRow Icon={EnvelopeIcon} label="Email">
+              {email || accountEmail || PROFILE_CONFIG.email}
+            </MetaRow>
           </dl>
         </aside>
 
@@ -280,8 +299,11 @@ export default function Profile() {
           >
             {activeTab === 'account' && (
               <>
-                <section className="profile-section">
-                  <h2 className="profile-section__title">Personal Information</h2>
+                <section className="profile-section profile-section--card">
+                  <h2 className="profile-section__title">
+                    <UserCircleIcon aria-hidden />
+                    Personal Information
+                  </h2>
                   <div className="profile-fields">
                     <label className="profile-field" htmlFor="profile-firstname">
                       <span className="profile-field__label">First Name</span>
@@ -327,8 +349,11 @@ export default function Profile() {
                   </div>
                 </section>
 
-                <section className="profile-section">
-                  <h2 className="profile-section__title">Notification Preferences</h2>
+                <section className="profile-section profile-section--card">
+                  <h2 className="profile-section__title">
+                    <BellAlertIcon aria-hidden />
+                    Notification Preferences
+                  </h2>
                   <div className="profile-toggles">
                     <Toggle
                       id="notif-pending"
@@ -377,8 +402,11 @@ export default function Profile() {
 
             {activeTab === 'security' && (
               <>
-                <section className="profile-section">
-                  <h2 className="profile-section__title">Change Password</h2>
+                <section className="profile-section profile-section--card">
+                  <h2 className="profile-section__title">
+                    <KeyIcon aria-hidden />
+                    Change Password
+                  </h2>
                   <p className="profile-section__hint">
                     Use a strong password you do not reuse on other sites.
                   </p>
@@ -428,8 +456,11 @@ export default function Profile() {
 
             {activeTab === 'preferences' && (
               <>
-                <section className="profile-section">
-                  <h2 className="profile-section__title">System Preferences</h2>
+                <section className="profile-section profile-section--card">
+                  <h2 className="profile-section__title">
+                    <Cog6ToothIcon aria-hidden />
+                    System Preferences
+                  </h2>
                   <p className="profile-section__hint">
                     These options apply to your session in Smart Steward.
                   </p>

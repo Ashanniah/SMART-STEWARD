@@ -1,28 +1,46 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import {
+  ClipboardDocumentListIcon,
+  CheckCircleIcon,
+  IdentificationIcon,
   FireIcon,
   MapPinIcon,
   DocumentTextIcon,
   UserIcon,
   BuildingOffice2Icon,
   PhotoIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { PlayIcon } from '@heroicons/react/24/solid';
 import GoogleMapComponent from '../components/GoogleMap';
+import MediaLightbox from '../components/MediaLightbox';
 import { useReportsData } from '../context/ReportsDataContext';
-import { normalizedToDetailView } from '../utils/normalizeReportDoc';
+import { normalizedToDetailView, reportsToMapIncidents } from '../utils/normalizeReportDoc';
 
-function StatusHeaderBadge({ status }) {
-  const map = {
-    pending: { label: 'PENDING', className: 'report-detail__pill report-detail__pill--pending' },
-    review: { label: 'IN PROGRESS', className: 'report-detail__pill report-detail__pill--review' },
-    in_progress: { label: 'IN PROGRESS', className: 'report-detail__pill report-detail__pill--in_progress' },
-    resolved: { label: 'RESOLVED', className: 'report-detail__pill report-detail__pill--resolved' },
-    rejected: { label: 'REJECTED', className: 'report-detail__pill report-detail__pill--rejected' },
+function DetailSeverityBadge({ severityKey, label }) {
+  const key = severityKey || 'unknown';
+  const text = label || 'Not assessed';
+  return (
+    <span className={`report-detail-severity report-detail-severity--${key}`}>{text}</span>
+  );
+}
+
+function DetailStatusBadge({ status }) {
+  const labels = {
+    pending: 'Pending',
+    review: 'In Progress',
+    in_progress: 'In Progress',
+    resolved: 'Resolved',
+    rejected: 'Rejected',
   };
-  const item = map[status] ?? map.pending;
-  return <span className={item.className}>{item.label}</span>;
+  const pillStatus =
+    status === 'review' ? 'in_progress' : status === 'rejected' ? 'rejected' : status;
+  return (
+    <span className={`reports-status reports-status--${pillStatus}`}>
+      {labels[status] ?? status}
+    </span>
+  );
 }
 
 export default function ReportDetail() {
@@ -30,25 +48,16 @@ export default function ReportDetail() {
   const navigate = useNavigate();
   const id = reportId ? decodeURIComponent(reportId) : '';
 
-  const { loading, reportByDocId } = useReportsData();
+  const { loading, error, reportByDocId } = useReportsData();
   const row = id ? reportByDocId(id) : null;
 
   const detail = useMemo(() => (row ? normalizedToDetailView(row) : null), [row]);
   const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
 
   const mapIncidents = useMemo(() => {
-    if (detail?.lat == null || detail?.lng == null) return [];
-    return [
-      {
-        id: detail.docId ?? id,
-        lat: detail.lat,
-        lng: detail.lng,
-        title: detail.reportTypeLabel,
-        type: detail.reportTypeLabel,
-        status: detail.status === 'resolved' ? 'resolved' : 'pending',
-      },
-    ];
-  }, [detail, id]);
+    if (!row || row.lat == null || row.lng == null) return [];
+    return reportsToMapIncidents([row]);
+  }, [row]);
 
   if (!id) {
     return <Navigate to="/reports" replace />;
@@ -56,7 +65,7 @@ export default function ReportDetail() {
 
   if (loading && !row) {
     return (
-      <div className="report-detail fade-in">
+      <div className="reports-page report-detail-page fade-in">
         <p className="reports-table__loading">Loading report…</p>
       </div>
     );
@@ -71,36 +80,40 @@ export default function ReportDetail() {
   }
 
   return (
-    <div className="report-detail fade-in">
+    <div className="reports-page report-detail-page fade-in">
       {error ? (
-        <p className="denr-dashboard__firestore-msg" role="alert">
+        <p className="reports-page__banner-msg" role="alert">
           {error}
         </p>
       ) : null}
 
-      <header className="report-detail__header">
-        <div className="report-detail__header-main">
-          <h1 className="report-detail__title">REPORT DETAILS (VIEW)</h1>
-          <StatusHeaderBadge status={detail.status} />
-        </div>
-        <div className="report-detail__meta">
-          <span className="report-detail__meta-date">
-            Submitted on {detail.submittedAt}
-          </span>
-        </div>
-      </header>
-
       <div className="report-detail__grid">
-        <section className="report-detail-card report-detail-card--info">
-          <h2 className="report-detail-card__heading">REPORT INFORMATION</h2>
+        <section className="report-detail-card report-detail-card--info reports-table-card">
+          <h2 className="report-detail-card__heading report-detail-card__heading--primary">
+            <ClipboardDocumentListIcon aria-hidden />
+            REPORT INFORMATION
+          </h2>
           <dl className="report-detail-info">
             <div className="report-detail-info__row">
-              <dt>Report ID</dt>
+              <dt>
+                <IdentificationIcon aria-hidden />
+                Report ID
+              </dt>
               <dd>{detail.id}</dd>
+            </div>
+            <div className="report-detail-info__row report-detail-info__row--status">
+              <dt>
+                <CheckCircleIcon aria-hidden />
+                Current Status
+              </dt>
+              <dd>
+                <DetailStatusBadge status={detail.status} />
+              </dd>
             </div>
             <div className="report-detail-info__row">
               <dt>
-                <FireIcon aria-hidden /> Report Type
+                <FireIcon aria-hidden />
+                Report Type
               </dt>
               <dd>{detail.reportTypeLabel}</dd>
             </div>
@@ -124,35 +137,33 @@ export default function ReportDetail() {
             </div>
             <div className="report-detail-info__row">
               <dt>
-                <BuildingOffice2Icon aria-hidden /> Assigned Agency
+                <BuildingOffice2Icon aria-hidden />
+                Agency
               </dt>
               <dd>{detail.assignedAgency}</dd>
             </div>
-            <div className="report-detail-info__row report-detail-info__row--confidence">
-              <dt>Confidence Level</dt>
+            <div className="report-detail-info__row report-detail-info__row--severity">
+              <dt>
+                <ExclamationTriangleIcon aria-hidden />
+                Incident severity
+              </dt>
               <dd>
-                <div className="report-detail-confidence">
-                  <span className="report-detail-confidence__value">{detail.confidence}%</span>
-                  <div
-                    className="report-detail-confidence__track"
-                    role="progressbar"
-                    aria-valuenow={detail.confidence}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <div
-                      className="report-detail-confidence__fill"
-                      style={{ width: `${detail.confidence}%` }}
-                    />
-                  </div>
-                </div>
+                <DetailSeverityBadge
+                  severityKey={detail.incidentSeverityKey}
+                  label={detail.incidentSeverityLabel}
+                />
+                {detail.needsAiReview ? (
+                  <p className="report-detail-ai-review-hint" role="status">
+                    AI classification should be verified before relying on the report type.
+                  </p>
+                ) : null}
               </dd>
             </div>
           </dl>
         </section>
 
         <div className="report-detail__col-right">
-          <section className="report-detail-card">
+          <section className="report-detail-card reports-table-card">
             <h2 className="report-detail-card__heading">
               <PhotoIcon aria-hidden /> MEDIA EVIDENCE
             </h2>
@@ -182,7 +193,7 @@ export default function ReportDetail() {
             </div>
           </section>
 
-          <section className="report-detail-card report-detail-card--map">
+          <section className="report-detail-card report-detail-card--map reports-table-card">
             <h2 className="report-detail-card__heading">
               <MapPinIcon aria-hidden className="report-detail-card__heading-pin" />
               LOCATION ON MAP
@@ -202,10 +213,10 @@ export default function ReportDetail() {
       <footer className="report-detail__footer">
         <button
           type="button"
-          className="report-detail__update"
+          className="reports-btn reports-btn--export"
           onClick={() => navigate(`/reports/${encodeURIComponent(id)}/update`)}
         >
-          Update
+          Update status
         </button>
       </footer>
       <MediaLightbox

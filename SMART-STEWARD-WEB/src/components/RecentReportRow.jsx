@@ -1,65 +1,123 @@
-import { UserIcon } from '@heroicons/react/24/outline';
-import { PlayIcon } from '@heroicons/react/24/solid';
+import { Link } from 'react-router-dom';
+import {
+  BuildingOffice2Icon,
+  CalendarDaysIcon,
+  CheckBadgeIcon,
+  ClockIcon,
+  DocumentTextIcon,
+  MapPinIcon,
+} from '@heroicons/react/24/outline';
+import { PlayIcon as PlaySolidIcon } from '@heroicons/react/24/solid';
+import { parseAssignedAgencies } from '../utils/agencyScope';
 
 const STATUS_CLASS = {
-  pending: 'recent-report-row__status--pending',
-  review: 'recent-report-row__status--review',
-  resolved: 'recent-report-row__status--resolved',
-  rejected: 'recent-report-row__status--rejected',
+  pending: 'recent-report-card__status--pending',
+  review: 'recent-report-card__status--review',
+  in_progress: 'recent-report-card__status--review',
+  resolved: 'recent-report-card__status--resolved',
+  rejected: 'recent-report-card__status--rejected',
 };
 
+function formatAgencyList(raw) {
+  const list = parseAssignedAgencies(raw);
+  if (list.length > 0) return list.join(', ');
+  const trimmed = String(raw ?? '').trim();
+  return trimmed || '—';
+}
+
+function FieldLabel({ Icon, children }) {
+  return (
+    <span className="recent-report-card__label">
+      <Icon className="recent-report-card__label-icon" aria-hidden />
+      {children}
+    </span>
+  );
+}
+
 export default function RecentReportRow({
+  docId,
   imageUrl,
   hasVideo = false,
   onMediaClick,
-  title,
+  reportType,
+  dateSubmitted,
+  timeOfReport,
   location,
-  dateTime,
+  assignedAgency = '',
   statusLabel = 'Pending',
   statusKey = 'pending',
 }) {
   const statusClass = STATUS_CLASS[statusKey] ?? STATUS_CLASS.pending;
+  const agenciesLabel = formatAgencyList(assignedAgency);
 
   return (
-    <div className="recent-report-row">
-      <div className="recent-report-row__thumb-wrap">
-        <button
-          type="button"
-          className="recent-report-row__thumb"
-          onClick={onMediaClick}
-          aria-label={hasVideo ? 'Open report video' : 'Open report image'}
-          style={
-            imageUrl
-              ? { backgroundImage: `url(${imageUrl})` }
-              : undefined
-          }
-        >
-          <span className="recent-report-row__thumb-hit" aria-hidden />
-        </button>
-        {hasVideo ? (
-          <span
-            className="recent-report-row__play-badge"
-            title="Includes video"
-            aria-label="Video attached"
+    <article className="recent-report-card">
+      <div className="recent-report-card__main">
+        <div className="recent-report-card__media">
+          <button
+            type="button"
+            className="recent-report-card__thumb"
+            onClick={onMediaClick}
+            aria-label={hasVideo ? 'Open report video' : 'Open report image'}
+            style={imageUrl ? { backgroundImage: `url(${imageUrl})` } : undefined}
           >
-            <PlayIcon className="recent-report-row__play-icon" aria-hidden />
-          </span>
-        ) : null}
-      </div>
-      <div className="recent-report-row__body">
-        <h4 className="recent-report-row__title">{title}</h4>
-        <p className="recent-report-row__meta">{location}</p>
-        <p className="recent-report-row__time">{dateTime}</p>
-        <div className="recent-report-row__anon">
-          <UserIcon aria-hidden />
-          Anonymous
+            <span className="recent-report-card__thumb-hit" aria-hidden />
+          </button>
+          {hasVideo ? (
+            <span className="recent-report-card__play" title="Includes video" aria-hidden>
+              <PlaySolidIcon />
+            </span>
+          ) : null}
+        </div>
+
+        <div className="recent-report-card__body">
+          <div className="recent-report-card__status-row">
+            <FieldLabel Icon={CheckBadgeIcon}>Current Status</FieldLabel>
+            <span className={`recent-report-card__status ${statusClass}`}>{statusLabel}</span>
+          </div>
+
+          <dl className="recent-report-card__fields recent-report-card__details">
+            <div className="recent-report-card__field">
+              <dt>
+                <FieldLabel Icon={DocumentTextIcon}>Report Type</FieldLabel>
+              </dt>
+              <dd>{reportType}</dd>
+            </div>
+            <div className="recent-report-card__field">
+              <dt>
+                <FieldLabel Icon={CalendarDaysIcon}>Date Submitted</FieldLabel>
+              </dt>
+              <dd>{dateSubmitted}</dd>
+            </div>
+            <div className="recent-report-card__field">
+              <dt>
+                <FieldLabel Icon={ClockIcon}>Time of Report</FieldLabel>
+              </dt>
+              <dd>{timeOfReport}</dd>
+            </div>
+            <div className="recent-report-card__field recent-report-card__field--location">
+              <dt>
+                <FieldLabel Icon={MapPinIcon}>Location</FieldLabel>
+              </dt>
+              <dd>{location}</dd>
+            </div>
+            {agenciesLabel !== '—' ? (
+              <div className="recent-report-card__field recent-report-card__field--agencies">
+                <dt>
+                  <FieldLabel Icon={BuildingOffice2Icon}>Assigned Agency</FieldLabel>
+                </dt>
+                <dd>{agenciesLabel}</dd>
+              </div>
+            ) : null}
+          </dl>
         </div>
       </div>
-      <div className="recent-report-row__actions">
-        <span className={`recent-report-row__status ${statusClass}`}>
-          {statusLabel}
-        </span>
-      </div>
-    </div>
+
+      {docId ? (
+        <Link to={`/reports/${docId}`} className="recent-report-card__detail-link">
+          View report details
+        </Link>
+      ) : null}
+    </article>
   );
 }

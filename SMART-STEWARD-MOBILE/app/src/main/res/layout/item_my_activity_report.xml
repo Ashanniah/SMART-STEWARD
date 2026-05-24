@@ -25,8 +25,8 @@
 
             <FrameLayout
                 android:id="@+id/reportThumbContainer"
-                android:layout_width="44dp"
-                android:layout_height="44dp">
+                android:layout_width="52dp"
+                android:layout_height="52dp">
 
                 <ImageView
                     android:id="@+id/reportThumbnail"
@@ -68,42 +68,39 @@
                 android:layout_weight="1"
                 android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/reportTitle"
+                <include
+                    android:id="@+id/reportRowStatus"
+                    layout="@layout/include_my_activity_detail_row"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/activity_title_bar"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    tools:text="Illegal Logging" />
+                    android:layout_marginTop="0dp" />
 
-                <TextView
-                    android:id="@+id/reportLocationDate"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textColor="@color/activity_muted"
-                    android:textSize="12sp"
-                    tools:text="Brgy. Labangon • Apr 25, 2025" />
+                <include
+                    android:id="@+id/reportRowType"
+                    layout="@layout/include_my_activity_detail_row" />
+
+                <include
+                    android:id="@+id/reportRowDate"
+                    layout="@layout/include_my_activity_detail_row" />
+
+                <include
+                    android:id="@+id/reportRowTime"
+                    layout="@layout/include_my_activity_detail_row" />
+
+                <include
+                    android:id="@+id/reportRowLocation"
+                    layout="@layout/include_my_activity_detail_row" />
+
+                <include
+                    android:id="@+id/reportRowAgency"
+                    layout="@layout/include_my_activity_detail_row" />
             </LinearLayout>
-
-            <TextView
-                android:id="@+id/reportStatusTag"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingStart="10dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="4dp"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                tools:text="Pending" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="14dp"
             android:orientation="horizontal">
 
             <TextView
@@ -113,10 +110,10 @@
                 android:layout_weight="1"
                 android:background="@drawable/bg_activity_outline_btn"
                 android:gravity="center"
+                android:text="@string/my_activity_view_map"
                 android:textColor="@color/activity_header_green"
                 android:textSize="12sp"
-                android:textStyle="bold"
-                tools:text="View on Map" />
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/reportBtnPrimary"
@@ -126,10 +123,10 @@
                 android:layout_weight="1"
                 android:background="@drawable/bg_activity_primary_btn"
                 android:gravity="center"
+                android:text="@string/my_activity_track"
                 android:textColor="@color/white"
                 android:textSize="12sp"
-                android:textStyle="bold"
-                tools:text="Track Report" />
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -48,6 +48,8 @@ object OfflineDraftSyncManager {
             videoUri = videoUri,
             latitude = next.latitude,
             longitude = next.longitude,
+            severity = next.severity,
+            aiConfidence = next.aiConfidence,
             onSuccess = { _, _ ->
                 OfflineReportDraftStore.remove(context, next.id)
                 syncNext(context)

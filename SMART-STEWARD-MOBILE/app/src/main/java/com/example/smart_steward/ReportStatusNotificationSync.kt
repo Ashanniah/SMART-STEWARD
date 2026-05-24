@@ -35,6 +35,12 @@ object ReportStatusNotificationSync {
             }
             if (prev == next) continue
 
+            val serverFp = r.lastCitizenNotifyFingerprint.trim()
+            if (serverFp.isNotEmpty() && serverFp == next) {
+                editor.putString(key, next)
+                continue
+            }
+
             val kind = transitionKind(prev, next)
             if (kind != null) {
                 CitizenNotificationsRepository.append(

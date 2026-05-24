@@ -19,7 +19,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
-import java.util.Calendar
 import java.util.Locale
 
 class MyActivityActivity : AppCompatActivity() {
@@ -36,7 +35,7 @@ class MyActivityActivity : AppCompatActivity() {
         PENDING,
         IN_PROGRESS,
         RESOLVED,
-        TRENDING
+        REJECTED
     }
 
     private var allReports: List<UserReport> = emptyList()
@@ -66,7 +65,7 @@ class MyActivityActivity : AppCompatActivity() {
         findViewById<View>(R.id.myActivityHeaderProfile).setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
-        ProfileInitials.bind(findViewById(R.id.myActivityHeaderProfileInitials))
+        ProfileInitials.bindDefaultAvatar(findViewById(R.id.myActivityHeaderProfileAvatar))
 
         bindStatCard(
             R.id.myActivityStatTotalBlock,
@@ -81,10 +80,22 @@ class MyActivityActivity : AppCompatActivity() {
         ) { applyFilter(Filter.PENDING) }
 
         bindStatCard(
+            R.id.myActivityStatInProgressBlock,
+            iconRes = R.drawable.ic_stat_in_progress,
+            label = getString(R.string.my_activity_in_progress)
+        ) { applyFilter(Filter.IN_PROGRESS) }
+
+        bindStatCard(
             R.id.myActivityStatResolvedBlock,
             iconRes = R.drawable.ic_stat_resolved,
             label = getString(R.string.my_activity_resolved)
         ) { applyFilter(Filter.RESOLVED) }
+
+        bindStatCard(
+            R.id.myActivityStatRejectedBlock,
+            iconRes = R.drawable.ic_stat_rejected,
+            label = getString(R.string.my_activity_rejected)
+        ) { applyFilter(Filter.REJECTED) }
 
         empty = findViewById(R.id.myActivityEmpty)
         searchInput = findViewById(R.id.myActivitySearchInput)
@@ -114,7 +125,13 @@ class MyActivityActivity : AppCompatActivity() {
                         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 )
             },
-            onTrackReport = { ReportReceiptDialog.show(this, it) }
+            onTrackReport = { ReportReceiptDialog.show(this, it) },
+            onTrackHistory = { report ->
+                startActivity(
+                    Intent(this, ReportHistoryActivity::class.java)
+                        .putExtra(ReportHistoryActivity.EXTRA_FOCUS_REPORT_ID, report.id)
+                )
+            }
         )
         recycler.adapter = adapter
 
@@ -142,7 +159,7 @@ class MyActivityActivity : AppCompatActivity() {
             getString(R.string.my_activity_pending),
             getString(R.string.my_activity_in_progress),
             getString(R.string.my_activity_resolved),
-            getString(R.string.my_activity_chip_trending)
+            getString(R.string.my_activity_rejected)
         )
         statusSpinner.adapter = spinnerAdapter(labels)
         statusSpinner.setSelection(filterToSpinnerIndex(filter))
@@ -163,7 +180,7 @@ class MyActivityActivity : AppCompatActivity() {
         1 -> Filter.PENDING
         2 -> Filter.IN_PROGRESS
         3 -> Filter.RESOLVED
-        4 -> Filter.TRENDING
+        4 -> Filter.REJECTED
         else -> Filter.ALL
     }
 
@@ -171,7 +188,7 @@ class MyActivityActivity : AppCompatActivity() {
         Filter.PENDING -> 1
         Filter.IN_PROGRESS -> 2
         Filter.RESOLVED -> 3
-        Filter.TRENDING -> 4
+        Filter.REJECTED -> 4
         Filter.ALL -> 0
     }
 
@@ -200,8 +217,16 @@ class MyActivityActivity : AppCompatActivity() {
             list.count { it.status == ReportStatusUi.PENDING }.toString()
         )
         setStatValue(
+            R.id.myActivityStatInProgressBlock,
+            list.count { it.status == ReportStatusUi.IN_PROGRESS }.toString()
+        )
+        setStatValue(
             R.id.myActivityStatResolvedBlock,
             list.count { it.status == ReportStatusUi.RESOLVED }.toString()
+        )
+        setStatValue(
+            R.id.myActivityStatRejectedBlock,
+            list.count { it.status == ReportStatusUi.REJECTED }.toString()
         )
     }
 
@@ -232,6 +257,7 @@ class MyActivityActivity : AppCompatActivity() {
             uid,
             onUpdate = { list ->
                 allReports = list
+                ReportStatusNotificationSync.sync(applicationContext, uid, list)
                 updateStats(list)
                 refreshList()
             },
@@ -250,12 +276,7 @@ class MyActivityActivity : AppCompatActivity() {
             Filter.PENDING -> allReports.filter { it.status == ReportStatusUi.PENDING }
             Filter.IN_PROGRESS -> allReports.filter { it.status == ReportStatusUi.IN_PROGRESS }
             Filter.RESOLVED -> allReports.filter { it.status == ReportStatusUi.RESOLVED }
-            Filter.TRENDING -> {
-                val cal = Calendar.getInstance()
-                cal.add(Calendar.DAY_OF_YEAR, -14)
-                val cutoff = cal.timeInMillis
-                allReports.filter { (it.submittedAt?.time ?: 0L) >= cutoff }
-            }
+            Filter.REJECTED -> allReports.filter { it.status == ReportStatusUi.REJECTED }
         }
 
         val q = searchQuery.trim().lowercase(Locale.getDefault())

@@ -37,8 +37,12 @@ object ReportSubmittedDialog {
     ) {
         val dialogView = activity.layoutInflater.inflate(R.layout.dialog_report_submitted, null)
 
+        val agenciesDisplay = payload.agencyShort.ifBlank {
+            AgencyCanonical.shortName(payload.assignedAgency)
+        }.ifBlank { payload.assignedAgency }
+
         dialogView.findViewById<TextView>(R.id.submittedDialogSubtitle).text =
-            activity.getString(R.string.submitted_success_subtitle, payload.agencyShort)
+            activity.getString(R.string.submitted_success_subtitle, agenciesDisplay)
 
         bindDetailRow(
             dialogView.findViewById(R.id.submittedRowReportId),
@@ -49,10 +53,11 @@ object ReportSubmittedDialog {
         )
         bindDetailRow(
             dialogView.findViewById(R.id.submittedRowStatus),
-            iconRes = R.drawable.check,
+            iconRes = R.drawable.ic_receipt_detail_check,
             label = activity.getString(R.string.receipt_current_status),
             value = null,
-            badgeText = activity.getString(R.string.my_activity_status_pending)
+            badgeText = activity.getString(R.string.my_activity_status_pending),
+            tintIcon = false
         )
         applyPendingBadge(activity, dialogView.findViewById(R.id.submittedRowStatus))
 
@@ -94,7 +99,7 @@ object ReportSubmittedDialog {
             dialogView.findViewById(R.id.submittedRowAgency),
             iconRes = R.drawable.agency,
             label = activity.getString(R.string.dashboard_detail_agency_label) + ":",
-            value = payload.agencyShort.ifBlank { payload.assignedAgency },
+            value = agenciesDisplay,
             badgeText = null
         )
 
@@ -145,14 +150,19 @@ object ReportSubmittedDialog {
         iconRes: Int,
         label: String,
         value: String?,
-        badgeText: String?
+        badgeText: String?,
+        tintIcon: Boolean = true
     ) {
         val icon = rowRoot.findViewById<ImageView>(R.id.receiptDetailIcon)
         icon.setImageResource(iconRes)
-        icon.setColorFilter(
-            ContextCompat.getColor(rowRoot.context, R.color.activity_title_bar),
-            PorterDuff.Mode.SRC_IN
-        )
+        if (tintIcon) {
+            icon.setColorFilter(
+                ContextCompat.getColor(rowRoot.context, R.color.activity_title_bar),
+                PorterDuff.Mode.SRC_IN
+            )
+        } else {
+            icon.clearColorFilter()
+        }
         rowRoot.findViewById<TextView>(R.id.receiptDetailLabel).text = label
         val valueView = rowRoot.findViewById<TextView>(R.id.receiptDetailValue)
         val badgeView = rowRoot.findViewById<TextView>(R.id.receiptDetailBadge)
@@ -169,11 +179,10 @@ object ReportSubmittedDialog {
 
     private fun applyPendingBadge(activity: AppCompatActivity, statusRow: View) {
         val badge = statusRow.findViewById<TextView>(R.id.receiptDetailBadge)
-        badge.setTextColor(ContextCompat.getColor(activity, R.color.white))
-        badge.background = roundedRect(
-            ContextCompat.getColor(activity, R.color.activity_pending_orange),
-            dp(activity, 20f)
-        )
+        val bg = ReportStatusColors.fillColor(activity, ReportStatusUi.PENDING)
+        val text = ReportStatusColors.textColor(activity, ReportStatusUi.PENDING)
+        badge.setTextColor(text)
+        badge.background = roundedRect(bg, dp(activity, 20f))
     }
 
     private fun bindPhotoSection(activity: AppCompatActivity, dialogView: View, payload: Payload) {

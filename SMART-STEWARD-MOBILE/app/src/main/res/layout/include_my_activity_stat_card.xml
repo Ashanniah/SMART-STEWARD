@@ -8,30 +8,32 @@
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
     android:orientation="vertical"
-    android:paddingStart="10dp"
-    android:paddingTop="10dp"
-    android:paddingEnd="10dp"
-    android:paddingBottom="10dp">
+    android:paddingStart="6dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="6dp"
+    android:paddingBottom="8dp">
 
     <TextView
         android:id="@+id/myActivityStatLabel"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
         android:textColor="@color/activity_muted"
-        android:textSize="11sp"
+        android:textSize="10sp"
         tools:text="Total" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <ImageView
             android:id="@+id/myActivityStatIcon"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
             android:contentDescription="@null"
             tools:src="@drawable/ic_stat_total" />
 
@@ -39,11 +41,11 @@
             android:id="@+id/myActivityStatValue"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="4dp"
             android:layout_weight="1"
             android:gravity="end|center_vertical"
             android:textColor="@color/activity_title_bar"
-            android:textSize="22sp"
+            android:textSize="17sp"
             android:textStyle="bold"
             tools:text="8" />
     </LinearLayout>

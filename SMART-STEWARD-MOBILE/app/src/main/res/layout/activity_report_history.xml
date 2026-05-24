@@ -139,15 +139,7 @@
                 layout="@layout/include_report_history_stat_card"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="5dp"
-                android:layout_weight="1" />
-
-            <include
-                android:id="@+id/reportHistoryStatPendingBlock"
-                layout="@layout/include_report_history_stat_card"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="5dp"
+                android:layout_marginEnd="8dp"
                 android:layout_weight="1" />
 
             <include
@@ -165,11 +157,21 @@
             android:layout_marginTop="14dp"
             android:background="#D8E0DA" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="14dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="14dp"
+            android:text="@string/history_archive_hint"
+            android:textColor="@color/activity_muted"
+            android:textSize="12sp" />
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingStart="14dp"
-            android:paddingTop="12dp"
+            android:paddingTop="8dp"
             android:paddingEnd="14dp"
             android:paddingBottom="10dp">
 

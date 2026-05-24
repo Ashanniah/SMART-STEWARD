@@ -11,8 +11,14 @@ import {
 import { PlayIcon } from '@heroicons/react/24/solid';
 import { useReportsData } from '../context/ReportsDataContext';
 import MediaLightbox from '../components/MediaLightbox';
+import { formatAssignedAgenciesLabel, parseAssignedAgencies } from '../utils/agencyScope';
+import {
+  formatReportDateOnly,
+  formatReportTimeOnly,
+} from '../utils/normalizeReportDoc';
 
 const PAGE_SIZE = 5;
+const COL_COUNT = 8;
 
 function ReportMediaThumb({ imageUrl, hasVideo, onOpen }) {
   return (
@@ -53,6 +59,24 @@ function StatusBadge({ status }) {
   );
 }
 
+function AgencyChips({ raw }) {
+  const agencies = parseAssignedAgencies(raw);
+  if (agencies.length === 0) {
+    const fallback = String(raw ?? '').trim();
+    if (!fallback) return <span className="reports-agency-empty">—</span>;
+    return <span className="reports-agency-chip">{fallback}</span>;
+  }
+  return (
+    <div className="reports-agency-chips">
+      {agencies.map((a) => (
+        <span key={a} className="reports-agency-chip">
+          {a}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function Reports() {
   const navigate = useNavigate();
   const { reports, loading, error } = useReportsData();
@@ -61,7 +85,16 @@ export default function Reports() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [mediaFilter, setMediaFilter] = useState('all');
+  const [agencyFilter, setAgencyFilter] = useState('all');
   const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
+
+  const agencyFilterOptions = useMemo(() => {
+    const set = new Set();
+    reports.forEach((r) => {
+      parseAssignedAgencies(r.assignedAgency).forEach((a) => set.add(a));
+    });
+    return ['all', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [reports]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,21 +102,25 @@ export default function Reports() {
       const statusPass = statusFilter === 'all' ? true : r.status === statusFilter;
       const mediaPass =
         mediaFilter === 'all' ? true : mediaFilter === 'video' ? Boolean(r.hasVideo) : !r.hasVideo;
-      if (!statusPass || !mediaPass) return false;
+      const agencyPass =
+        agencyFilter === 'all'
+          ? true
+          : parseAssignedAgencies(r.assignedAgency).includes(agencyFilter);
+      if (!statusPass || !mediaPass || !agencyPass) return false;
       if (!q) return true;
       const statusText =
-        r.status === 'review' || r.status === 'in_progress'
-          ? 'in progress'
-          : r.status;
+        r.status === 'review' || r.status === 'in_progress' ? 'in progress' : r.status;
+      const agencies = formatAssignedAgenciesLabel(r.assignedAgency).toLowerCase();
       return (
         r.id.toLowerCase().includes(q) ||
         r.docId.toLowerCase().includes(q) ||
         r.location.toLowerCase().includes(q) ||
         r.activity.toLowerCase().includes(q) ||
+        agencies.includes(q) ||
         statusText.includes(q)
       );
     });
-  }, [query, reports, statusFilter, mediaFilter]);
+  }, [query, reports, statusFilter, mediaFilter, agencyFilter]);
 
   const filteredTotal = filtered.length;
   const filteredPages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
@@ -97,18 +134,33 @@ export default function Reports() {
     const rows = filtered.map((r) => ({
       reportId: r.id,
       docId: r.docId,
-      dateTime: r.date,
+      dateSubmitted: formatReportDateOnly(r.createdAt),
+      timeOfReport: formatReportTimeOnly(r.createdAt),
       location: r.location,
       activityType: r.activity,
+      assignedAgency: formatAssignedAgenciesLabel(r.assignedAgency),
       status:
         r.status === 'review' || r.status === 'in_progress'
           ? 'In Progress'
           : r.status.charAt(0).toUpperCase() + r.status.slice(1),
       hasVideo: r.hasVideo ? 'Yes' : 'No',
     }));
-    const headers = ['reportId', 'docId', 'dateTime', 'location', 'activityType', 'status', 'hasVideo'];
+    const headers = [
+      'reportId',
+      'docId',
+      'dateSubmitted',
+      'timeOfReport',
+      'location',
+      'activityType',
+      'assignedAgency',
+      'status',
+      'hasVideo',
+    ];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const csv = [headers.join(','), ...rows.map((row) => headers.map((h) => escape(row[h])).join(','))].join('\n');
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) => headers.map((h) => escape(row[h])).join(',')),
+    ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -121,8 +173,6 @@ export default function Reports() {
 
   return (
     <div className="reports-page fade-in">
-      <h1 className="reports-page__title">REPORTS</h1>
-
       {error ? (
         <p className="reports-page__banner-msg" role="alert">
           {error}
@@ -134,7 +184,7 @@ export default function Reports() {
           <MagnifyingGlassIcon className="reports-search__icon" aria-hidden />
           <input
             type="search"
-            placeholder="Search reports..."
+            placeholder="Search by ID, location, type, agency…"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -148,6 +198,7 @@ export default function Reports() {
             type="button"
             className="reports-btn reports-btn--muted"
             onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
           >
             <FunnelIcon aria-hidden />
             Filter
@@ -158,6 +209,7 @@ export default function Reports() {
           </button>
         </div>
       </div>
+
       {filterOpen ? (
         <div className="reports-filter-panel">
           <label className="reports-filter-panel__field">
@@ -175,6 +227,25 @@ export default function Reports() {
               <option value="in_progress">In Progress</option>
               <option value="resolved">Resolved</option>
               <option value="rejected">Rejected</option>
+            </select>
+          </label>
+          <label className="reports-filter-panel__field">
+            <span>Agency</span>
+            <select
+              value={agencyFilter}
+              onChange={(e) => {
+                setAgencyFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">All agencies</option>
+              {agencyFilterOptions
+                .filter((a) => a !== 'all')
+                .map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
             </select>
           </label>
           <label className="reports-filter-panel__field">
@@ -197,6 +268,7 @@ export default function Reports() {
             onClick={() => {
               setStatusFilter('all');
               setMediaFilter('all');
+              setAgencyFilter('all');
               setPage(1);
             }}
           >
@@ -211,9 +283,11 @@ export default function Reports() {
             <thead>
               <tr>
                 <th>Media / Report ID</th>
-                <th>Date &amp; Time</th>
+                <th>Report Type</th>
+                <th>Date Submitted</th>
+                <th>Time of Report</th>
                 <th>Location</th>
-                <th>Activity type</th>
+                <th>Agency</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -221,19 +295,20 @@ export default function Reports() {
             <tbody>
               {loading && reports.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="reports-table__loading">
+                  <td colSpan={COL_COUNT} className="reports-table__loading">
                     Loading reports…
                   </td>
                 </tr>
               ) : pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="reports-table__loading">
-                    No reports yet. Mobile submissions will show here.
+                  <td colSpan={COL_COUNT} className="reports-table__loading">
+                    No reports match your filters. Mobile submissions assigned to your agency
+                    will appear here.
                   </td>
                 </tr>
               ) : (
                 pageRows.map((row) => (
-                  <tr key={row.docId}>
+                  <tr key={row.docId} className="reports-table__row">
                     <td>
                       <div className="reports-id-cell">
                         <ReportMediaThumb
@@ -243,16 +318,27 @@ export default function Reports() {
                             setMediaPreview({
                               open: true,
                               type: row.hasVideo && row.videoUrl ? 'video' : 'image',
-                              src: row.hasVideo && row.videoUrl ? row.videoUrl : (row.imageUrl || row.mediaUrl || ''),
+                              src:
+                                row.hasVideo && row.videoUrl
+                                  ? row.videoUrl
+                                  : row.imageUrl || row.mediaUrl || '',
                             })
                           }
                         />
                         <span className="reports-id-cell__id">{row.id}</span>
                       </div>
                     </td>
-                    <td>{row.date}</td>
-                    <td>{row.location}</td>
-                    <td className="reports-table__activity">{row.activity}</td>
+                    <td className="reports-table__type">{row.activity}</td>
+                    <td className="reports-table__date">
+                      {formatReportDateOnly(row.createdAt)}
+                    </td>
+                    <td className="reports-table__time">
+                      {formatReportTimeOnly(row.createdAt)}
+                    </td>
+                    <td className="reports-table__location">{row.location}</td>
+                    <td>
+                      <AgencyChips raw={row.assignedAgency} />
+                    </td>
                     <td>
                       <StatusBadge status={row.status} />
                     </td>
@@ -277,8 +363,8 @@ export default function Reports() {
         <div className="reports-footer">
           <p className="reports-footer__meta">
             {filteredTotal === 0 ? (
-              query.trim()
-                ? 'No reports match your search.'
+              query.trim() || statusFilter !== 'all' || mediaFilter !== 'all' || agencyFilter !== 'all'
+                ? 'No reports match your search or filters.'
                 : 'No reports to display.'
             ) : (
               <>
@@ -322,6 +408,7 @@ export default function Reports() {
           )}
         </div>
       </div>
+
       <MediaLightbox
         open={mediaPreview.open}
         type={mediaPreview.type}

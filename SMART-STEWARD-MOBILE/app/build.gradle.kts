@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.places)
     implementation(libs.okhttp)
     implementation(libs.coil)
+    implementation(libs.coil.video)
     implementation(libs.media3.common)
     implementation(libs.media3.effect)
     implementation(libs.media3.transformer)

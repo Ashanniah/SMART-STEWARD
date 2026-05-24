@@ -45,6 +45,10 @@ object ReportFirestore {
         videoUri: Uri? = null,
         latitude: Double? = null,
         longitude: Double? = null,
+        /** Gemini assessment: Low | Medium | High | Critical */
+        severity: String? = null,
+        /** AI classification confidence 0–100 (stored for backend review rules; not shown to citizens). */
+        aiConfidence: Int? = null,
         onSuccess: (String, Boolean) -> Unit,
         onError: (String) -> Unit,
         onWarning: ((String) -> Unit)? = null
@@ -210,6 +214,16 @@ object ReportFirestore {
                 )
             }
             else -> writeDocument("", "")
+        }
+    }
+
+    /** Maps API labels to lowercase Firestore values expected by the agency web app. */
+    private fun normalizeSeverityForFirestore(raw: String?): String? {
+        val s = raw?.trim()?.lowercase().orEmpty()
+        if (s.isBlank() || s == "—" || s == "-") return null
+        return when (s) {
+            "low", "medium", "high", "critical" -> s
+            else -> null
         }
     }
 

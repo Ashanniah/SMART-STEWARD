@@ -7,7 +7,12 @@ import { ReportsDataProvider } from '../context/ReportsDataContext';
 export default function DashboardLayout() {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const { pathname } = useLocation();
-  const profileFill = pathname === '/profile';
+  const useDashboardBg =
+    pathname === '/dashboard' ||
+    pathname === '/reports' ||
+    pathname.startsWith('/reports/') ||
+    pathname === '/report-history' ||
+    pathname === '/profile';
 
   return (
     <ReportsDataProvider>
@@ -21,7 +26,11 @@ export default function DashboardLayout() {
           sidebarExpanded={sidebarExpanded}
         />
         <div
-          className={['page-content', profileFill ? 'page-content--profile-fill' : '']
+          className={[
+            'page-content',
+            useDashboardBg ? 'page-content--dashboard' : '',
+            pathname === '/profile' ? 'page-content--profile' : '',
+          ]
             .filter(Boolean)
             .join(' ')}
         >

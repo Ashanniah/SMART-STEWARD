@@ -3,7 +3,7 @@ export const NOTIFICATIONS_SEED = [
   {
     id: 'n1',
     kind: 'new_report',
-    title: 'New report submitted',
+    title: 'New citizen report',
     body: 'A new report has been submitted in Brgy. San Isidro, Cebu City',
     timeLabel: '5 mins ago',
     dot: 'red',
@@ -21,7 +21,7 @@ export const NOTIFICATIONS_SEED = [
   {
     id: 'n3',
     kind: 'new_report_blue',
-    title: 'New report submitted',
+    title: 'New citizen report',
     body: 'A new report has been submitted in Brgy. Project 8, Quezon City',
     timeLabel: '1 hour ago',
     dot: 'yellow',

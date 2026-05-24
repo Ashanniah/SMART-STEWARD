@@ -1,4 +1,5 @@
 import { AGENCY_NOTIFICATION_KINDS } from '../constants/agencyNotificationKinds';
+import { formatReportDateOnly, formatReportTimeOnly } from './normalizeReportDoc';
 
 /**
  * Maps stored `kind` to NotificationIcon variant.
@@ -33,27 +34,80 @@ export function resolveNotificationVisualKind(kindRaw) {
   }
 }
 
-export function resolveNotificationDot(kindRaw, severity) {
-  const k = String(kindRaw || '').toLowerCase();
-  const s = String(severity || 'info').toLowerCase();
-  if (
-    k === AGENCY_NOTIFICATION_KINDS.CRITICAL_INCIDENT ||
-    k === AGENCY_NOTIFICATION_KINDS.SLA_ESCALATION ||
-    s === 'critical'
-  ) {
-    return 'red';
-  }
-  if (
-    k === AGENCY_NOTIFICATION_KINDS.SLA_WARNING ||
-    k === AGENCY_NOTIFICATION_KINDS.AI_LOW_CONFIDENCE ||
-    s === 'warning'
-  ) {
-    return 'yellow';
-  }
-  if (k === AGENCY_NOTIFICATION_KINDS.NEW_REPORT || k === AGENCY_NOTIFICATION_KINDS.CITIZEN_NOTIFY) {
-    return k === AGENCY_NOTIFICATION_KINDS.CITIZEN_NOTIFY ? 'yellow' : 'blue';
-  }
+/** Unread indicator — always green (matches mobile). */
+export function resolveNotificationDot() {
   return 'green';
+}
+
+export const CITIZEN_NOTIFY_DISPLAY_TITLE =
+  'A citizen requested agency attention on this pending report.';
+
+export const NEW_REPORT_DISPLAY_TITLE = 'New citizen report';
+
+/** Normalize stored rows (legacy titles / duplicate location bodies). */
+export function resolveNotificationDisplayCopy(notification) {
+  const kind = String(notification?.kind ?? '').toLowerCase();
+  const title = String(notification?.title ?? '').trim();
+  const body = String(notification?.body ?? '').trim();
+
+  if (kind === AGENCY_NOTIFICATION_KINDS.CITIZEN_NOTIFY) {
+    return {
+      title: CITIZEN_NOTIFY_DISPLAY_TITLE,
+      body: '',
+    };
+  }
+
+  if (kind === AGENCY_NOTIFICATION_KINDS.NEW_REPORT) {
+    return {
+      title: NEW_REPORT_DISPLAY_TITLE,
+      body: '',
+    };
+  }
+
+  if (kind === AGENCY_NOTIFICATION_KINDS.AI_LOW_CONFIDENCE) {
+    return {
+      title: title.toLowerCase().includes('confidence')
+        ? 'Verify AI classification'
+        : title || 'Verify AI classification',
+      body: body.includes('%') ? '' : body,
+    };
+  }
+
+  return { title: title || 'Notification', body };
+}
+
+export function findReportForNotification(reportDocId, reports) {
+  const id = String(reportDocId ?? '').trim();
+  if (!id || !Array.isArray(reports)) return null;
+  return (
+    reports.find((r) => String(r.docId) === id) ||
+    reports.find((r) => String(r.id) === id) ||
+    reports.find((r) => String(r.deptReportId ?? '') === id) ||
+    null
+  );
+}
+
+/**
+ * Preview lines for the notification dropdown (through Location only).
+ * @returns {Array<{ label: string, value: string }>}
+ */
+export function buildNotificationDetailLines(report) {
+  if (!report) return [];
+  const reportRef =
+    String(report.id ?? report.publicReportId ?? '').trim() || '—';
+  return [
+    { label: 'Report Type', value: report.activity || '—' },
+    { label: 'Report ID', value: reportRef },
+    {
+      label: 'Date Submitted',
+      value: formatReportDateOnly(report.createdAt),
+    },
+    {
+      label: 'Time of Report',
+      value: formatReportTimeOnly(report.createdAt),
+    },
+    { label: 'Location', value: report.location || '—' },
+  ];
 }
 
 export function mergeAndSortAgencyNotifications(serverItems, syntheticItems) {

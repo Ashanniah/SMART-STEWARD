@@ -202,7 +202,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onResume() {
         super.onResume()
         MainBottomNav.updateBadge(this)
-        ProfileInitials.bind(findViewById(R.id.dashboardHeaderProfileInitials))
+        ProfileInitials.bindDefaultAvatar(findViewById(R.id.dashboardHeaderProfileAvatar))
     }
 
     fun openMediaCaptureChooser() {
@@ -257,11 +257,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(talamban, 14f))
         googleMap.setOnInfoWindowClickListener { marker ->
             val report = marker.tag as? UserReport ?: return@setOnInfoWindowClickListener
-            focusReport(report, openSheet = true)
+            hideMapNotifyUi()
+            ReportReceiptDialog.show(this, report)
         }
         googleMap.setOnMarkerClickListener { marker ->
             val report = marker.tag as? UserReport ?: return@setOnMarkerClickListener false
-            showQuickCard(report)
+            showMapNotifyUi(report)
             true
         }
         renderMapLayers()
@@ -315,7 +316,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 pendingFocusReportId = null
                 pendingFocusLat = null
                 pendingFocusLng = null
-                focusReport(report, openSheet = false)
+                panToReport(report)
                 return
             }
         }
@@ -342,7 +343,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         adapter = DashboardNearIncidentsAdapter { report ->
-            focusReport(report, openSheet = false)
+            hideMapNotifyUi()
+            panToReport(report)
             ReportReceiptDialog.show(this, report)
         }
         findViewById<RecyclerView>(R.id.dashboardNearRecycler).apply {
@@ -627,13 +629,20 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         // No separate blue agency pins are rendered.
     }
 
-    private fun focusReport(report: UserReport, openSheet: Boolean) {
+    private fun panToReport(report: UserReport) {
         map?.animateCamera(CameraUpdateFactory.newLatLngZoom(report.effectivePosition(), 16.2f))
+    }
+
+    /** Map pin callout + NOTIFY quick card — only for marker taps on the map. */
+    private fun showMapNotifyUi(report: UserReport) {
+        panToReport(report)
         reportMarkers[report.id]?.showInfoWindow()
         showQuickCard(report)
-        if (openSheet && bottomSheet.visibility == View.VISIBLE) {
-            bottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-        }
+    }
+
+    private fun hideMapNotifyUi() {
+        hideQuickCard()
+        reportMarkers.values.forEach { it.hideInfoWindow() }
     }
 
     private fun requestLocationDialog() {
