@@ -2,22 +2,27 @@ const fs = require('fs');
 const path = require('path');
 const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
-const os = require('os');
+
+// Import the official Google Generative AI SDK for native video processing
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleAIFileManager } = require('@google/generative-ai/server');
 
 dotenv.config();
 
-// Bundled binaries so video frame extraction works without a system FFmpeg install.
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
-
-// OpenRouter configuration
+// Initialize OpenRouter client (For Images)
 const openrouter = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
 });
+
+// Initialize Native Gemini clients (For direct video uploads)
+let genAI = null;
+let fileManager = null;
+
+if (process.env.GEMINI_API_KEY) {
+  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+}
 
 // Load system prompt for AI guidance
 let systemPrompt = '';
@@ -28,155 +33,137 @@ try {
   systemPrompt = 'You are a helpful AI assistant for Smart Steward.';
 }
 
-// OpenRouter model - Gemini 3 Flash Preview (no fallbacks)
 const OPENROUTER_MODEL = 'google/gemini-3-flash-preview';
-
-// Video frame extraction settings - 3 frames for balanced analysis
-const VIDEO_FRAME_TIMESTAMPS = ['0%', '50%', '90%'];
+const NATIVE_GEMINI_MODEL = 'gemini-3-flash-preview';
 
 /**
- * Extract multiple frames from a video for comprehensive analysis
- */
-const extractFramesFromVideo = (videoPath, count = 6) => {
-  return new Promise((resolve, reject) => {
-    const outputDir = os.tmpdir();
-    const timestamp = Date.now();
-    const frames = [];
-
-    // Use ffmpeg to extract frames at different timestamps
-    const command = ffmpeg(videoPath)
-      .on('filenames', (filenames) => {
-        frames.push(...filenames);
-      })
-      .on('end', () => {
-        resolve(frames.map(f => path.join(outputDir, f)));
-      })
-      .on('error', (err) => {
-        reject(err);
-      });
-
-    // Extract frames at regular intervals
-    const timestamps = VIDEO_FRAME_TIMESTAMPS.slice(0, count);
-    const outputPattern = `frame-${timestamp}-%02d.jpg`;
-    
-    command
-      .screenshots({
-        timestamps: timestamps,
-        filename: outputPattern,
-        folder: outputDir,
-        size: '1280x720'
-      });
-  });
-};
-
-/**
- * Extract a single frame from video (for backward compatibility)
- */
-const extractFrameFromVideo = (videoPath) => {
-  return new Promise((resolve, reject) => {
-    const outputFileName = `frame-${Date.now()}.jpg`;
-    const outputPath = path.join(os.tmpdir(), outputFileName);
-
-    ffmpeg(videoPath)
-      .screenshots({
-        timestamps: ['50%'],
-        filename: outputFileName,
-        folder: os.tmpdir(),
-        size: '1280x720'
-      })
-      .on('end', () => {
-        resolve(outputPath);
-      })
-      .on('error', (err) => {
-        reject(err);
-      });
-  });
-};
-
-/**
- * Generate response using Gemini 3 Flash Preview via OpenRouter
+ * Generate response routing images through OpenRouter and uploading video directly to Gemini
  */
 const generateCloudResponse = async (mediaFile) => {
-  if (!process.env.OPENROUTER_API_KEY) {
-    throw new Error('OPENROUTER_API_KEY is not configured. Please set it in your .env file.');
+  if (!mediaFile) {
+    throw new Error('No media file provided.');
   }
 
-  const contentArray = [];
-  
-  contentArray.push({ type: 'text', text: 'Analyze this media and classify the incident.' });
-
-  const tempFramePaths = [];
+  const mimeType = mediaFile.mimetype;
+  let uploadResponseFile = null;
 
   try {
-    if (mediaFile) {
-      const mimeType = mediaFile.mimetype;
+    // ==========================================
+    // 1. IMAGE ROUTE (OpenRouter)
+    // ==========================================
+    if (mimeType.startsWith('image/')) {
+      if (!process.env.OPENROUTER_API_KEY) {
+        throw new Error('OPENROUTER_API_KEY is not configured. Please set it in your .env file.');
+      }
 
-      if (mimeType.startsWith('image/')) {
-        // Handle Image
-        const imageBuffer = fs.readFileSync(mediaFile.path);
-        const base64Image = imageBuffer.toString('base64');
-        
-        contentArray.push({
+      const imageBuffer = fs.readFileSync(mediaFile.path);
+      const base64Image = imageBuffer.toString('base64');
+
+      const contentArray = [
+        { type: 'text', text: 'Analyze this media and classify the incident.' },
+        {
           type: 'image_url',
           image_url: {
             url: `data:${mimeType};base64,${base64Image}`,
             detail: 'auto'
           }
-        });
-
-      } else if (mimeType.startsWith('video/')) {
-        // Handle Video - Extract multiple frames for better analysis
-        console.log(`Extracting frames from video: ${mediaFile.path}`);
-        
-        const frames = await extractFramesFromVideo(mediaFile.path, 3);
-        tempFramePaths.push(...frames);
-
-        // Add note about multi-frame analysis
-        contentArray.push({
-          type: 'text',
-          text: '(Note: Multiple frames were extracted from this video for comprehensive analysis. Please analyze all frames and provide a unified incident classification.)'
-        });
-
-        // Add all extracted frames
-        for (const framePath of frames) {
-          if (fs.existsSync(framePath)) {
-            const imageBuffer = fs.readFileSync(framePath);
-            const base64Image = imageBuffer.toString('base64');
-            
-            contentArray.push({
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${base64Image}`,
-                detail: 'auto'
-              }
-            });
-          }
         }
-      } else {
-        throw new Error('Unsupported media type. Please upload an image or video.');
-      }
+      ];
+
+      const response = await openrouter.chat.completions.create({
+        model: OPENROUTER_MODEL,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: contentArray },
+        ],
+      });
+
+      const parsed = JSON.parse(response.choices[0].message.content);
+      return enrichReportableFlag({
+        ...parsed,
+        file: 'image',
+      });
     }
 
-    const response = await openrouter.chat.completions.create({
-      model: OPENROUTER_MODEL,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: contentArray },
-      ],
-    });
+    // ==========================================
+    // 2. VIDEO ROUTE (Native Gemini Cloud Upload)
+    // ==========================================
+    if (mimeType.startsWith('video/')) {
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY is not configured. Please set it in your .env file.');
+      }
 
-    const parsed = JSON.parse(response.choices[0].message.content);
-    return { response: enrichReportableFlag(parsed) };
-  } finally {
-    // Clean up extracted video frames
-    for (const framePath of tempFramePaths) {
-      if (framePath && fs.existsSync(framePath)) {
-        try {
-          fs.unlinkSync(framePath);
-        } catch (e) {
-          console.error('Failed to clean up temp frame:', e);
+      console.log(`Starting cloud video upload for: ${mediaFile.path}`);
+
+      // Upload raw video directly using Gemini's File Manager API
+      const uploadResult = await fileManager.uploadFile(mediaFile.path, {
+        mimeType: mimeType,
+        displayName: mediaFile.filename || 'uploaded-incident-video',
+      });
+
+      uploadResponseFile = uploadResult.file;
+      console.log(`Video uploaded successfully to Gemini cloud: ${uploadResponseFile.uri}`);
+
+      // Poll until the file transitions from PROCESSING to ACTIVE (needed for large files)
+      let currentFile = await fileManager.getFile(uploadResponseFile.name);
+      let pollAttempts = 0;
+      const maxPollAttempts = 30; // 30 retries * 5s = 2.5 mins limit
+
+      while (currentFile.state === 'PROCESSING' && pollAttempts < maxPollAttempts) {
+        console.log(`Video is still processing in Google's cloud pipeline...`);
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        currentFile = await fileManager.getFile(uploadResponseFile.name);
+        pollAttempts++;
+      }
+
+      if (currentFile.state !== 'ACTIVE') {
+        throw new Error(`Google Video processing failed or timed out. State: ${currentFile.state}`);
+      }
+
+      console.log('Video analysis ready. Sending payload to Gemini models...');
+
+      // Configure native model schema instructions
+      const model = genAI.getGenerativeModel({
+        model: NATIVE_GEMINI_MODEL,
+        systemInstruction: systemPrompt,
+        generationConfig: {
+          responseMimeType: 'application/json',
+        },
+      });
+
+      // Simple instruction is all that's needed because SKILLS.md handles the strict rules and schema!
+      const result = await model.generateContent([
+        {
+          fileData: {
+            mimeType: uploadResponseFile.mimeType,
+            fileUri: uploadResponseFile.uri,
+          },
+        },
+        {
+          text: 'Analyze this video and classify the incident according to your system instructions.'
         }
+      ]);
+
+      const responseText = result.response.text();
+      const parsed = JSON.parse(responseText);
+
+      return enrichReportableFlag({
+        ...parsed,
+        file: 'video',
+      });
+    }
+
+    throw new Error('Unsupported media type. Please upload an image or video.');
+
+  } finally {
+    // Dynamic Cloud Cleanup: Remove the temporary video from Gemini cloud hosting to conserve space
+    if (uploadResponseFile) {
+      try {
+        console.log(`Deleting video from Gemini cloud hosting: ${uploadResponseFile.name}`);
+        await fileManager.deleteFile(uploadResponseFile.name);
+      } catch (cleanupError) {
+        console.error('Failed to clear video from Google cloud storage:', cleanupError);
       }
     }
   }
@@ -208,7 +195,5 @@ function enrichReportableFlag(parsed) {
 
 module.exports = {
   generateCloudResponse,
-  extractFrameFromVideo,
-  extractFramesFromVideo,
   enrichReportableFlag,
 };
