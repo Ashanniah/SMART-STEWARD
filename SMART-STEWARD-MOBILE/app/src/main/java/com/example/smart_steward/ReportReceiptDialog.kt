@@ -1,5 +1,6 @@
 package com.example.smart_steward
 
+import android.graphics.PorterDuff
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
@@ -123,7 +124,12 @@ object ReportReceiptDialog {
         value: String?,
         badgeText: String?
     ) {
-        rowRoot.findViewById<ImageView>(R.id.receiptDetailIcon).setImageResource(iconRes)
+        val icon = rowRoot.findViewById<ImageView>(R.id.receiptDetailIcon)
+        icon.setImageResource(iconRes)
+        icon.setColorFilter(
+            ContextCompat.getColor(rowRoot.context, R.color.activity_title_bar),
+            PorterDuff.Mode.SRC_IN
+        )
         rowRoot.findViewById<TextView>(R.id.receiptDetailLabel).text = label
         val valueView = rowRoot.findViewById<TextView>(R.id.receiptDetailValue)
         val badgeView = rowRoot.findViewById<TextView>(R.id.receiptDetailBadge)

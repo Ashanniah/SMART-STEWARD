@@ -104,6 +104,19 @@ object ReportFirestore {
                 .addOnFailureListener { e -> onError(e.message ?: "Failed to save report.") }
         }
 
+        fun patchMedia(photoUrl: String, videoUrl: String) {
+            val hasPhoto = photoUrl.isNotEmpty()
+            val hasVideo = videoUrl.isNotEmpty()
+            docRef.update(
+                mapOf(
+                    "photoUrl" to photoUrl,
+                    "videoUrl" to videoUrl,
+                    "hasPhoto" to hasPhoto,
+                    "hasVideo" to hasVideo,
+                )
+            )
+        }
+
         fun uploadJpeg(
             ref: StorageReference,
             bitmap: Bitmap,
@@ -135,6 +148,7 @@ object ReportFirestore {
 
         when {
             hasVideoUri -> {
+                writeDocument("", "")
                 val vRef = storage.reference.child("reports/$docId/report.mp4")
                 vRef.putFile(videoUri!!)
                     .continueWithTask { t ->
@@ -144,22 +158,20 @@ object ReportFirestore {
                     .addOnCompleteListener { vTask ->
                         if (!vTask.isSuccessful) {
                             val hint = storageFailureHint(vTask.exception)
-                            Log.e(TAG, "Video upload failed; saving text-only if possible.", vTask.exception)
+                            Log.e(TAG, "Video upload failed; report saved without video.", vTask.exception)
                             val bmp = photo?.takeIf { !it.isRecycled }
                             if (bmp != null) {
                                 val pRef = storage.reference.child("reports/$docId/capture.jpg")
                                 uploadJpeg(
                                     pRef,
                                     bmp,
-                                    onUrl = { pUrl -> writeDocument(pUrl, "") },
+                                    onUrl = { pUrl -> patchMedia(pUrl, "") },
                                     onFail = { ex ->
                                         onWarning?.invoke(hint)
-                                        writeDocument("", "")
                                     }
                                 )
                             } else {
                                 onWarning?.invoke(hint)
-                                writeDocument("", "")
                             }
                             return@addOnCompleteListener
                         }
@@ -170,30 +182,30 @@ object ReportFirestore {
                             uploadJpeg(
                                 pRef,
                                 bmp,
-                                onUrl = { pUrl -> writeDocument(pUrl, videoUrlStr) },
+                                onUrl = { pUrl -> patchMedia(pUrl, videoUrlStr) },
                                 onFail = { ex ->
                                     val hint = storageFailureHint(ex)
                                     Log.e(TAG, "Thumbnail upload failed after video ok.", ex)
+                                    patchMedia("", videoUrlStr)
                                     onWarning?.invoke(hint)
-                                    writeDocument("", videoUrlStr)
                                 }
                             )
                         } else {
-                            writeDocument("", videoUrlStr)
+                            patchMedia("", videoUrlStr)
                         }
                     }
             }
             photo != null && !photo.isRecycled -> {
+                writeDocument("", "")
                 val ref = storage.reference.child("reports/$docId/capture.jpg")
                 uploadJpeg(
                     ref,
                     photo,
-                    onUrl = { pUrl -> writeDocument(pUrl, "") },
+                    onUrl = { pUrl -> patchMedia(pUrl, "") },
                     onFail = { ex ->
                         val hint = storageFailureHint(ex)
-                        Log.e(TAG, "Image upload failed; saving report without cloud photo.", ex)
+                        Log.e(TAG, "Image upload failed; report saved without cloud photo.", ex)
                         onWarning?.invoke(hint)
-                        writeDocument("", "")
                     }
                 )
             }

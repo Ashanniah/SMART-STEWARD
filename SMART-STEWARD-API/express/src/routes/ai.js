@@ -10,7 +10,7 @@ const os = require('os');
 const upload = multer({ 
   dest: os.tmpdir(), // Use system temp directory
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 20 * 1024 * 1024, // 20MB limit (matches mobile app)
   }
 });
 
@@ -29,7 +29,12 @@ router.post('/', upload.single('media'), async (req, res) => {
       fs.unlinkSync(file.path);
     }
 
-    res.json(aiResponse);
+  // Mobile client expects `{ response: { category, type, ... } }`; older deploys returned a flat object.
+    const body =
+      aiResponse && typeof aiResponse === 'object' && aiResponse.response != null
+        ? aiResponse
+        : { response: aiResponse };
+    res.json(body);
 
   } catch (error) {
     console.error('AI Service Error:', error);

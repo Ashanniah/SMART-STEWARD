@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:background="@drawable/bg_no_incident_reportable_card"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <FrameLayout
+        android:id="@+id/reportableIconPill"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_reportable_icon_pill_orange">
+
+        <ImageView
+            android:id="@+id/reportableIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:scaleType="fitCenter"
+            tools:src="@drawable/fire_flame" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/reportableTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/black"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        tools:text="Open Burning" />
+
+    <TextView
+        android:id="@+id/reportableDesc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:lineSpacingMultiplier="1.2"
+        android:textColor="@color/hint_dark_gray"
+        android:textSize="11sp"
+        tools:text="Waste burning, fire in public areas" />
+</LinearLayout>

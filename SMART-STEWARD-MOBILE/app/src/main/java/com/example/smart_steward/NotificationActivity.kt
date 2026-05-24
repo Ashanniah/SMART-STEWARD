@@ -20,6 +20,7 @@ class NotificationActivity : AppCompatActivity() {
     private lateinit var navBadge: TextView
     private lateinit var recycler: RecyclerView
     private lateinit var empty: TextView
+    private lateinit var markAllButton: TextView
     private lateinit var adapter: NotificationsListAdapter
 
     private var inboxListener: ListenerRegistration? = null
@@ -56,26 +57,49 @@ class NotificationActivity : AppCompatActivity() {
             finish()
         }
 
-        findViewById<TextView>(R.id.notificationMarkAllReadButton).setOnClickListener {
+        markAllButton = findViewById(R.id.notificationMarkAllReadButton)
+        markAllButton.setOnClickListener {
             val uid = FirebaseAuth.getInstance().currentUser?.uid
             if (uid.isNullOrBlank()) return@setOnClickListener
-            CitizenNotificationsRepository.markAllRead(
-                uid,
-                onDone = {
-                    runOnUiThread {
-                        Toast.makeText(
-                            this,
-                            getString(R.string.notif_mark_all_read_done),
-                            Toast.LENGTH_SHORT
-                        ).show()
+            val markingUnread =
+                markAllButton.text == getString(R.string.notif_mark_all_unread)
+            if (markingUnread) {
+                CitizenNotificationsRepository.markAllUnread(
+                    uid,
+                    onDone = {
+                        runOnUiThread {
+                            Toast.makeText(
+                                this,
+                                getString(R.string.notif_mark_all_unread_done),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    onError = { msg ->
+                        runOnUiThread {
+                            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                        }
                     }
-                },
-                onError = { msg ->
-                    runOnUiThread {
-                        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                )
+            } else {
+                CitizenNotificationsRepository.markAllRead(
+                    uid,
+                    onDone = {
+                        runOnUiThread {
+                            Toast.makeText(
+                                this,
+                                getString(R.string.notif_mark_all_read_done),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    onError = { msg ->
+                        runOnUiThread {
+                            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                        }
                     }
-                }
-            )
+                )
+            }
         }
 
         MainBottomNav.setup(this, MainBottomNavTab.NOTIFICATIONS)
@@ -120,6 +144,7 @@ class NotificationActivity : AppCompatActivity() {
                 )
                 adapter.submit(rows)
                 val unread = list.count { !it.read }
+                updateMarkAllButton(unread, list.isNotEmpty())
                 navBadge.visibility = if (unread > 0) View.VISIBLE else View.GONE
                 if (unread > 0) {
                     navBadge.text = if (unread > 99) "99+" else unread.toString()
@@ -147,5 +172,26 @@ class NotificationActivity : AppCompatActivity() {
         inboxListener = null
         reportsListener?.remove()
         reportsListener = null
+    }
+
+    private fun updateMarkAllButton(unreadCount: Int, hasNotifications: Boolean) {
+        if (!::markAllButton.isInitialized) return
+        when {
+            !hasNotifications -> {
+                markAllButton.isEnabled = false
+                markAllButton.alpha = 0.5f
+                markAllButton.setText(R.string.notif_mark_all_read)
+            }
+            unreadCount > 0 -> {
+                markAllButton.isEnabled = true
+                markAllButton.alpha = 1f
+                markAllButton.setText(R.string.notif_mark_all_read)
+            }
+            else -> {
+                markAllButton.isEnabled = true
+                markAllButton.alpha = 1f
+                markAllButton.setText(R.string.notif_mark_all_unread)
+            }
+        }
     }
 }

@@ -175,9 +175,16 @@ const generateCloudResponse = async (mediaFile) => {
 function enrichReportableFlag(parsed) {
   if (!parsed || typeof parsed !== 'object') return parsed;
   const category = String(parsed.category || '').trim().toLowerCase();
-  const agency = String(parsed.assignedAgency || '').trim().toUpperCase();
+  const agencies = Array.isArray(parsed.assignedAgency)
+    ? parsed.assignedAgency
+    : String(parsed.assignedAgency || '')
+        .split(/[,;]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
   const nonIncident =
-    category === 'not a valid incident' || agency === 'N/A';
+    category === 'not a valid incident' ||
+    agencies.length === 0 ||
+    agencies.every((a) => String(a).trim().toUpperCase() === 'N/A');
   if (nonIncident) {
     parsed.reportable = false;
   } else if (parsed.reportable === undefined) {
