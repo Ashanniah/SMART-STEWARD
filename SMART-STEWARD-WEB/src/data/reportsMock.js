@@ -118,6 +118,17 @@ export function workflowStatusIndex(status) {
   return i >= 0 ? i : 0;
 }
 
+/** Final workflow states — no further status changes allowed. */
+export const TERMINAL_WORKFLOW_STATUSES = ['resolved', 'rejected'];
+
+export function normalizeWorkflowStatusKey(status) {
+  return status === 'review' ? 'in_progress' : status;
+}
+
+export function isTerminalWorkflowStatus(status) {
+  return TERMINAL_WORKFLOW_STATUSES.includes(normalizeWorkflowStatusKey(status));
+}
+
 /** Rich overrides — keys match `REPORTS_LIST[].id` */
 const DETAIL_EXTRA = {
   'RPT-2025-000127': {

@@ -49,7 +49,14 @@ object OfflineDraftSyncManager {
             latitude = next.latitude,
             longitude = next.longitude,
             severity = next.severity,
+            severityReason = next.severityReason,
             aiConfidence = next.aiConfidence,
+            aiCategory = next.aiCategory,
+            aiSummary = next.aiSummary,
+            aiSynthesis = next.aiSynthesis,
+            aiReportable = next.aiReportable,
+            aiFile = next.aiFile,
+            aiFrameAnalysisJson = next.aiFrameAnalysisJson,
             onSuccess = { _, _ ->
                 OfflineReportDraftStore.remove(context, next.id)
                 syncNext(context)

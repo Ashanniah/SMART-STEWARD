@@ -3,8 +3,11 @@ package com.example.smart_steward
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.PorterDuff
+import androidx.annotation.ColorInt
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
@@ -112,6 +115,7 @@ fun matchesTypeFilter(report: UserReport, filter: DashboardTypeFilter): Boolean 
 }
 
 private var cachedPendingMarker: BitmapDescriptor? = null
+private var cachedInProgressMarker: BitmapDescriptor? = null
 
 fun markerDescriptorForReport(context: Context, report: UserReport): BitmapDescriptor {
     when (report.status) {
@@ -124,8 +128,18 @@ fun markerDescriptorForReport(context: Context, report: UserReport): BitmapDescr
         }
         ReportStatusUi.REJECTED ->
             return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
-        ReportStatusUi.IN_PROGRESS ->
-            return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
+        ReportStatusUi.IN_PROGRESS -> {
+            // Tint the same teardrop pin with the exact amber used by the
+            // "In Progress" pill in the Nearby Incidents list so the map and
+            // list read as the same status at a glance.
+            if (cachedInProgressMarker == null) {
+                val app = context.applicationContext
+                val tint = ContextCompat.getColor(app, R.color.activity_progress_blue)
+                cachedInProgressMarker =
+                    bitmapDescriptorFromVector(app, R.drawable.ic_map_marker_gray, 40f, tint)
+            }
+            return cachedInProgressMarker!!
+        }
         ReportStatusUi.RESOLVED ->
             return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
     }
@@ -138,12 +152,64 @@ fun markerSnippetStatus(status: ReportStatusUi): String = when (status) {
     ReportStatusUi.REJECTED -> "REJECTED"
 }
 
+/**
+ * Resolved / rejected reports stay pinned to the map for this many
+ * milliseconds after the status change so the outcome is briefly visible,
+ * then auto-disappear while the report itself remains in history.
+ */
+const val TERMINAL_MAP_MARKER_TTL_MS: Long = 60_000L
+
+/**
+ * `true` for active reports (pending / in-progress) and for closed reports
+ * whose status change is still inside [TERMINAL_MAP_MARKER_TTL_MS].
+ */
+fun UserReport.isVisibleOnMap(nowMs: Long = System.currentTimeMillis()): Boolean {
+    return when (status) {
+        ReportStatusUi.PENDING,
+        ReportStatusUi.IN_PROGRESS -> true
+        ReportStatusUi.RESOLVED,
+        ReportStatusUi.REJECTED -> {
+            val updated = statusUpdatedAt?.time ?: return false
+            nowMs - updated <= TERMINAL_MAP_MARKER_TTL_MS
+        }
+    }
+}
+
+/**
+ * Returns the earliest epoch-ms at which one of the closed markers in
+ * [reports] is about to expire, or `Long.MAX_VALUE` if nothing is pending.
+ */
+fun nextMarkerExpiryMs(
+    reports: Collection<UserReport>,
+    nowMs: Long = System.currentTimeMillis()
+): Long {
+    var soonest = Long.MAX_VALUE
+    for (r in reports) {
+        if (r.status != ReportStatusUi.RESOLVED && r.status != ReportStatusUi.REJECTED) continue
+        val updated = r.statusUpdatedAt?.time ?: continue
+        val expiresAt = updated + TERMINAL_MAP_MARKER_TTL_MS
+        if (expiresAt > nowMs && expiresAt < soonest) {
+            soonest = expiresAt
+        }
+    }
+    return soonest
+}
+
 private fun bitmapDescriptorFromVector(
     context: Context,
     @DrawableRes resId: Int,
-    sizeDp: Float
+    sizeDp: Float,
+    @ColorInt tintColor: Int? = null,
 ): BitmapDescriptor {
-    val drawable = ContextCompat.getDrawable(context, resId)!!
+    val original = ContextCompat.getDrawable(context, resId)!!
+    val drawable = if (tintColor != null) {
+        val wrapped = DrawableCompat.wrap(original.mutate())
+        DrawableCompat.setTint(wrapped, tintColor)
+        DrawableCompat.setTintMode(wrapped, PorterDuff.Mode.SRC_IN)
+        wrapped
+    } else {
+        original
+    }
     val px = (sizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
     drawable.setBounds(0, 0, px, px)
     val bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)

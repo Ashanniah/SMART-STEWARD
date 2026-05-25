@@ -6,8 +6,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/activity_page_bg"
-    android:clipChildren="true"
-    android:clipToPadding="true">
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <LinearLayout
         android:id="@+id/notificationHeader"
@@ -55,21 +55,43 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_notif_mark_read_pill"
-                android:paddingStart="14dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="8dp"
+                android:paddingStart="12dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="6dp"
                 android:text="@string/notif_mark_all_read"
                 android:textColor="@color/activity_header_green"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
+
+            <FrameLayout
+                android:id="@+id/notificationHeaderProfile"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_profile_avatar_circle"
+                android:clickable="true"
+                android:contentDescription="@string/content_desc_open_profile"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless">
+
+                <ImageView
+                    android:id="@+id/notificationHeaderProfileAvatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/profile_avatar_content_desc"
+                    android:padding="6dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/default_profile" />
+            </FrameLayout>
         </LinearLayout>
+
     </LinearLayout>
 
     <FrameLayout
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/notificationClearAllFooter"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/notificationHeader">
@@ -82,7 +104,7 @@
             android:paddingStart="16dp"
             android:paddingTop="12dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="108dp"
+            android:paddingBottom="12dp"
             android:scrollbars="vertical" />
 
         <TextView
@@ -99,7 +121,48 @@
             android:visibility="gone" />
     </FrameLayout>
 
+    <!--
+        Sticky bottom footer hosting the Clear all action. Sits just above
+        the bottom navigation so it stays visible while the user scrolls
+        through their notification list. Hidden whenever the inbox is empty.
+    -->
+    <LinearLayout
+        android:id="@+id/notificationClearAllFooter"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/activity_page_bg"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/notificationBottomNav"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:visibility="visible">
+
+        <TextView
+            android:id="@+id/notificationClearAllButton"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_notif_clear_all_footer"
+            android:drawablePadding="8dp"
+            android:gravity="center"
+            android:minWidth="180dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="22dp"
+            android:text="@string/notif_clear_all"
+            android:textColor="@color/activity_rejected_gray"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:drawableStartCompat="@drawable/ic_action_clear_all"
+            app:drawableTint="@color/activity_rejected_gray" />
+    </LinearLayout>
+
     <include
+        android:id="@+id/notificationBottomNav"
         layout="@layout/include_main_bottom_nav"
         android:layout_width="0dp"
         android:layout_height="wrap_content"

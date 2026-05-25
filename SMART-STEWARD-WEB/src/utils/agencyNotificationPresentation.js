@@ -40,7 +40,7 @@ export function resolveNotificationDot() {
 }
 
 export const CITIZEN_NOTIFY_DISPLAY_TITLE =
-  'A citizen requested agency attention on this pending report.';
+  'A citizen is requesting an update on this report.';
 
 export const NEW_REPORT_DISPLAY_TITLE = 'New citizen report';
 

@@ -9,14 +9,17 @@ import {
   ClipboardDocumentListIcon,
   FireIcon,
   ClockIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import IncidentVolumeTrendChart from '../components/IncidentVolumeTrendChart';
 import IncidentTypeDonutChart from '../components/IncidentTypeDonutChart';
+import IncidentSeverityBarChart from '../components/IncidentSeverityBarChart';
 import IncidentAnalyticsLocationList from '../components/IncidentAnalyticsLocationList';
 import { useReportsData } from '../context/ReportsDataContext';
 import {
   buildAnalyticsInsights,
   buildIncidentTypeSegments,
+  buildSeverityBreakdown,
   buildStatusBreakdown,
   buildTopLocations,
   buildVolumeTrendSeries,
@@ -43,6 +46,10 @@ export default function IncidentAnalytics() {
   );
   const typeSegments = useMemo(
     () => buildIncidentTypeSegments(reports, range.days),
+    [reports, range.days]
+  );
+  const severitySegments = useMemo(
+    () => buildSeverityBreakdown(reports, range.days),
     [reports, range.days]
   );
   const topLocations = useMemo(
@@ -236,6 +243,25 @@ export default function IncidentAnalytics() {
           </div>
         </section>
       </div>
+
+      <section className="denr-panel denr-panel--analytics-severity">
+        <div className="denr-panel__head">
+          <h3 className="denr-panel__title denr-panel__title--branded">
+            <ExclamationTriangleIcon aria-hidden />
+            Severity breakdown
+          </h3>
+        </div>
+        <p className="denr-panel__subtitle">
+          {rangeMeta.periodSubtitle} · severity assigned by AI analysis
+        </p>
+        <div className="incident-analytics-card__chart incident-analytics-card__chart--severity-bar">
+          <IncidentSeverityBarChart
+            segments={severitySegments}
+            height={260}
+            emptyMessage={emptyInRange}
+          />
+        </div>
+      </section>
 
       <section className="denr-panel denr-panel--analytics-locations">
         <div className="denr-panel__head">

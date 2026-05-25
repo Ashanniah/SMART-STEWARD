@@ -43,6 +43,8 @@
     <color name="notif_icon_circle_warm">#FFF4DC</color>
     <color name="notif_icon_circle_mint">#E8F5EC</color>
     <color name="notif_icon_circle_blue">#E3F2FD</color>
+    <color name="notif_icon_circle_amber">#FEF3C7</color>
+    <color name="notif_icon_circle_red">#FECACA</color>
     <color name="notif_btn_secondary_bg">#F4FAF6</color>
     <color name="notif_gold_text">#B8860B</color>
     <color name="notif_footer_muted">#8AA893</color>

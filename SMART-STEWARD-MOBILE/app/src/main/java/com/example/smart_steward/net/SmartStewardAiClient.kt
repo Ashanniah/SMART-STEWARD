@@ -346,13 +346,18 @@ object SmartStewardAiClient {
             context.getString(R.string.review_ai_description_default)
         }
         val severity = payload.optString("severity").ifBlank { "—" }
+        val severityReason = payload.optString("severity_reason").trim()
         val confidenceScore = payload.optDouble("confidence_score", Double.NaN)
         val reportable = isReportablePayload(payload, category, agency)
+        val synthesis = payload.optString("synthesis").trim()
+        val fileKind = payload.optString("file").trim()
+        val frameAnalysisJson = payload.optJSONArray("frame_analysis")?.toString().orEmpty()
 
         Log.i(
             TAG,
             "AI fields -> type=$type category=$category agency=$agency severity=$severity " +
-                "confidence_score=$confidenceScore reportable=$reportable",
+                "severity_reason=${if (severityReason.isBlank()) "(none)" else severityReason} " +
+                "confidence_score=$confidenceScore reportable=$reportable file=$fileKind",
         )
 
         val incidentTitle = category
@@ -377,8 +382,26 @@ object SmartStewardAiClient {
             if (severity.isNotBlank() && severity != "—") {
                 putExtra(AiAnalysisActivity.EXTRA_SEVERITY, severity)
             }
+            if (severityReason.isNotBlank()) {
+                putExtra(AiAnalysisActivity.EXTRA_AI_SEVERITY_REASON, severityReason)
+            }
             if (!confidenceScore.isNaN()) {
                 putExtra(AiAnalysisActivity.EXTRA_CONFIDENCE_SCORE, confidenceScore.toFloat())
+            }
+            if (category.isNotBlank()) {
+                putExtra(AiAnalysisActivity.EXTRA_AI_CATEGORY, category)
+            }
+            if (summary.isNotBlank()) {
+                putExtra(AiAnalysisActivity.EXTRA_AI_SUMMARY, summary)
+            }
+            if (synthesis.isNotBlank()) {
+                putExtra(AiAnalysisActivity.EXTRA_AI_SYNTHESIS, synthesis)
+            }
+            if (fileKind.isNotBlank()) {
+                putExtra(AiAnalysisActivity.EXTRA_AI_FILE, fileKind)
+            }
+            if (frameAnalysisJson.isNotBlank()) {
+                putExtra(AiAnalysisActivity.EXTRA_AI_FRAME_ANALYSIS_JSON, frameAnalysisJson)
             }
         }
     }

@@ -24,7 +24,14 @@ data class OfflineReportDraft(
     val longitude: Double?,
     val createdAtMs: Long,
     val severity: String? = null,
+    val severityReason: String? = null,
     val aiConfidence: Int? = null,
+    val aiCategory: String? = null,
+    val aiSummary: String? = null,
+    val aiSynthesis: String? = null,
+    val aiReportable: Boolean? = null,
+    val aiFile: String? = null,
+    val aiFrameAnalysisJson: String? = null,
 )
 
 object OfflineReportDraftStore {
@@ -46,7 +53,14 @@ object OfflineReportDraftStore {
         latitude: Double?,
         longitude: Double?,
         severity: String? = null,
+        severityReason: String? = null,
         aiConfidence: Int? = null,
+        aiCategory: String? = null,
+        aiSummary: String? = null,
+        aiSynthesis: String? = null,
+        aiReportable: Boolean? = null,
+        aiFile: String? = null,
+        aiFrameAnalysisJson: String? = null,
     ): OfflineReportDraft {
         val id = "draft_" + UUID.randomUUID().toString().replace("-", "").take(16)
         val draftsDir = File(context.filesDir, "report_drafts").apply { mkdirs() }
@@ -65,7 +79,14 @@ object OfflineReportDraftStore {
             longitude = longitude,
             createdAtMs = System.currentTimeMillis(),
             severity = severity,
+            severityReason = severityReason,
             aiConfidence = aiConfidence,
+            aiCategory = aiCategory,
+            aiSummary = aiSummary,
+            aiSynthesis = aiSynthesis,
+            aiReportable = aiReportable,
+            aiFile = aiFile,
+            aiFrameAnalysisJson = aiFrameAnalysisJson,
         )
         val arr = loadArray(context)
         arr.put(toJson(draft))
@@ -153,7 +174,14 @@ object OfflineReportDraftStore {
         put("longitude", d.longitude ?: JSONObject.NULL)
         put("createdAtMs", d.createdAtMs)
         d.severity?.takeIf { it.isNotBlank() }?.let { put("severity", it) }
+        d.severityReason?.takeIf { it.isNotBlank() }?.let { put("severityReason", it) }
         d.aiConfidence?.takeIf { it in 0..100 }?.let { put("aiConfidence", it) }
+        d.aiCategory?.takeIf { it.isNotBlank() }?.let { put("aiCategory", it) }
+        d.aiSummary?.takeIf { it.isNotBlank() }?.let { put("aiSummary", it) }
+        d.aiSynthesis?.takeIf { it.isNotBlank() }?.let { put("aiSynthesis", it) }
+        d.aiReportable?.let { put("aiReportable", it) }
+        d.aiFile?.takeIf { it.isNotBlank() }?.let { put("aiFile", it) }
+        d.aiFrameAnalysisJson?.takeIf { it.isNotBlank() }?.let { put("aiFrameAnalysisJson", it) }
     }
 
     private fun fromJson(o: JSONObject): OfflineReportDraft? {
@@ -164,6 +192,11 @@ object OfflineReportDraftStore {
         val lng = if (o.isNull("longitude")) null else o.optDouble("longitude")
         val aiConf = if (o.has("aiConfidence") && !o.isNull("aiConfidence")) {
             o.optInt("aiConfidence").takeIf { it in 0..100 }
+        } else {
+            null
+        }
+        val aiReportable = if (o.has("aiReportable") && !o.isNull("aiReportable")) {
+            o.optBoolean("aiReportable")
         } else {
             null
         }
@@ -180,7 +213,14 @@ object OfflineReportDraftStore {
             longitude = lng,
             createdAtMs = o.optLong("createdAtMs"),
             severity = o.optString("severity").takeIf { it.isNotBlank() },
+            severityReason = o.optString("severityReason").takeIf { it.isNotBlank() },
             aiConfidence = aiConf,
+            aiCategory = o.optString("aiCategory").takeIf { it.isNotBlank() },
+            aiSummary = o.optString("aiSummary").takeIf { it.isNotBlank() },
+            aiSynthesis = o.optString("aiSynthesis").takeIf { it.isNotBlank() },
+            aiReportable = aiReportable,
+            aiFile = o.optString("aiFile").takeIf { it.isNotBlank() },
+            aiFrameAnalysisJson = o.optString("aiFrameAnalysisJson").takeIf { it.isNotBlank() },
         )
     }
 }

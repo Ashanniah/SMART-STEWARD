@@ -17,6 +17,18 @@ export const STATUS_CHART_COLORS = {
   rejected: '#ef4444',
 };
 
+/**
+ * Donut colors for the AI-assigned severity. They match the pill colors used
+ * by `<SeverityBadge>` (see `.severity-badge__pill--*` in `index.css`) so the
+ * chart, legend, and detail badges read as the same visual language.
+ */
+export const SEVERITY_CHART_COLORS = {
+  low: '#22c55e',
+  medium: '#f97316',
+  high: '#ef4444',
+  critical: '#7f1d1d',
+};
+
 export const TREND_RANGE_OPTIONS = [
   { days: 7, label: 'This week' },
   { days: 14, label: 'Last 14 days' },
@@ -170,6 +182,52 @@ export function buildStatusBreakdown(reports, rangeDays = 30) {
     },
     { key: 'resolved', name: 'Resolved', value: resolved, color: STATUS_CHART_COLORS.resolved },
     { key: 'rejected', name: 'Rejected', value: rejected, color: STATUS_CHART_COLORS.rejected },
+  ];
+
+  const percents = finalizePercents(segments.map((s) => s.value));
+  return segments.map((s, i) => ({ ...s, percent: percents[i] }));
+}
+
+/**
+ * Bar segments by AI-assigned severity for reports in the selected period.
+ *
+ * Only the four real severity tiers (Critical → High → Medium → Low) are
+ * returned. Reports without an AI-assigned severity are intentionally
+ * excluded so percentages reflect the *severity profile of rated reports*
+ * — i.e. "of the reports the AI has classified, how serious are they?"
+ * — instead of mixing in a meta-state like "pending classification" that
+ * isn't itself a severity level.
+ *
+ * Severity values come straight from the AI response (`severity` field in
+ * Firestore, normalized by `normalizeIncidentSeverityKey`).
+ */
+export function buildSeverityBreakdown(reports, rangeDays = 30) {
+  let low = 0;
+  let medium = 0;
+  let high = 0;
+  let critical = 0;
+
+  for (const r of reports) {
+    if (!inReportRange(r.createdAt, rangeDays)) continue;
+    const key = String(r.incidentSeverityKey ?? '').toLowerCase();
+    if (key === 'low') low += 1;
+    else if (key === 'medium') medium += 1;
+    else if (key === 'high') high += 1;
+    else if (key === 'critical') critical += 1;
+  }
+
+  // Priority-first ordering: the chart reads left-to-right from "look at this
+  // first" (Critical) down to "informational" (Low).
+  const segments = [
+    {
+      key: 'critical',
+      name: 'Critical',
+      value: critical,
+      color: SEVERITY_CHART_COLORS.critical,
+    },
+    { key: 'high', name: 'High', value: high, color: SEVERITY_CHART_COLORS.high },
+    { key: 'medium', name: 'Medium', value: medium, color: SEVERITY_CHART_COLORS.medium },
+    { key: 'low', name: 'Low', value: low, color: SEVERITY_CHART_COLORS.low },
   ];
 
   const percents = finalizePercents(segments.map((s) => s.value));

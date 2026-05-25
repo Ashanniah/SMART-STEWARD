@@ -11,6 +11,7 @@ enum class CitizenNotificationKind(val key: String) {
     LIFECYCLE_RECEIVED("lifecycle_received"),
     LIFECYCLE_UNDER_REVIEW("lifecycle_under_review"),
     LIFECYCLE_IN_PROGRESS("lifecycle_in_progress"),
+    LIFECYCLE_PENDING("lifecycle_pending"),
     LIFECYCLE_RESOLVED("lifecycle_resolved"),
     LIFECYCLE_REJECTED("lifecycle_rejected"),
 
@@ -20,6 +21,7 @@ enum class CitizenNotificationKind(val key: String) {
 
     USER_MORE_INFO("user_more_info"),
     USER_EVIDENCE_NEEDED("user_evidence_needed"),
+    USER_NOTIFIED_AGENCY("user_notified_agency"),
 
     STATUS_TRACK_REMINDER("status_track_reminder"),
     STATUS_NO_UPDATE("status_no_update"),
@@ -39,11 +41,11 @@ enum class CitizenNotificationKind(val key: String) {
     @StringRes
     fun categoryRes(): Int = when (this) {
         LIFECYCLE_SUBMITTED, LIFECYCLE_RECEIVED, LIFECYCLE_UNDER_REVIEW, LIFECYCLE_IN_PROGRESS,
-        LIFECYCLE_RESOLVED, LIFECYCLE_REJECTED -> R.string.notif_cat_report_lifecycle
+        LIFECYCLE_PENDING, LIFECYCLE_RESOLVED, LIFECYCLE_REJECTED -> R.string.notif_cat_report_lifecycle
 
         AREA_NEARBY_INCIDENT, AREA_ONGOING_HAZARD, AREA_EMERGENCY -> R.string.notif_cat_area_alerts
 
-        USER_MORE_INFO, USER_EVIDENCE_NEEDED -> R.string.notif_cat_user_action
+        USER_MORE_INFO, USER_EVIDENCE_NEEDED, USER_NOTIFIED_AGENCY -> R.string.notif_cat_user_action
 
         STATUS_TRACK_REMINDER, STATUS_NO_UPDATE -> R.string.notif_cat_status_interaction
 
@@ -63,6 +65,7 @@ enum class CitizenNotificationKind(val key: String) {
         LIFECYCLE_RECEIVED -> R.string.notif_lifecycle_received_title
         LIFECYCLE_UNDER_REVIEW -> R.string.notif_lifecycle_under_review_title
         LIFECYCLE_IN_PROGRESS -> R.string.notif_lifecycle_in_progress_title
+        LIFECYCLE_PENDING -> R.string.notif_lifecycle_pending_title
         LIFECYCLE_RESOLVED -> R.string.notif_lifecycle_resolved_title
         LIFECYCLE_REJECTED -> R.string.notif_lifecycle_rejected_title
 
@@ -72,6 +75,7 @@ enum class CitizenNotificationKind(val key: String) {
 
         USER_MORE_INFO -> R.string.notif_user_more_info_title
         USER_EVIDENCE_NEEDED -> R.string.notif_user_evidence_title
+        USER_NOTIFIED_AGENCY -> R.string.notif_user_notified_title
 
         STATUS_TRACK_REMINDER -> R.string.notif_status_track_title
         STATUS_NO_UPDATE -> R.string.notif_status_sla_title
@@ -95,6 +99,7 @@ enum class CitizenNotificationKind(val key: String) {
         LIFECYCLE_RECEIVED -> R.string.notif_lifecycle_received_body
         LIFECYCLE_UNDER_REVIEW -> R.string.notif_lifecycle_under_review_body
         LIFECYCLE_IN_PROGRESS -> R.string.notif_lifecycle_in_progress_body
+        LIFECYCLE_PENDING -> R.string.notif_lifecycle_pending_body
         LIFECYCLE_RESOLVED -> R.string.notif_lifecycle_resolved_body
         LIFECYCLE_REJECTED -> R.string.notif_lifecycle_rejected_body
 
@@ -104,6 +109,7 @@ enum class CitizenNotificationKind(val key: String) {
 
         USER_MORE_INFO -> R.string.notif_user_more_info_body
         USER_EVIDENCE_NEEDED -> R.string.notif_user_evidence_body
+        USER_NOTIFIED_AGENCY -> R.string.notif_user_notified_body
 
         STATUS_TRACK_REMINDER -> R.string.notif_status_track_body
         STATUS_NO_UPDATE -> R.string.notif_status_sla_body

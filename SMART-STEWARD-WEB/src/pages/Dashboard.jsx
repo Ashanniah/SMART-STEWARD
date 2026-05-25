@@ -21,6 +21,7 @@ import {
   reportsToMapIncidents,
   statusToLabel,
 } from '../utils/normalizeReportDoc';
+import { nextMarkerExpiryMs } from '../utils/mapMarkerStatus';
 import {
   buildAgencyFilterOptions,
   buildTypeFilterOptions,
@@ -116,9 +117,39 @@ export default function Dashboard() {
     [counts]
   );
 
-  const recentSlice = useMemo(() => filteredReports.slice(0, 6), [filteredReports]);
+  // "Recent Receive Reports" intentionally hides reports in terminal states
+  // (Resolved / Rejected) so the panel surfaces only items that still need
+  // the agency's attention. Closed cases stay accessible via the Reports list
+  // and History of Reports pages.
+  const recentSlice = useMemo(
+    () =>
+      filteredReports
+        .filter((r) => r.status !== 'resolved' && r.status !== 'rejected')
+        .slice(0, 6),
+    [filteredReports]
+  );
 
-  const mapIncidents = useMemo(() => reportsToMapIncidents(filteredReports), [filteredReports]);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  /**
+   * Closed (resolved / rejected) reports linger on the map for one minute.
+   * We schedule a single timeout for the next pending expiry — when it
+   * fires we bump `nowTick` which both re-runs this effect (chaining to
+   * the next expiry if any) and re-evaluates the map filter. The loop
+   * self-terminates as soon as no terminal marker is still within TTL.
+   */
+  useEffect(() => {
+    const nextExpiry = nextMarkerExpiryMs(filteredReports, nowTick);
+    if (!Number.isFinite(nextExpiry)) return undefined;
+    const delay = Math.max(250, nextExpiry - Date.now());
+    const id = window.setTimeout(() => setNowTick(Date.now()), delay);
+    return () => window.clearTimeout(id);
+  }, [filteredReports, nowTick]);
+
+  const mapIncidents = useMemo(
+    () => reportsToMapIncidents(filteredReports, nowTick),
+    [filteredReports, nowTick]
+  );
   const focusedReportId = searchParams.get('focusReport') || '';
 
   const mapCenter = useMemo(() => {
@@ -191,7 +222,9 @@ export default function Dashboard() {
               <p className="denr-dashboard__muted">
                 {reports.length === 0
                   ? 'No reports yet. Submissions from the mobile app will appear here.'
-                  : 'No reports match the current filters.'}
+                  : filteredReports.length > 0
+                    ? 'No open reports right now. Closed cases are available in History of Reports.'
+                    : 'No reports match the current filters.'}
               </p>
             ) : (
               recentSlice.map((r) => (
@@ -203,6 +236,7 @@ export default function Dashboard() {
                   dateSubmitted={formatReportDateOnly(r.createdAt)}
                   timeOfReport={formatReportTimeOnly(r.createdAt)}
                   assignedAgency={r.assignedAgency}
+                  viewerAgencyKey={viewerAgencyKey}
                   imageUrl={r.imageUrl || undefined}
                   hasVideo={Boolean(r.hasVideo)}
                   onMediaClick={() =>

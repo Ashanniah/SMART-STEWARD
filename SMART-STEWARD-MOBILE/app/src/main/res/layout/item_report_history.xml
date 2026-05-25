@@ -97,27 +97,27 @@
                             tools:text="Resolved" />
                     </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/historyLocation"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:drawablePadding="6dp"
-                        android:ellipsize="end"
-                        android:maxLines="2"
-                        android:textColor="@color/activity_muted"
-                        android:textSize="12sp"
-                        app:drawableStartCompat="@drawable/ic_review_pin"
-                        tools:text="8VWW+G7P, Cebu City, 6000 Cebu, Philippines" />
+                    <!--
+                        Stacked labelled rows. Each row reuses the shared
+                        include_my_activity_detail_row partial so the icon /
+                        label / value rhythm matches the Nearby Incidents and
+                        My Activity cards.
+                    -->
+                    <include
+                        android:id="@+id/historyRowLocation"
+                        layout="@layout/include_my_activity_detail_row" />
 
-                    <TextView
-                        android:id="@+id/historyDate"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:textColor="@color/activity_muted"
-                        android:textSize="12sp"
-                        tools:text="May 24, 2026 · 2:30 PM" />
+                    <include
+                        android:id="@+id/historyRowDateSubmitted"
+                        layout="@layout/include_my_activity_detail_row" />
+
+                    <include
+                        android:id="@+id/historyRowTime"
+                        layout="@layout/include_my_activity_detail_row" />
+
+                    <include
+                        android:id="@+id/historyRowAgency"
+                        layout="@layout/include_my_activity_detail_row" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -129,21 +129,9 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    android:id="@+id/historyAgencyChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="10dp"
-                    android:paddingTop="4dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="4dp"
-                    android:textSize="11sp"
-                    tools:text="DENR, PNP" />
-
-                <TextView
                     android:id="@+id/historyMetaChip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:paddingStart="10dp"
@@ -162,6 +150,7 @@
                     android:id="@+id/historyViewAction"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:paddingStart="8dp"
                     android:paddingTop="4dp"
                     android:paddingEnd="4dp"

@@ -9,6 +9,7 @@ import {
   ClipboardDocumentListIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon as ArrowRightOnRectangleIconSolid } from '@heroicons/react/24/solid';
 import Logo from './Logo';
 import avatarDefault from '../assets/avatar_icon.png';
 import { getDashboardConfig } from '../config/dashboardConfig';
@@ -94,6 +95,8 @@ export default function Sidebar({ expanded = true }) {
         message="Are you sure you want to logout?"
         cancelLabel="Cancel"
         confirmLabel="Log out"
+        icon={ArrowRightOnRectangleIconSolid}
+        variant="danger"
         onCancel={() => setLogoutOpen(false)}
         onConfirm={async () => {
           setLogoutOpen(false);

@@ -21,6 +21,7 @@ class DashboardNearIncidentsAdapter(
 
     private val items = ArrayList<UserReport>()
     private val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    private val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
 
     fun submitList(newItems: List<UserReport>) {
         items.clear()
@@ -37,18 +38,44 @@ class DashboardNearIncidentsAdapter(
     override fun getItemCount(): Int = items.size
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        holder.bind(items[position], dateFmt, onTap)
+        holder.bind(items[position], dateFmt, timeFmt, onTap)
     }
 
     class VH(private val card: MaterialCardView) : RecyclerView.ViewHolder(card) {
-        fun bind(report: UserReport, fmt: SimpleDateFormat, onTap: (UserReport) -> Unit) {
+        fun bind(
+            report: UserReport,
+            dateFmt: SimpleDateFormat,
+            timeFmt: SimpleDateFormat,
+            onTap: (UserReport) -> Unit
+        ) {
             val ctx = card.context
-            val title = report.displayTitle()
-            val date = report.submittedAt?.let { fmt.format(it) } ?: "—"
-            val meta = "${report.locationDisplay()} • $date"
 
-            card.findViewById<TextView>(R.id.nearRowTitle).text = title
-            card.findViewById<TextView>(R.id.nearRowMeta).text = meta
+            card.findViewById<TextView>(R.id.nearRowTitle).text = report.displayTitle()
+
+            val submitted = report.submittedAt
+            val locationText = report.locationDisplay().ifBlank { "—" }
+            val dateText = submitted?.let { dateFmt.format(it) } ?: "—"
+            val timeText = submitted?.let { timeFmt.format(it) } ?: "—"
+
+            bindDetailRow(
+                card.findViewById(R.id.nearRowLocation),
+                iconRes = R.drawable.loc,
+                label = ctx.getString(R.string.my_activity_detail_location),
+                value = locationText
+            )
+            bindDetailRow(
+                card.findViewById(R.id.nearRowDate),
+                iconRes = R.drawable.ic_dashboard_detail_calendar,
+                label = ctx.getString(R.string.dashboard_detail_date_label),
+                value = dateText,
+                tintIcon = false
+            )
+            bindDetailRow(
+                card.findViewById(R.id.nearRowTime),
+                iconRes = R.drawable.clock,
+                label = ctx.getString(R.string.dashboard_detail_time_label),
+                value = timeText
+            )
 
             val photo = card.findViewById<ImageView>(R.id.nearRowPhoto)
             val thumbContainer = card.findViewById<View>(R.id.nearRowThumbContainer)
@@ -88,6 +115,34 @@ class DashboardNearIncidentsAdapter(
             val text = ReportStatusColors.textColor(ctx, report.status)
             styleTag(tag, fill, text)
             card.setOnClickListener { onTap(report) }
+        }
+
+        private fun bindDetailRow(
+            row: View,
+            iconRes: Int,
+            label: String,
+            value: String?,
+            tintIcon: Boolean = true
+        ) {
+            val icon = row.findViewById<ImageView>(R.id.activityDetailIcon)
+            icon.setImageResource(iconRes)
+            if (tintIcon) {
+                icon.setColorFilter(
+                    ContextCompat.getColor(row.context, R.color.activity_title_bar)
+                )
+            } else {
+                icon.clearColorFilter()
+            }
+            row.findViewById<TextView>(R.id.activityDetailLabel).text = label
+            row.findViewById<TextView>(R.id.activityDetailBadge).visibility = View.GONE
+
+            val valueView = row.findViewById<TextView>(R.id.activityDetailValue)
+            if (!value.isNullOrBlank()) {
+                valueView.visibility = View.VISIBLE
+                valueView.text = value
+            } else {
+                valueView.visibility = View.GONE
+            }
         }
 
         private fun styleTag(view: TextView, fillColor: Int, textColor: Int) {

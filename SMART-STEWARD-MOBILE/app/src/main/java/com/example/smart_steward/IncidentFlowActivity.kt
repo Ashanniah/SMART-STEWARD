@@ -277,6 +277,30 @@ class IncidentFlowActivity : AppCompatActivity() {
         return pct.coerceIn(0, 100)
     }
 
+    private fun analysisAiCategory(): String? =
+        lastAnalysisResult?.getStringExtra(AiAnalysisActivity.EXTRA_AI_CATEGORY)?.trim()?.takeIf { it.isNotBlank() }
+
+    private fun analysisAiSummary(): String? =
+        lastAnalysisResult?.getStringExtra(AiAnalysisActivity.EXTRA_AI_SUMMARY)?.trim()?.takeIf { it.isNotBlank() }
+
+    private fun analysisAiSynthesis(): String? =
+        lastAnalysisResult?.getStringExtra(AiAnalysisActivity.EXTRA_AI_SYNTHESIS)?.trim()?.takeIf { it.isNotBlank() }
+
+    private fun analysisAiFile(): String? =
+        lastAnalysisResult?.getStringExtra(AiAnalysisActivity.EXTRA_AI_FILE)?.trim()?.takeIf { it.isNotBlank() }
+
+    private fun analysisAiFrameAnalysisJson(): String? =
+        lastAnalysisResult?.getStringExtra(AiAnalysisActivity.EXTRA_AI_FRAME_ANALYSIS_JSON)?.takeIf { it.isNotBlank() }
+
+    private fun analysisAiSeverityReason(): String? =
+        lastAnalysisResult?.getStringExtra(AiAnalysisActivity.EXTRA_AI_SEVERITY_REASON)?.trim()?.takeIf { it.isNotBlank() }
+
+    private fun analysisAiReportable(): Boolean? {
+        val result = lastAnalysisResult ?: return null
+        if (!result.hasExtra(AiAnalysisActivity.EXTRA_REPORTABLE)) return null
+        return result.getBooleanExtra(AiAnalysisActivity.EXTRA_REPORTABLE, true)
+    }
+
     private fun navigateHome(openCamera: Boolean) {
         val intent = Intent(this, DashboardActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -726,7 +750,14 @@ class IncidentFlowActivity : AppCompatActivity() {
                 latitude = lat,
                 longitude = lng,
                 severity = analysisSeverity(),
+                severityReason = analysisAiSeverityReason(),
                 aiConfidence = analysisAiConfidencePercent(),
+                aiCategory = analysisAiCategory(),
+                aiSummary = analysisAiSummary(),
+                aiSynthesis = analysisAiSynthesis(),
+                aiReportable = analysisAiReportable(),
+                aiFile = analysisAiFile(),
+                aiFrameAnalysisJson = analysisAiFrameAnalysisJson(),
             )
             showSubmittedFromDraft(draft.id)
         }
@@ -747,7 +778,14 @@ class IncidentFlowActivity : AppCompatActivity() {
                 latitude = lat,
                 longitude = lng,
                 severity = analysisSeverity(),
+                severityReason = analysisAiSeverityReason(),
                 aiConfidence = analysisAiConfidencePercent(),
+                aiCategory = analysisAiCategory(),
+                aiSummary = analysisAiSummary(),
+                aiSynthesis = analysisAiSynthesis(),
+                aiReportable = analysisAiReportable(),
+                aiFile = analysisAiFile(),
+                aiFrameAnalysisJson = analysisAiFrameAnalysisJson(),
                 onSuccess = { docId, _ ->
                 Toast.makeText(this, getString(R.string.submitted_success_toast), Toast.LENGTH_LONG).show()
                 showSubmittedSuccessDialog(

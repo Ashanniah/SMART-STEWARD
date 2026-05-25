@@ -44,6 +44,12 @@ class AiAnalysisActivity : AppCompatActivity() {
         const val EXTRA_REPORTABLE = "extra_reportable"
         const val EXTRA_SEVERITY = "extra_severity"
         const val EXTRA_CONFIDENCE_SCORE = "extra_confidence_score"
+        const val EXTRA_AI_CATEGORY = "extra_ai_category"
+        const val EXTRA_AI_SUMMARY = "extra_ai_summary"
+        const val EXTRA_AI_SYNTHESIS = "extra_ai_synthesis"
+        const val EXTRA_AI_FILE = "extra_ai_file"
+        const val EXTRA_AI_FRAME_ANALYSIS_JSON = "extra_ai_frame_analysis_json"
+        const val EXTRA_AI_SEVERITY_REASON = "extra_ai_severity_reason"
     }
 
     private val handler = Handler(Looper.getMainLooper())

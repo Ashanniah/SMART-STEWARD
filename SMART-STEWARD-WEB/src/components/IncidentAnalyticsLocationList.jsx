@@ -52,9 +52,6 @@ export default function IncidentAnalyticsLocationList({
                   <span className="incident-analytics-locations__count">
                     {item.count} {reportLabel}
                   </span>
-                  <span className="incident-analytics-locations__meta-sep" aria-hidden>
-                    ·
-                  </span>
                   <span className="incident-analytics-locations__share">
                     {share}% of reports in period
                   </span>

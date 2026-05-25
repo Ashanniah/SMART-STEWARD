@@ -1,6 +1,7 @@
 package com.example.smart_steward
 
 import android.graphics.drawable.GradientDrawable
+import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import java.util.Date
 
 sealed class NotificationListRow {
     data class Section(val title: String, val unreadCount: Int = 0) : NotificationListRow()
@@ -17,10 +19,28 @@ sealed class NotificationListRow {
 }
 
 enum class NotificationVisual {
+    /** Orange/advisory styling reserved for area-wide alerts (nearby incident,
+     *  ongoing hazard, emergency, duplicate). Not used for the user's own
+     *  report-lifecycle events — those get status-coloured tiles instead. */
     ALERT,
+
+    /** Green tile — used for lifecycle PENDING / SUBMITTED / RESOLVED and
+     *  other "good news" categories. Matches the resolved status pill. */
     SUCCESS,
+
     INFO,
-    ACTIVE
+
+    ACTIVE,
+
+    /** Amber/yellow tile — lifecycle transitions into an in-progress phase
+     *  (received-by-agency, under-review, in-progress). Matches the
+     *  in-progress status pill colour (#EAB308). */
+    LIFECYCLE_PROGRESS,
+
+    /** Red tile — lifecycle rejection. Matches the rejected status pill
+     *  colour (#DC2626). Renders on the standard card chrome, NOT the
+     *  orange area-advisory chrome. */
+    LIFECYCLE_REJECTED
 }
 
 private enum class NotificationStatusBadge {
@@ -34,19 +54,33 @@ private enum class NotificationStatusBadge {
 private fun notificationVisual(kindKey: String?): NotificationVisual {
     val k = CitizenNotificationKind.fromKey(kindKey) ?: return NotificationVisual.INFO
     return when (k) {
+        // Green tile — pending / submitted / resolved follow the user-requested
+        // mapping (pending → green, resolved → green) and reuse the same mint
+        // chrome as other "good news" categories.
+        CitizenNotificationKind.LIFECYCLE_PENDING,
+        CitizenNotificationKind.LIFECYCLE_SUBMITTED,
         CitizenNotificationKind.LIFECYCLE_RESOLVED,
         CitizenNotificationKind.RESOLUTION_SUMMARY,
         CitizenNotificationKind.RESOLUTION_PROOF -> NotificationVisual.SUCCESS
 
+        // Amber tile — every "the report is being worked on" phase. Naming
+        // is historical: LIFECYCLE_RECEIVED actually means "moved to In
+        // Progress from Pending" (see strings.xml).
+        CitizenNotificationKind.LIFECYCLE_RECEIVED,
+        CitizenNotificationKind.LIFECYCLE_UNDER_REVIEW,
+        CitizenNotificationKind.LIFECYCLE_IN_PROGRESS -> NotificationVisual.LIFECYCLE_PROGRESS
+
+        // Red tile, regular card chrome — distinct from area advisories.
+        CitizenNotificationKind.LIFECYCLE_REJECTED -> NotificationVisual.LIFECYCLE_REJECTED
+
+        // Area-wide alerts and admin pings keep the orange advisory chrome.
         CitizenNotificationKind.AREA_NEARBY_INCIDENT,
         CitizenNotificationKind.AREA_ONGOING_HAZARD,
         CitizenNotificationKind.AREA_EMERGENCY,
-        CitizenNotificationKind.LIFECYCLE_REJECTED,
         CitizenNotificationKind.USER_MORE_INFO,
         CitizenNotificationKind.USER_EVIDENCE_NEEDED,
         CitizenNotificationKind.DUPLICATE_REPORT -> NotificationVisual.ALERT
 
-        CitizenNotificationKind.LIFECYCLE_IN_PROGRESS,
         CitizenNotificationKind.STATUS_TRACK_REMINDER -> NotificationVisual.ACTIVE
 
         else -> NotificationVisual.INFO
@@ -200,6 +234,7 @@ class NotificationsListAdapter(
         private val icon = view.findViewById<ImageView>(R.id.notifItemIcon)
         private val title = view.findViewById<TextView>(R.id.notifItemTitle)
         private val body = view.findViewById<TextView>(R.id.notifItemBody)
+        private val time = view.findViewById<TextView>(R.id.notifItemTime)
         private val dot = view.findViewById<View>(R.id.notifItemDot)
         private val statusBadge = view.findViewById<TextView>(R.id.notifItemStatusBadge)
 
@@ -225,6 +260,20 @@ class NotificationsListAdapter(
                     setIcon(R.drawable.checked)
                 }
 
+                NotificationVisual.LIFECYCLE_PROGRESS -> {
+                    root.setBackgroundResource(R.drawable.bg_notif_card_standard)
+                    advisoryStrip.visibility = View.GONE
+                    iconBg.setBackgroundResource(R.drawable.bg_notif_icon_circle_amber)
+                    setIcon(R.drawable.notification)
+                }
+
+                NotificationVisual.LIFECYCLE_REJECTED -> {
+                    root.setBackgroundResource(R.drawable.bg_notif_card_standard)
+                    advisoryStrip.visibility = View.GONE
+                    iconBg.setBackgroundResource(R.drawable.bg_notif_icon_circle_red)
+                    setIcon(R.drawable.notification)
+                }
+
                 NotificationVisual.ACTIVE -> {
                     root.setBackgroundResource(R.drawable.bg_notif_card_standard)
                     advisoryStrip.visibility = View.GONE
@@ -242,6 +291,8 @@ class NotificationsListAdapter(
 
             title.text = item.title
             body.text = formatBody(item, agency)
+            time.text = formatTimestamp(item.createdAt)
+            time.visibility = if (time.text.isNullOrBlank()) View.GONE else View.VISIBLE
             dot.visibility = if (item.read) View.GONE else View.VISIBLE
             if (!item.read) {
                 statusBadge.visibility = View.GONE
@@ -261,6 +312,33 @@ class NotificationsListAdapter(
             val raw = item.body.trim()
             if (raw.isNotEmpty()) return raw
             return itemView.context.getString(R.string.notif_body_fallback, agency)
+        }
+
+        /**
+         * Renders [createdAt] as a localized relative phrase:
+         *   - "Just now"           for < 1 minute
+         *   - "5 min ago"          for < 1 hour
+         *   - "2 hr ago"           for < 1 day
+         *   - "Yesterday"          for < 2 days
+         *   - "May 24, 2026"       for older entries
+         *
+         * Returns an empty string when [createdAt] is null so the caller
+         * can hide the label entirely.
+         */
+        private fun formatTimestamp(createdAt: Date?): String {
+            if (createdAt == null) return ""
+            val nowMs = System.currentTimeMillis()
+            val thenMs = createdAt.time
+            val deltaMs = nowMs - thenMs
+            if (deltaMs in 0L until DateUtils.MINUTE_IN_MILLIS) {
+                return "Just now"
+            }
+            return DateUtils.getRelativeTimeSpanString(
+                thenMs,
+                nowMs,
+                DateUtils.MINUTE_IN_MILLIS,
+                DateUtils.FORMAT_ABBREV_RELATIVE
+            ).toString()
         }
 
         private fun applyStatusBadge(ctx: android.content.Context, badge: NotificationStatusBadge) {
