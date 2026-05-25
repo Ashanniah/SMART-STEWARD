@@ -1,4 +1,4 @@
-import { resolveMapMarkerStatus } from './mapMarkerStatus';
+import { isMapMarkerVisible, resolveMapMarkerStatus } from './mapMarkerStatus';
 
 /**
  * Maps Firestore `reports` documents to the web dashboard shape.
@@ -169,6 +169,7 @@ export function normalizeReportDocument(docId, data) {
   const d = data && typeof data === 'object' ? data : {};
 
   const createdAt = toJsDate(d.createdAt ?? d.submittedAt ?? d.timestamp ?? d.date);
+  const statusUpdatedAt = toJsDate(d.statusUpdatedAt ?? d.statusChangedAt ?? null);
 
   let lat =
     typeof d.lat === 'number'
@@ -221,7 +222,16 @@ export function normalizeReportDocument(docId, data) {
     (typeof d.hasVideo === 'string' && d.hasVideo.toLowerCase() === 'true') ||
     videoUrl.length > 0;
 
-  const reportedBy = String(d.reportedBy ?? d.userName ?? d.submitterName ?? 'Citizen').trim();
+  const reportedByRaw = String(d.reportedBy ?? d.userName ?? d.submitterName ?? '').trim();
+  /**
+   * Reports stored without an explicit submitter name, or whose stored value
+   * is the legacy placeholder "Citizen", are surfaced as "Anonymous" so the
+   * dashboard never reveals an individual's identity unless one was provided.
+   */
+  const reportedBy =
+    !reportedByRaw || reportedByRaw.toLowerCase() === 'citizen'
+      ? 'Anonymous'
+      : reportedByRaw;
 
   /** Must match the viewer's canonical agency (see `agencyScope.js`). Omit on older docs until backfilled. */
   const assignedAgency = String(d.assignedAgency ?? d.agency ?? '').trim();
@@ -234,6 +244,9 @@ export function normalizeReportDocument(docId, data) {
   const incidentSeverityLabel = incidentSeverityKey
     ? formatIncidentSeverityLabel(incidentSeverityKey)
     : '';
+  const incidentSeverityReason = String(
+    d.severityReason ?? d.severity_reason ?? d.incidentSeverityReason ?? ''
+  ).trim();
 
   const needsAiReview =
     d.needsAiReview === true ||
@@ -258,6 +271,8 @@ export function normalizeReportDocument(docId, data) {
     lat,
     lng,
     createdAt,
+    statusUpdatedAt,
+    statusUpdatedAtMs: statusUpdatedAt instanceof Date ? statusUpdatedAt.getTime() : null,
     description,
     imageUrl,
     videoUrl,
@@ -270,6 +285,7 @@ export function normalizeReportDocument(docId, data) {
     incidentSeverity,
     incidentSeverityKey,
     incidentSeverityLabel,
+    incidentSeverityReason,
     needsAiReview,
     priority,
     deptReportId: d.deptReportId ? String(d.deptReportId) : `DEPT – ${createdAt?.getFullYear() ?? new Date().getFullYear()} – ${numericTail}`,
@@ -301,6 +317,7 @@ export function normalizedToDetailView(n) {
     assignedAgency: n.assignedAgency,
     incidentSeverityKey: n.incidentSeverityKey,
     incidentSeverityLabel: n.incidentSeverityLabel,
+    incidentSeverityReason: n.incidentSeverityReason,
     needsAiReview: n.needsAiReview,
     hasVideo: n.hasVideo,
     videoUrl: n.videoUrl,
@@ -341,9 +358,25 @@ export function buildMapReportSummary(r) {
   };
 }
 
-export function reportsToMapIncidents(reports) {
+/**
+ * Builds the map-pin payload for every report that has a usable coordinate.
+ *
+ * Resolved / rejected reports remain pinned only inside the
+ * [TERMINAL_MARKER_TTL_MS] window after the agency's status change so the
+ * outcome is briefly visible, then the marker auto-disappears. The original
+ * report still lives in the dashboard list, History page, and Firestore.
+ *
+ * @param reports Source normalized report rows.
+ * @param nowMs Optional reference timestamp used for the TTL filter.
+ * @param options.ignoreVisibilityTtl When true, every report with valid
+ *        coordinates is rendered regardless of status TTL — used by the
+ *        Report Detail page so the user always sees their own pin.
+ */
+export function reportsToMapIncidents(reports, nowMs = Date.now(), options = {}) {
+  const { ignoreVisibilityTtl = false } = options;
   return reports
     .filter((r) => r.lat != null && r.lng != null && Number.isFinite(r.lat) && Number.isFinite(r.lng))
+    .filter((r) => ignoreVisibilityTtl || isMapMarkerVisible(r, nowMs))
     .map((r) => {
       const markerStatus = resolveMapMarkerStatus(r.status);
       const summary = buildMapReportSummary(r);
@@ -356,6 +389,9 @@ export function reportsToMapIncidents(reports) {
         status: markerStatus,
         markerStatus,
         location: r.location,
+        statusUpdatedAtMs:
+          r.statusUpdatedAtMs ??
+          (r.statusUpdatedAt instanceof Date ? r.statusUpdatedAt.getTime() : null),
         reportSummary: {
           ...summary,
           statusKey: markerStatus,

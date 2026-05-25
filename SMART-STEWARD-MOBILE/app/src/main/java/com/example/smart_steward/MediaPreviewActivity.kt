@@ -3,9 +3,7 @@ package com.example.smart_steward
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.widget.ImageView
 import android.widget.MediaController
-import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
 import coil.load
 
@@ -19,8 +17,8 @@ class MediaPreviewActivity : AppCompatActivity() {
         const val KIND_BITMAP = "bitmap"
     }
 
-    private lateinit var previewImage: ImageView
-    private lateinit var previewVideo: VideoView
+    private lateinit var previewImage: ZoomableImageView
+    private lateinit var previewVideo: AspectFitVideoView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +91,7 @@ class MediaPreviewActivity : AppCompatActivity() {
         }
         previewVideo.setOnPreparedListener { mp ->
             mp.isLooping = false
+            previewVideo.setVideoIntrinsicSize(mp.videoWidth, mp.videoHeight)
             previewVideo.start()
         }
         previewVideo.setVideoURI(Uri.parse(uri))

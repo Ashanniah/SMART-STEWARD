@@ -15,7 +15,6 @@ import { useReportsData } from '../context/ReportsDataContext';
 import { useAgencyUser } from '../context/AgencyUserContext';
 import MediaLightbox from '../components/MediaLightbox';
 import {
-  buildAgencyFilterOptions,
   buildTypeFilterOptions,
   DEFAULT_DASHBOARD_FILTERS,
   filterAndSortReports,
@@ -25,24 +24,54 @@ import {
   FILTER_ALL_STATUS,
   FILTER_ALL_TYPES,
 } from '../utils/dashboardFilters';
-import { parseAssignedAgencies } from '../utils/agencyScope';
+import { viewerScopedAgencyLabel } from '../utils/agencyScope';
 import {
   formatReportDateOnly,
   formatReportTimeOnly,
 } from '../utils/normalizeReportDoc';
+import { nextMarkerExpiryMs, TERMINAL_MARKER_TTL_MS } from '../utils/mapMarkerStatus';
 
 const PLACEHOLDER_THUMB =
   'https://images.unsplash.com/photo-1611287157826-4e513e77ba9a?w=120&h=120&fit=crop&q=80';
 
 const STAT_CONFIG = [
-  { key: 'total', title: 'Total Archived', Icon: ClipboardDocumentListIcon, accent: 'green' },
+  { key: 'total', title: 'Total Reports', Icon: ClipboardDocumentListIcon, accent: 'green' },
   { key: 'resolved', title: 'Resolved', Icon: CheckCircleIcon, accent: 'teal' },
   { key: 'rejected', title: 'Rejected', Icon: XCircleIcon, accent: 'red' },
 ];
 
 const STATUS_FILTER_OPTIONS = [FILTER_ALL_STATUS, 'Resolved', 'Rejected'];
 
-const COL_COUNT = 8;
+const COL_COUNT = 9;
+
+/**
+ * Builds the "Expires" cell shown next to each closed report.
+ *
+ * The Dashboard map only shows resolved / rejected pins for
+ * [TERMINAL_MARKER_TTL_MS] after the agency's status change; this helper
+ * surfaces the matching deadline (or "Expired" when the window has lapsed)
+ * so reviewers know exactly when the marker was removed from the map.
+ */
+function formatExpiry(statusUpdatedAt, nowMs = Date.now()) {
+  if (!(statusUpdatedAt instanceof Date) || Number.isNaN(statusUpdatedAt.getTime())) {
+    return { label: '—', sub: '', expired: false };
+  }
+  const expiresAt = new Date(statusUpdatedAt.getTime() + TERMINAL_MARKER_TTL_MS);
+  const label = expiresAt.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const expired = nowMs > expiresAt.getTime();
+  return {
+    label,
+    sub: expired ? 'Removed from map' : 'Visible on map until',
+    expired,
+  };
+}
 
 function HistoryStatusPill({ status }) {
   const labels = {
@@ -65,22 +94,14 @@ function HistoryStatusPill({ status }) {
   );
 }
 
-function AgencyChips({ raw }) {
-  const agencies = parseAssignedAgencies(raw);
-  if (agencies.length === 0) {
-    const fallback = String(raw ?? '').trim();
-    if (!fallback) return <span className="reports-agency-empty">—</span>;
-    return <span className="reports-agency-chip">{fallback}</span>;
-  }
-  return (
-    <div className="reports-agency-chips">
-      {agencies.map((a) => (
-        <span key={a} className="reports-agency-chip">
-          {a}
-        </span>
-      ))}
-    </div>
-  );
+/**
+ * Each agency dashboard is scoped to its own viewer, so even if a report is assigned
+ * to several agencies in Firestore we only display the viewer's own agency here.
+ */
+function ViewerAgencyChip({ raw, viewerAgencyKey }) {
+  const label = viewerScopedAgencyLabel(raw, viewerAgencyKey);
+  if (!label) return <span className="reports-agency-empty">—</span>;
+  return <span className="reports-agency-chip">{label}</span>;
 }
 
 function fmtNum(n) {
@@ -92,56 +113,30 @@ export default function ReportHistory() {
   const { viewerAgencyKey } = useAgencyUser();
   const { reports, loading, error } = useReportsData();
   const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
-  const [draftFilters, setDraftFilters] = useState({
-    ...DEFAULT_DASHBOARD_FILTERS,
-    sort: 'newest',
-  });
-  const [appliedFilters, setAppliedFilters] = useState({
-    ...DEFAULT_DASHBOARD_FILTERS,
-    sort: 'newest',
-  });
+  const DEFAULT_FILTERS = useMemo(
+    () => ({
+      ...DEFAULT_DASHBOARD_FILTERS,
+      agency: FILTER_ALL_AGENCIES,
+      sort: 'newest',
+    }),
+    []
+  );
+
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const agencyFilterInitialized = useRef(false);
+  const [actionToast, setActionToast] = useState(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const toastTimerRef = useRef(null);
+  const tableSectionRef = useRef(null);
 
   const archiveReports = useMemo(() => filterClosedReports(reports), [reports]);
 
   const typeOptions = useMemo(() => buildTypeFilterOptions(archiveReports), [archiveReports]);
-  const agencyOptions = useMemo(
-    () => buildAgencyFilterOptions(archiveReports, viewerAgencyKey),
-    [archiveReports, viewerAgencyKey]
-  );
-
-  const defaultAgencyFilter = useMemo(() => {
-    if (agencyOptions.length === 0) return FILTER_ALL_AGENCIES;
-    if (agencyOptions.length === 1) return agencyOptions[0];
-    if (viewerAgencyKey && agencyOptions.includes(viewerAgencyKey)) return viewerAgencyKey;
-    return FILTER_ALL_AGENCIES;
-  }, [agencyOptions, viewerAgencyKey]);
-
-  useEffect(() => {
-    if (!agencyFilterInitialized.current && viewerAgencyKey && defaultAgencyFilter !== FILTER_ALL_AGENCIES) {
-      agencyFilterInitialized.current = true;
-      const next = { ...DEFAULT_DASHBOARD_FILTERS, agency: defaultAgencyFilter, sort: 'newest' };
-      setDraftFilters(next);
-      setAppliedFilters(next);
-    }
-  }, [viewerAgencyKey, defaultAgencyFilter]);
-
-  useEffect(() => {
-    const fixAgency = (prev) => {
-      if (prev.agency !== FILTER_ALL_AGENCIES && !agencyOptions.includes(prev.agency)) {
-        return { ...prev, agency: defaultAgencyFilter };
-      }
-      return prev;
-    };
-    setDraftFilters(fixAgency);
-    setAppliedFilters(fixAgency);
-  }, [agencyOptions, defaultAgencyFilter]);
 
   const filteredReports = useMemo(
-    () => filterAndSortReports(archiveReports, appliedFilters, appliedFilters.sort),
-    [archiveReports, appliedFilters]
+    () => filterAndSortReports(archiveReports, filters, filters.sort),
+    [archiveReports, filters]
   );
 
   const historyCounts = useMemo(
@@ -149,9 +144,35 @@ export default function ReportHistory() {
     [filteredReports]
   );
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.type !== FILTER_ALL_TYPES) count += 1;
+    if (filters.status !== FILTER_ALL_STATUS) count += 1;
+    if (filters.date) count += 1;
+    if (filters.sort && filters.sort !== 'newest') count += 1;
+    return count;
+  }, [filters]);
+
   const totalCount = filteredReports.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const effectivePage = Math.min(Math.max(1, page), totalPages);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters, pageSize]);
+
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    },
+    []
+  );
+
+  function flashToast(message, variant = 'info') {
+    setActionToast({ message, variant });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setActionToast(null), 2400);
+  }
 
   const rows = useMemo(() => {
     const start = (effectivePage - 1) * pageSize;
@@ -165,8 +186,27 @@ export default function ReportHistory() {
       timeOfReport: formatReportTimeOnly(r.createdAt),
       status: r.status,
       assignedAgency: r.assignedAgency,
+      expiry: formatExpiry(r.statusUpdatedAt, nowTick),
     }));
-  }, [filteredReports, effectivePage, pageSize]);
+  }, [filteredReports, effectivePage, pageSize, nowTick]);
+
+  /**
+   * The "Map Marker Expires" column flips from "Visible on map until …" to
+   * "Removed from map" the moment a row's 1-minute TTL lapses. We schedule
+   * a single timeout for the next pending expiry on the visible page so
+   * the label updates without a perpetual 1Hz loop.
+   */
+  useEffect(() => {
+    const pageReports = filteredReports.slice(
+      (effectivePage - 1) * pageSize,
+      effectivePage * pageSize
+    );
+    const nextExpiry = nextMarkerExpiryMs(pageReports, nowTick);
+    if (!Number.isFinite(nextExpiry)) return undefined;
+    const delay = Math.max(250, nextExpiry - Date.now());
+    const id = window.setTimeout(() => setNowTick(Date.now()), delay);
+    return () => window.clearTimeout(id);
+  }, [filteredReports, effectivePage, pageSize, nowTick]);
 
   const startIdx = (effectivePage - 1) * pageSize;
   const showingFrom = totalCount === 0 ? 0 : startIdx + 1;
@@ -178,25 +218,28 @@ export default function ReportHistory() {
   );
 
   const applyFilters = () => {
-    setAppliedFilters({ ...draftFilters });
     setPage(1);
+    tableSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const matched = filteredReports.length;
+    flashToast(
+      activeFilterCount === 0
+        ? `Showing all ${matched.toLocaleString()} report${matched === 1 ? '' : 's'}.`
+        : `${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active · ${matched.toLocaleString()} report${matched === 1 ? '' : 's'} match.`,
+      'success'
+    );
   };
 
   const resetFilters = () => {
-    const reset = {
-      type: FILTER_ALL_TYPES,
-      status: FILTER_ALL_STATUS,
-      agency: defaultAgencyFilter,
-      date: '',
-      sort: 'newest',
-    };
-    setDraftFilters(reset);
-    setAppliedFilters(reset);
-    setPage(1);
+    setFilters(DEFAULT_FILTERS);
     setPageSize(10);
+    flashToast('Filters cleared.', 'info');
   };
 
   function exportCsv() {
+    if (filteredReports.length === 0) {
+      flashToast('No reports to export.', 'warning');
+      return;
+    }
     const headers = [
       'reportId',
       'dateSubmitted',
@@ -205,28 +248,42 @@ export default function ReportHistory() {
       'location',
       'agency',
       'status',
+      'mapMarkerExpiresAt',
     ];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const csvRows = filteredReports.map((r) => ({
-      reportId: r.id,
-      dateSubmitted: formatReportDateOnly(r.createdAt),
-      timeOfReport: formatReportTimeOnly(r.createdAt),
-      reportType: r.activity,
-      location: r.location,
-      agency: parseAssignedAgencies(r.assignedAgency).join(', ') || r.assignedAgency,
-      status: r.status,
-    }));
+    const csvRows = filteredReports.map((r) => {
+      const agency =
+        viewerScopedAgencyLabel(r.assignedAgency, viewerAgencyKey) || r.assignedAgency;
+      const expiry = formatExpiry(r.statusUpdatedAt);
+      return {
+        reportId: r.id,
+        dateSubmitted: formatReportDateOnly(r.createdAt),
+        timeOfReport: formatReportTimeOnly(r.createdAt),
+        reportType: r.activity,
+        location: r.location,
+        agency,
+        status: r.status,
+        mapMarkerExpiresAt: expiry.label,
+      };
+    });
     const csv = [
       headers.join(','),
       ...csvRows.map((row) => headers.map((h) => escape(row[h])).join(',')),
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
+    const filename = `report-history-${new Date().toISOString().slice(0, 10)}.csv`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `report-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    flashToast(
+      `Exported ${csvRows.length.toLocaleString()} report${csvRows.length === 1 ? '' : 's'} to ${filename}.`,
+      'success'
+    );
   }
 
   return (
@@ -259,17 +316,22 @@ export default function ReportHistory() {
           <h3 className="denr-filters__title">
             <FunnelIcon aria-hidden />
             Quick filters
+            {activeFilterCount > 0 ? (
+              <span className="denr-filters__count" aria-label={`${activeFilterCount} filters active`}>
+                {activeFilterCount}
+              </span>
+            ) : null}
           </h3>
           <p className="denr-filters__hint">
-            Resolved and rejected reports only — filter by type, outcome, agency, or date
+            Resolved and rejected reports only — filter by type, outcome, or date
           </p>
         </div>
         <div className="denr-filters__row">
           <label className="denr-filter-field">
             <span>By Type</span>
             <select
-              value={draftFilters.type}
-              onChange={(e) => setDraftFilters((f) => ({ ...f, type: e.target.value }))}
+              value={filters.type}
+              onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
             >
               {typeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -281,8 +343,8 @@ export default function ReportHistory() {
           <label className="denr-filter-field">
             <span>By Status</span>
             <select
-              value={draftFilters.status}
-              onChange={(e) => setDraftFilters((f) => ({ ...f, status: e.target.value }))}
+              value={filters.status}
+              onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
             >
               {STATUS_FILTER_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -292,36 +354,18 @@ export default function ReportHistory() {
             </select>
           </label>
           <label className="denr-filter-field">
-            <span>By Agency</span>
-            <select
-              value={draftFilters.agency}
-              onChange={(e) => setDraftFilters((f) => ({ ...f, agency: e.target.value }))}
-              disabled={agencyOptions.length === 0}
-            >
-              {agencyOptions.length === 0 ? (
-                <option value={FILTER_ALL_AGENCIES}>No agencies</option>
-              ) : (
-                agencyOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-          <label className="denr-filter-field">
             <span>By Date</span>
             <input
               type="date"
-              value={draftFilters.date}
-              onChange={(e) => setDraftFilters((f) => ({ ...f, date: e.target.value }))}
+              value={filters.date}
+              onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value }))}
             />
           </label>
           <label className="denr-filter-field">
             <span>Sort</span>
             <select
-              value={draftFilters.sort}
-              onChange={(e) => setDraftFilters((f) => ({ ...f, sort: e.target.value }))}
+              value={filters.sort}
+              onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))}
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -332,23 +376,42 @@ export default function ReportHistory() {
               <FunnelIcon aria-hidden />
               Apply Filters
             </button>
-            <button type="button" className="denr-btn-reset" onClick={resetFilters}>
+            <button
+              type="button"
+              className="denr-btn-reset"
+              onClick={resetFilters}
+              disabled={activeFilterCount === 0}
+            >
               <ArrowPathIcon aria-hidden />
               Reset
             </button>
-            <button type="button" className="history-btn history-btn--export" onClick={exportCsv}>
+            <button
+              type="button"
+              className="history-btn history-btn--export"
+              onClick={exportCsv}
+              disabled={filteredReports.length === 0}
+            >
               <ArrowDownTrayIcon aria-hidden />
               Export
             </button>
           </div>
         </div>
+        {actionToast ? (
+          <div
+            className={`report-history-toast report-history-toast--${actionToast.variant}`}
+            role="status"
+            aria-live="polite"
+          >
+            {actionToast.message}
+          </div>
+        ) : null}
       </section>
 
-      <section className="history-table-card">
+      <section className="history-table-card" ref={tableSectionRef}>
         <div className="history-table-card__head">
           <h2 className="history-table-card__title">
             <ClipboardDocumentListIcon aria-hidden />
-            Report archive
+            Closed Reports
           </h2>
           <span className="history-table-card__count">
             {fmtNum(totalCount)} {totalCount === 1 ? 'report' : 'reports'}
@@ -366,6 +429,7 @@ export default function ReportHistory() {
                 <th>Location</th>
                 <th>Agency</th>
                 <th>Status</th>
+                <th>Date &amp; Time of the Expiration</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -380,7 +444,7 @@ export default function ReportHistory() {
                 <tr>
                   <td colSpan={COL_COUNT} className="reports-table__loading">
                     {archiveReports.length === 0
-                      ? 'No archived reports yet. Resolved and rejected reports will appear here.'
+                      ? 'No closed reports yet. Resolved and rejected reports will appear here.'
                       : 'No reports match your filters.'}
                   </td>
                 </tr>
@@ -406,10 +470,21 @@ export default function ReportHistory() {
                     <td className="history-table__time">{row.timeOfReport}</td>
                     <td className="reports-table__location">{row.location}</td>
                     <td>
-                      <AgencyChips raw={row.assignedAgency} />
+                      <ViewerAgencyChip
+                        raw={row.assignedAgency}
+                        viewerAgencyKey={viewerAgencyKey}
+                      />
                     </td>
                     <td>
                       <HistoryStatusPill status={row.status} />
+                    </td>
+                    <td className="history-table__expiry">
+                      <span
+                        className={`history-expiry-cell${row.expiry.expired ? ' history-expiry-cell--expired' : ''}`}
+                      >
+                        <span className="history-expiry-cell__sub">{row.expiry.sub}</span>
+                        <span className="history-expiry-cell__time">{row.expiry.label}</span>
+                      </span>
                     </td>
                     <td>
                       <button

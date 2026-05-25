@@ -8,7 +8,7 @@ import {
   MapPinIcon,
 } from '@heroicons/react/24/outline';
 import { PlayIcon as PlaySolidIcon } from '@heroicons/react/24/solid';
-import { parseAssignedAgencies } from '../utils/agencyScope';
+import { viewerScopedAgencyLabel } from '../utils/agencyScope';
 
 const STATUS_CLASS = {
   pending: 'recent-report-card__status--pending',
@@ -17,13 +17,6 @@ const STATUS_CLASS = {
   resolved: 'recent-report-card__status--resolved',
   rejected: 'recent-report-card__status--rejected',
 };
-
-function formatAgencyList(raw) {
-  const list = parseAssignedAgencies(raw);
-  if (list.length > 0) return list.join(', ');
-  const trimmed = String(raw ?? '').trim();
-  return trimmed || '—';
-}
 
 function FieldLabel({ Icon, children }) {
   return (
@@ -44,11 +37,14 @@ export default function RecentReportRow({
   timeOfReport,
   location,
   assignedAgency = '',
+  viewerAgencyKey = '',
   statusLabel = 'Pending',
   statusKey = 'pending',
 }) {
   const statusClass = STATUS_CLASS[statusKey] ?? STATUS_CLASS.pending;
-  const agenciesLabel = formatAgencyList(assignedAgency);
+  const agencyLabel =
+    viewerScopedAgencyLabel(assignedAgency, viewerAgencyKey) ||
+    String(assignedAgency ?? '').trim();
 
   return (
     <article className="recent-report-card">
@@ -101,12 +97,12 @@ export default function RecentReportRow({
               </dt>
               <dd>{location}</dd>
             </div>
-            {agenciesLabel !== '—' ? (
+            {agencyLabel ? (
               <div className="recent-report-card__field recent-report-card__field--agencies">
                 <dt>
                   <FieldLabel Icon={BuildingOffice2Icon}>Assigned Agency</FieldLabel>
                 </dt>
-                <dd>{agenciesLabel}</dd>
+                <dd>{agencyLabel}</dd>
               </div>
             ) : null}
           </dl>

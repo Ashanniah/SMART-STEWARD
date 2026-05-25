@@ -2,6 +2,7 @@
 <resources>
     <dimen name="bottom_nav_height">76dp</dimen>
     <dimen name="bottom_nav_icon_size">22dp</dimen>
+    <dimen name="bottom_nav_history_icon_size">26dp</dimen>
     <dimen name="bottom_nav_horizontal_inset">0dp</dimen>
     <dimen name="bottom_nav_bottom_inset">0dp</dimen>
     <dimen name="dashboard_zoom_controls_margin_with_sheet">230dp</dimen>

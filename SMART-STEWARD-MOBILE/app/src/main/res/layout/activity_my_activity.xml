@@ -6,8 +6,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/activity_page_bg"
-    android:clipChildren="true"
-    android:clipToPadding="true">
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <LinearLayout
         android:id="@+id/myActivityTopBlock"

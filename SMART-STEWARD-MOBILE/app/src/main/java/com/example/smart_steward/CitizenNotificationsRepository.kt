@@ -32,33 +32,80 @@ object CitizenNotificationsRepository {
     private fun inboxCollection(uid: String) =
         firestore.collection("users").document(uid).collection("citizenInbox")
 
+    /**
+     * Persist a single notification card for the citizen.
+     *
+     * Bodies for the report-lifecycle kinds (and for ADMIN_COMMENT / USER_NOTIFIED_AGENCY)
+     * accept three positional placeholders so each card surfaces the report it refers to:
+     *   - `%1$s` → incident type (e.g. "Illegal Gambling")
+     *   - `%2$s` → agency short name (e.g. "DENR, PNP")
+     *   - `%3$s` → public-facing report reference (e.g. "REP-20260525-AB12")
+     *
+     * @param customBody overrides the localized body when provided (used for free-form
+     *                   admin remarks captured on the web dashboard).
+     */
     fun append(
         userId: String?,
         kind: CitizenNotificationKind,
         agency: String,
-        reportId: String?
+        reportId: String?,
+        incidentType: String? = null,
+        publicReportId: String? = null,
+        customBody: String? = null
     ) {
         if (userId.isNullOrBlank()) return
         val ctx = appContext()
         val ag = agency.ifBlank { ctx.getString(R.string.notif_agency_placeholder) }
+        val incident = incidentType?.trim().orEmpty()
+            .ifBlank { ctx.getString(R.string.notif_report_kind_fallback) }
+        val ref = publicReportId?.trim().orEmpty()
+            .ifBlank { ctx.getString(R.string.notif_report_ref_fallback) }
         val categoryLine = "${ctx.getString(kind.categoryRes())} • $ag"
         val title = ctx.getString(kind.titleRes())
-        val body = when (kind) {
-            CitizenNotificationKind.LIFECYCLE_RECEIVED,
-            CitizenNotificationKind.ADMIN_AGENCY_MESSAGE -> ctx.getString(kind.bodyRes(), ag)
-            else -> ctx.getString(kind.bodyRes())
+        val body = customBody?.takeIf { it.isNotBlank() } ?: run {
+            when (kind) {
+                CitizenNotificationKind.LIFECYCLE_SUBMITTED -> ctx.getString(kind.bodyRes(), incident, ref)
+                CitizenNotificationKind.LIFECYCLE_RECEIVED,
+                CitizenNotificationKind.LIFECYCLE_UNDER_REVIEW,
+                CitizenNotificationKind.LIFECYCLE_IN_PROGRESS,
+                CitizenNotificationKind.LIFECYCLE_PENDING,
+                CitizenNotificationKind.LIFECYCLE_RESOLVED,
+                CitizenNotificationKind.LIFECYCLE_REJECTED,
+                CitizenNotificationKind.ADMIN_COMMENT,
+                CitizenNotificationKind.USER_NOTIFIED_AGENCY -> ctx.getString(kind.bodyRes(), incident, ag, ref)
+                CitizenNotificationKind.ADMIN_AGENCY_MESSAGE -> ctx.getString(kind.bodyRes(), ag)
+                else -> ctx.getString(kind.bodyRes())
+            }
         }
         val data = hashMapOf<String, Any>(
             "kind" to kind.key,
             "categoryLine" to categoryLine,
             "title" to title,
-            "body" to body,
+            "body" to body.take(2000),
             "agency" to ag,
+            "incidentType" to incident,
+            "publicReportId" to ref,
             "reportId" to (reportId ?: ""),
             "read" to false,
             "createdAt" to FieldValue.serverTimestamp()
         )
         inboxCollection(userId).add(data)
+
+        // Also surface the same content in the system tray so the user is
+        // alerted even when they're not currently on the Notifications tab.
+        // Notifications are keyed by report id so successive updates for the
+        // same report replace each other instead of stacking. ADMIN_COMMENT
+        // gets its own tag so an admin remark doesn't overwrite the most
+        // recent lifecycle update for that report.
+        val safeReportId = reportId?.takeIf { it.isNotBlank() } ?: return
+        val tagSuffix = if (kind == CitizenNotificationKind.ADMIN_COMMENT) "remark" else "lifecycle"
+        LocalNotificationCenter.postReportNotification(
+            context = ctx,
+            title = title,
+            body = body,
+            reportId = safeReportId,
+            notificationTag = "report_${safeReportId}_$tagSuffix"
+        )
     }
 
     fun watchInbox(
@@ -108,6 +155,56 @@ object CitizenNotificationsRepository {
         markAllReadState(userId, read = false, onDone, onError)
     }
 
+    /**
+     * Permanently deletes every notification document under
+     * `users/{uid}/citizenInbox`. The deletion is split into Firestore-batch-sized
+     * chunks (500 docs each) so very large inboxes still complete reliably.
+     */
+    fun clearAll(
+        userId: String,
+        onDone: (() -> Unit)? = null,
+        onError: ((String) -> Unit)? = null
+    ) {
+        if (userId.isBlank()) {
+            onDone?.invoke()
+            return
+        }
+        inboxCollection(userId)
+            .get()
+            .addOnSuccessListener { snap ->
+                if (snap.isEmpty) {
+                    onDone?.invoke()
+                    return@addOnSuccessListener
+                }
+                val docs = snap.documents
+                val chunks = docs.chunked(450)
+                var remaining = chunks.size
+                var failed = false
+                for (chunk in chunks) {
+                    val batch = firestore.batch()
+                    for (doc in chunk) {
+                        batch.delete(doc.reference)
+                    }
+                    batch.commit()
+                        .addOnSuccessListener {
+                            remaining -= 1
+                            if (remaining == 0 && !failed) {
+                                onDone?.invoke()
+                            }
+                        }
+                        .addOnFailureListener { ex ->
+                            if (!failed) {
+                                failed = true
+                                onError?.invoke(ex.message ?: "Could not clear notifications.")
+                            }
+                        }
+                }
+            }
+            .addOnFailureListener { ex ->
+                onError?.invoke(ex.message ?: "Could not clear notifications.")
+            }
+    }
+
     private fun markAllReadState(
         userId: String,
         read: Boolean,
@@ -155,6 +252,31 @@ object CitizenNotificationsRepository {
             .addOnFailureListener { ex ->
                 onError?.invoke(ex.message ?: "")
                 onResult(0)
+            }
+    }
+
+    /**
+     * Live unread-count subscription that fires every time a notification is added,
+     * marked read, or marked unread. The returned [ListenerRegistration] must be
+     * [ListenerRegistration.remove]d when the observer is no longer interested.
+     */
+    fun watchUnreadCount(
+        userId: String,
+        onResult: (Int) -> Unit,
+        onError: ((String) -> Unit)? = null
+    ): ListenerRegistration? {
+        if (userId.isBlank()) {
+            onResult(0)
+            return null
+        }
+        return inboxCollection(userId)
+            .whereEqualTo("read", false)
+            .addSnapshotListener { snap, e ->
+                if (e != null) {
+                    onError?.invoke(e.message ?: "")
+                    return@addSnapshotListener
+                }
+                onResult(snap?.size() ?: 0)
             }
     }
 }

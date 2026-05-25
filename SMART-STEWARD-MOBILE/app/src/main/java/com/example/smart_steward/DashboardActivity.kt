@@ -80,6 +80,9 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private var pendingFocusReportId: String? = null
     private var pendingFocusLat: Double? = null
     private var pendingFocusLng: Double? = null
+    /** Re-renders the map every second while a resolved / rejected pin is still inside its TTL. */
+    private val markerExpiryHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val markerExpiryRunnable = Runnable { renderMapLayers() }
 
     companion object {
         const val EXTRA_OPEN_CAMERA = "open_camera"
@@ -466,11 +469,16 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun reportsInCurrentScope(): List<UserReport> {
+        // Resolved / Rejected reports are also excluded here so the incident
+        // type chip row only surfaces categories that still have an active
+        // report in the area. Otherwise we'd render chips that lead to an
+        // empty list when tapped.
         return when (mapScope) {
             DashboardMapScope.AGENCIES -> emptyList()
             DashboardMapScope.ILLEGAL_ACTIVITIES ->
-                allReports.filter { isIllegalActivityType(it.incidentType) }
-            DashboardMapScope.ALL, DashboardMapScope.INCIDENTS -> allReports
+                allReports.filter { isIllegalActivityType(it.incidentType) && isActiveReport(it) }
+            DashboardMapScope.ALL, DashboardMapScope.INCIDENTS ->
+                allReports.filter { isActiveReport(it) }
         }
     }
 
@@ -566,7 +574,11 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             DashboardMapScope.ALL ->
                 allReports.filter { matchesSelectedIncidentType(it) }
         }
-        filteredReports = incidentFiltered
+        // Drop terminal-state reports (Resolved / Rejected) from the citizen
+        // Dashboard. They no longer represent an "active incident in the area",
+        // so they shouldn't clutter the map nor the Nearby Incidents bottom
+        // sheet. Closed cases remain available in My Activity and History.
+        filteredReports = incidentFiltered.filter { isActiveReport(it) }
         adapter.submitList(filteredReports)
         findViewById<TextView>(R.id.dashboardNearCount).text = "${filteredReports.size} reports in area"
         updateBottomSheetVisibility()
@@ -574,6 +586,9 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         applyMapPadding()
         runPendingFocusAfterRender()
     }
+
+    private fun isActiveReport(report: UserReport): Boolean =
+        report.status != ReportStatusUi.RESOLVED && report.status != ReportStatusUi.REJECTED
 
     private fun updateBottomSheetVisibility() {
         val hasListToShow = filteredReports.isNotEmpty()
@@ -610,7 +625,9 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         agencyMarkers.clear()
 
         if (mapScope != DashboardMapScope.AGENCIES) {
-            filteredReports.forEach { report ->
+            val now = System.currentTimeMillis()
+            val visibleReports = filteredReports.filter { it.isVisibleOnMap(now) }
+            visibleReports.forEach { report ->
                 val marker = gMap.addMarker(
                     MarkerOptions()
                         .position(report.effectivePosition())
@@ -623,10 +640,29 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     reportMarkers[report.id] = marker
                 }
             }
+            scheduleNextMarkerExpiryTick(visibleReports, now)
+        } else {
+            markerExpiryHandler.removeCallbacks(markerExpiryRunnable)
         }
 
         // Agency scope now filters report markers by assigned agency and keeps status colors.
         // No separate blue agency pins are rendered.
+    }
+
+    /**
+     * Schedules a single re-render at the earliest moment any of the
+     * resolved / rejected pins lapses its 1-minute TTL, so the marker
+     * disappears without burning a constant CPU loop.
+     */
+    private fun scheduleNextMarkerExpiryTick(
+        reports: Collection<UserReport>,
+        nowMs: Long
+    ) {
+        markerExpiryHandler.removeCallbacks(markerExpiryRunnable)
+        val nextExpiry = nextMarkerExpiryMs(reports, nowMs)
+        if (nextExpiry == Long.MAX_VALUE) return
+        val delay = (nextExpiry - nowMs).coerceAtLeast(250L)
+        markerExpiryHandler.postDelayed(markerExpiryRunnable, delay)
     }
 
     private fun panToReport(report: UserReport) {
@@ -780,15 +816,11 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         findViewById<TextView>(R.id.dashboardQuickPrimaryBtn).setOnClickListener {
             val report = activeQuickCardReport ?: return@setOnClickListener
+            // Notify is allowed while the report is actively open (Pending or
+            // In Progress) so the citizen can chase up on a stalled case. Only
+            // terminal states (Resolved / Rejected) block the action; spam is
+            // bounded by the 15-minute per-report cooldown below.
             when (report.status) {
-                ReportStatusUi.IN_PROGRESS -> {
-                    Toast.makeText(
-                        this,
-                        "You can’t notify because the report is already in progress.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    return@setOnClickListener
-                }
                 ReportStatusUi.RESOLVED -> {
                     Toast.makeText(
                         this,
@@ -805,21 +837,47 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     ).show()
                     return@setOnClickListener
                 }
-                ReportStatusUi.PENDING -> Unit
+                ReportStatusUi.PENDING,
+                ReportStatusUi.IN_PROGRESS -> Unit
             }
             if (report.assignedAgency.isBlank()) {
                 Toast.makeText(this, R.string.dashboard_no_agency_assigned, Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
+            // 15-minute per-report cooldown — prevents the citizen from
+            // spamming the same agencies about the same incident. Checked
+            // after the status / agency gates so the existing toasts still
+            // take precedence when those apply.
+            val remainingCooldownMs = NotifyCooldownStore.remainingMs(this, report.id)
+            if (remainingCooldownMs > 0L) {
+                Toast.makeText(this, cooldownMessage(report.id, remainingCooldownMs), Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
             AgencyNotificationsFirestore.sendCitizenNotify(
                 report,
-                onSuccess = {
+                onSuccess = { notifiedAgencies ->
+                    NotifyCooldownStore.recordNotify(this, report.id, notifiedAgencies)
+                    val agencyLabel = notifiedAgencies.joinToString(", ")
+                    try {
+                        val selfUid = FirebaseAuth.getInstance().currentUser?.uid
+                        if (!selfUid.isNullOrBlank()) {
+                            // Citizen inbox entry — name every agency that
+                            // was notified so the user sees the full list.
+                            CitizenNotificationsRepository.append(
+                                userId = selfUid,
+                                kind = CitizenNotificationKind.USER_NOTIFIED_AGENCY,
+                                agency = agencyLabel,
+                                reportId = report.id,
+                                incidentType = report.incidentType,
+                                publicReportId = report.publicReportId
+                            )
+                        }
+                    } catch (_: Exception) {
+                        /* non-fatal — agency-side notify already succeeded. */
+                    }
                     Toast.makeText(
                         this,
-                        getString(
-                            R.string.dashboard_notify_sent,
-                            AgencyCanonical.shortName(report.assignedAgency)
-                        ),
+                        getString(R.string.dashboard_notify_sent, agencyLabel),
                         Toast.LENGTH_SHORT
                     ).show()
                     hideQuickCard()
@@ -829,13 +887,45 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    /**
+     * Builds the user-facing message for a tap on a Notify button that is
+     * still within its [NotifyCooldownStore.COOLDOWN_MS] window.
+     *
+     * Preferred phrasing names the agencies that received the previous
+     * notify ("This report has already been notified by DENR, BFP.") so
+     * the citizen sees confirmation of *who* got the nudge. Falls back to
+     * the "please wait N minutes" copy when no agency list was stored
+     * (legacy data from before the agency list was persisted).
+     */
+    private fun cooldownMessage(reportId: String, remainingMs: Long): String {
+        val agencies = NotifyCooldownStore.notifiedAgencies(this, reportId)
+        if (agencies.isNotEmpty()) {
+            return getString(
+                R.string.dashboard_notify_already_notified,
+                agencies.joinToString(", ")
+            )
+        }
+        val minutesLeft = ((remainingMs + 59_999L) / 60_000L).toInt()
+        return if (minutesLeft <= 0) {
+            getString(R.string.dashboard_notify_cooldown_under_minute)
+        } else {
+            getString(R.string.dashboard_notify_cooldown_minutes, minutesLeft)
+        }
+    }
+
     private fun showQuickCard(report: UserReport) {
         activeQuickCardReport = report
         findViewById<TextView>(R.id.dashboardQuickTitle).text = report.displayTitle()
         val primaryBtn = findViewById<TextView>(R.id.dashboardQuickPrimaryBtn)
         primaryBtn.text = getString(R.string.dashboard_notify_action)
-        val canNotify = report.status == ReportStatusUi.PENDING
-        primaryBtn.alpha = if (canNotify) 1f else 0.55f
+        // Notify is open while the report is actively open (Pending or
+        // In Progress). Terminal states (Resolved / Rejected) dim the button.
+        val canNotify = report.status == ReportStatusUi.PENDING ||
+            report.status == ReportStatusUi.IN_PROGRESS
+        val inCooldown = canNotify && NotifyCooldownStore.isInCooldown(this, report.id)
+        // Keep the button tappable in every case so the click handler can
+        // surface the right toast (terminal-state copy or cooldown copy).
+        primaryBtn.alpha = if (canNotify && !inCooldown) 1f else 0.55f
 
         findViewById<TextView>(R.id.dashboardQuickLocation).text = report.locationDisplay()
         val submitted = report.submittedAt
@@ -908,6 +998,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onDestroy() {
         reportsListener?.remove()
         reportsListener = null
+        markerExpiryHandler.removeCallbacks(markerExpiryRunnable)
         super.onDestroy()
     }
 

@@ -1,15 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  MapPinIcon as MapPinSolidIcon,
   XMarkIcon,
   ChevronRightIcon,
   CalendarDaysIcon,
-  MapPinIcon,
   PlayIcon,
 } from '@heroicons/react/24/solid';
+import {
+  MapPinIcon as MapPinOutlineIcon,
+  ClipboardDocumentListIcon,
+  InformationCircleIcon,
+} from '@heroicons/react/24/outline';
 import { statusBadgeLabel } from '../utils/mapClusterHelpers';
 import { resolveMapMarkerStatus } from '../utils/mapMarkerStatus';
 import { statusToLabel } from '../utils/normalizeReportDoc';
+import { useAgencyUser } from '../context/AgencyUserContext';
 import RecentReportRow from './RecentReportRow';
 import MediaLightbox from './MediaLightbox';
 
@@ -25,13 +31,39 @@ function buildLocationDescription(incidents) {
   return `Reports from this area are related to environmental issues such as ${listed}${unique.length > 4 ? ', and others' : ''}.`;
 }
 
-function StatChip({ color, label, value }) {
+/**
+ * Compact stat tile shown in the cluster popups. Matches the admin design
+ * language: muted slate label with a colored leading dot, large bold value
+ * underneath. The dot colors mirror the status palette used in the Reports
+ * table so the legend reads the same across the app.
+ */
+function StatTile({ color, label, value }) {
   return (
-    <div className="map-overlay-cluster__stat">
-      <span className="map-overlay-cluster__stat-dot" style={{ background: color }} />
-      <span className="map-overlay-cluster__stat-label">{label}</span>
-      <span className="map-overlay-cluster__stat-value">{value}</span>
+    <div className="map-overlay-stat">
+      <span className="map-overlay-stat__head">
+        <span className="map-overlay-stat__dot" style={{ background: color }} aria-hidden />
+        {label}
+      </span>
+      <span className="map-overlay-stat__value">{value}</span>
     </div>
+  );
+}
+
+/**
+ * Reuses the exact same status pill style as the Reports table so the
+ * vocabulary and colors are consistent everywhere a status is shown.
+ */
+function MapStatusPill({ status }) {
+  const key = String(status ?? 'pending').toLowerCase();
+  const pillKey =
+    key === 'review' || key === 'in_progress'
+      ? 'in_progress'
+      : key === 'resolved' || key === 'rejected' || key === 'pending'
+        ? key
+        : 'pending';
+  const label = statusBadgeLabel(key);
+  return (
+    <span className={`reports-status reports-status--${pillKey}`}>{label}</span>
   );
 }
 
@@ -59,27 +91,28 @@ function resolveSingleReportProps(incident) {
   };
 }
 
-function ClusterThumb({ summary, activity, title }) {
-  const imageUrl = (summary.imageUrl || '').trim();
-  const hasVideo = Boolean(summary.hasVideo);
+function MapThumb({ imageUrl, hasVideo, alt, size = 'md' }) {
+  const sizeClass = size === 'sm' ? 'map-overlay-thumb__img--sm' : '';
   if (!imageUrl) {
     return (
-      <span
-        className="map-overlay-detail__row-thumb map-overlay-detail__row-thumb--empty"
-        aria-hidden
-      />
+      <span className="map-overlay-thumb">
+        <span
+          className={`map-overlay-thumb__img map-overlay-thumb__img--empty ${sizeClass}`}
+          aria-hidden
+        />
+      </span>
     );
   }
   return (
-    <span className="map-overlay-detail__row-thumb-wrap">
+    <span className="map-overlay-thumb">
       <span
-        className="map-overlay-detail__row-thumb"
+        className={`map-overlay-thumb__img ${sizeClass}`}
         style={{ backgroundImage: `url(${imageUrl})` }}
         role="img"
-        aria-label={activity ?? title ?? 'Report media'}
+        aria-label={alt}
       />
       {hasVideo ? (
-        <span className="map-overlay-detail__row-play" aria-hidden>
+        <span className="map-overlay-thumb__play" aria-hidden>
           <PlayIcon />
         </span>
       ) : null}
@@ -87,8 +120,25 @@ function ClusterThumb({ summary, activity, title }) {
   );
 }
 
+function OverlayHeader({ title, headline, sub }) {
+  return (
+    <header className="map-overlay-card__head">
+      <h3 className="map-overlay-card__title">
+        <MapPinOutlineIcon aria-hidden />
+        {title}
+      </h3>
+      <p className="map-overlay-card__address">
+        <MapPinSolidIcon className="map-overlay-card__pin" aria-hidden />
+        <span className="map-overlay-card__plus">{headline}</span>
+        {sub ? <span className="map-overlay-card__addr">{sub}</span> : null}
+      </p>
+    </header>
+  );
+}
+
 export default function MapReportFloatingPanel({ open, variant, onClose, incident, clusterPayload }) {
   const navigate = useNavigate();
+  const { viewerAgencyKey } = useAgencyUser();
   const [showClusterDetails, setShowClusterDetails] = useState(false);
   const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
 
@@ -111,6 +161,7 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
             dateSubmitted={row.dateSubmitted}
             timeOfReport={row.timeOfReport}
             assignedAgency={row.assignedAgency}
+            viewerAgencyKey={viewerAgencyKey}
             imageUrl={row.imageUrl}
             hasVideo={row.hasVideo}
             statusLabel={row.statusLabel}
@@ -140,7 +191,7 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
     const rs = recent?.reportSummary || {};
     const recentStatus = recent?.markerStatus ?? recent?.status ?? 'pending';
     const recentImage = (rs.imageUrl || '').trim();
-    const locationLabel = [headline, sub].filter(Boolean).join(', ');
+    const recentHasVideo = Boolean(rs.hasVideo) || String(rs.videoUrl ?? '').trim().length > 0;
 
     const detailRows = [...incidents]
       .sort((a, b) => (b.reportSummary?.createdAtMs ?? 0) - (a.reportSummary?.createdAtMs ?? 0))
@@ -168,60 +219,65 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
             >
               <XMarkIcon className="map-overlay-close__icon" />
             </button>
-            <header className="map-overlay-detail__head">
-              <h3 className="map-overlay-detail__title">LOCATION DETAILS</h3>
-              <p className="map-overlay-detail__loc">
-                <MapPinIcon aria-hidden />
-                <span>{headline}</span>
-                {sub ? <em>{sub}</em> : null}
-              </p>
-            </header>
-            <div className="map-overlay-detail__stats">
-              <StatChip color="#64748b" label="Total Reports" value={counts.total} />
-              <StatChip color="#6b7280" label="Pending" value={counts.pending} />
-              <StatChip color="#eab308" label="In progress" value={counts.review} />
-              <StatChip color="#22c55e" label="Resolved" value={counts.resolved} />
+
+            <OverlayHeader title="LOCATION DETAILS" headline={headline} sub={sub} />
+
+            <div className="map-overlay-stats map-overlay-stats--detail">
+              <StatTile color="#64748b" label="Total Reports" value={counts.total} />
+              <StatTile color="#9ca3af" label="Pending" value={counts.pending} />
+              <StatTile color="#eab308" label="In Progress" value={counts.review} />
+              <StatTile color="#22c55e" label="Resolved" value={counts.resolved} />
             </div>
-            <section className="map-overlay-detail__about">
-              <h4>ABOUT THIS LOCATION</h4>
+
+            <section className="map-overlay-about">
+              <h4 className="map-overlay-about__title">
+                <InformationCircleIcon aria-hidden />
+                ABOUT THIS LOCATION
+              </h4>
               <p>{locationDescription}</p>
             </section>
-            <section className="map-overlay-detail__reports">
-              <div className="map-overlay-detail__reports-head">
-                <h4>RECENT REPORTS ({counts.total})</h4>
-              </div>
-              <div className="map-overlay-detail__list">
+
+            <section className="map-overlay-reports">
+              <h4 className="map-overlay-section-label map-overlay-reports__head">
+                <ClipboardDocumentListIcon aria-hidden />
+                RECENT REPORTS ({counts.total})
+              </h4>
+              <ul className="map-overlay-reports__list">
                 {detailRows.map((inc) => {
                   const summary = inc.reportSummary || {};
                   const status = inc.markerStatus ?? inc.status ?? 'pending';
+                  const rowImg = (summary.imageUrl || '').trim();
+                  const rowHasVideo =
+                    Boolean(summary.hasVideo) ||
+                    String(summary.videoUrl ?? '').trim().length > 0;
                   return (
-                    <button
-                      key={inc.id}
-                      type="button"
-                      className="map-overlay-detail__row"
-                      onClick={() => {
-                        onClose();
-                        setShowClusterDetails(false);
-                        navigate(`/reports/${encodeURIComponent(String(summary.docId ?? inc.id))}`);
-                      }}
-                    >
-                      <ClusterThumb
-                        summary={summary}
-                        activity={summary.activity}
-                        title={inc.title}
-                      />
-                      <span className="map-overlay-detail__row-main">
-                        <strong>{summary.activity ?? inc.title}</strong>
-                        <small>{summary.displayId ?? inc.id}</small>
-                        <small>{summary.date ?? '—'}</small>
-                      </span>
-                      <span className={`map-overlay-badge map-overlay-badge--${status}`}>
-                        {statusBadgeLabel(status)}
-                      </span>
-                    </button>
+                    <li key={inc.id}>
+                      <button
+                        type="button"
+                        className="map-overlay-report-row"
+                        onClick={() => {
+                          onClose();
+                          setShowClusterDetails(false);
+                          navigate(`/reports/${encodeURIComponent(String(summary.docId ?? inc.id))}`);
+                        }}
+                      >
+                        <MapThumb
+                          imageUrl={rowImg}
+                          hasVideo={rowHasVideo}
+                          alt={summary.activity ?? inc.title ?? 'Report media'}
+                          size="sm"
+                        />
+                        <span className="map-overlay-report-row__main">
+                          <strong>{summary.activity ?? inc.title}</strong>
+                          <small>{summary.displayId ?? inc.id}</small>
+                          <small>{summary.date ?? '—'}</small>
+                        </span>
+                        <MapStatusPill status={status} />
+                      </button>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </section>
           </div>
         </div>
@@ -236,51 +292,36 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
             <XMarkIcon className="map-overlay-close__icon" />
           </button>
 
-          <header className="map-overlay-cluster__head">
-            <MapPinIcon className="map-overlay-cluster__pin" aria-hidden />
-            <div>
-              <h3 className="map-overlay-cluster__title">{headline}</h3>
-              {sub ? (
-                <p className="map-overlay-cluster__sub">{sub}</p>
-              ) : (
-                <p className="map-overlay-cluster__sub">{locationLabel}</p>
-              )}
-            </div>
-          </header>
+          <OverlayHeader title="LOCATION SUMMARY" headline={headline} sub={sub} />
 
-          <div className="map-overlay-cluster__stats">
-            <StatChip color="#64748b" label="Reports" value={counts.total} />
-            <StatChip color="#6b7280" label="Pending" value={counts.pending} />
-            <StatChip color="#eab308" label="In progress" value={counts.review} />
-            <StatChip color="#22c55e" label="Resolved" value={counts.resolved} />
-            <StatChip color="#ef4444" label="Rejected" value={counts.rejected} />
+          <div className="map-overlay-stats">
+            <StatTile color="#64748b" label="Reports" value={counts.total} />
+            <StatTile color="#9ca3af" label="Pending" value={counts.pending} />
+            <StatTile color="#eab308" label="In Progress" value={counts.review} />
+            <StatTile color="#22c55e" label="Resolved" value={counts.resolved} />
+            <StatTile color="#ef4444" label="Rejected" value={counts.rejected} />
           </div>
 
           {recent ? (
-            <section className="map-overlay-cluster__recent">
-              <p className="map-overlay-cluster__recent-label">Most recent report</p>
-              <div className="map-overlay-cluster__recent-row">
-                <div>
-                  <p className="map-overlay-cluster__recent-id">{rs.displayId ?? recent.id}</p>
-                  <span className={`map-overlay-badge map-overlay-badge--${recentStatus}`}>
-                    {statusBadgeLabel(recentStatus)}
-                  </span>
-                  <p className="map-overlay-cluster__recent-cat">{rs.activity ?? recent.title}</p>
-                  <p className="map-overlay-cluster__recent-date">
-                    <CalendarDaysIcon className="map-overlay-single__cal" aria-hidden />
+            <section className="map-overlay-recent">
+              <h4 className="map-overlay-section-label">MOST RECENT REPORT</h4>
+              <div className="map-overlay-recent__row">
+                <MapThumb
+                  imageUrl={recentImage}
+                  hasVideo={recentHasVideo}
+                  alt={rs.activity ?? recent.title ?? 'Recent report'}
+                />
+                <div className="map-overlay-recent__body">
+                  <div className="map-overlay-recent__id-line">
+                    <strong>{rs.displayId ?? recent.id}</strong>
+                    <MapStatusPill status={recentStatus} />
+                  </div>
+                  <p className="map-overlay-recent__cat">{rs.activity ?? recent.title}</p>
+                  <p className="map-overlay-recent__date">
+                    <CalendarDaysIcon aria-hidden />
                     {rs.date ?? '—'}
                   </p>
                 </div>
-                {recentImage ? (
-                  <span
-                    className="map-overlay-cluster__recent-thumb"
-                    style={{ backgroundImage: `url(${recentImage})` }}
-                    role="img"
-                    aria-label="Recent report"
-                  />
-                ) : (
-                  <span className="map-overlay-cluster__recent-thumb map-overlay-cluster__recent-thumb--empty" />
-                )}
               </div>
             </section>
           ) : null}
@@ -288,9 +329,7 @@ export default function MapReportFloatingPanel({ open, variant, onClose, inciden
           <button
             type="button"
             className="map-overlay-cta map-overlay-cta--cluster"
-            onClick={() => {
-              setShowClusterDetails(true);
-            }}
+            onClick={() => setShowClusterDetails(true)}
           >
             View all {counts.total} reports
             <ChevronRightIcon className="map-overlay-cta__chev" aria-hidden />

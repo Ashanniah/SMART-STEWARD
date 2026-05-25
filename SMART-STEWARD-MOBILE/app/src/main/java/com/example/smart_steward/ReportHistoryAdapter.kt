@@ -89,19 +89,6 @@ class ReportHistoryAdapter(
             val title = report.incidentType.substringBefore("(").trim().ifBlank { report.incidentType }
             itemView.findViewById<TextView>(R.id.historyTitle).text = title
 
-            val loc = report.locationLine
-                .removePrefix("Location:")
-                .trim()
-                .ifBlank { "—" }
-            itemView.findViewById<TextView>(R.id.historyLocation).text = loc
-
-            val submitted = report.submittedAt
-            val dateLine = when {
-                submitted == null -> "—"
-                else -> "${dayFmt.format(submitted)} · ${timeFmt.format(submitted)}"
-            }
-            itemView.findViewById<TextView>(R.id.historyDate).text = dateLine
-
             val statusBadge = itemView.findViewById<TextView>(R.id.historyStatusBadge)
             statusBadge.text = report.statusLabel
             val fill = ReportStatusColors.fillColor(ctx, report.status)
@@ -135,12 +122,44 @@ class ReportHistoryAdapter(
                 iconView.visibility = View.VISIBLE
             }
 
-            val agencyChip = itemView.findViewById<TextView>(R.id.historyAgencyChip)
-            agencyChip.text = AgencyCanonical.shortName(report.assignedAgency).ifBlank { "—" }
-            stylePill(
-                agencyChip,
-                ContextCompat.getColor(ctx, R.color.activity_chip_bg),
-                ContextCompat.getColor(ctx, R.color.activity_muted)
+            // Stacked labelled rows — Location / Date Submitted / Time of
+            // Report / Agency. These replace the old single-line location
+            // text, the date·time line, and the standalone agency chip so
+            // the card matches the Nearby Incidents and My Activity layouts.
+            val locationValue = report.locationLine
+                .removePrefix("Location:")
+                .trim()
+                .ifBlank { "—" }
+            val submitted = report.submittedAt
+            val dateValue = submitted?.let { dayFmt.format(it) } ?: "—"
+            val timeValue = submitted?.let { timeFmt.format(it) } ?: "—"
+            val agencyValue = AgencyCanonical.shortName(report.assignedAgency).ifBlank { "—" }
+
+            bindDetailRow(
+                itemView.findViewById(R.id.historyRowLocation),
+                iconRes = R.drawable.ic_review_pin,
+                label = ctx.getString(R.string.review_location_label),
+                value = locationValue
+            )
+            bindDetailRow(
+                itemView.findViewById(R.id.historyRowDateSubmitted),
+                iconRes = R.drawable.ic_dashboard_detail_calendar,
+                label = ctx.getString(R.string.review_date_submitted_label),
+                value = dateValue,
+                tintIcon = false
+            )
+            bindDetailRow(
+                itemView.findViewById(R.id.historyRowTime),
+                iconRes = R.drawable.clock,
+                label = ctx.getString(R.string.review_time_report_label),
+                value = timeValue
+            )
+            bindDetailRow(
+                itemView.findViewById(R.id.historyRowAgency),
+                iconRes = R.drawable.ic_section_agency,
+                label = ctx.getString(R.string.dashboard_detail_agency_label),
+                value = agencyValue,
+                tintIcon = false
             )
 
             val metaChip = itemView.findViewById<TextView>(R.id.historyMetaChip)
@@ -160,6 +179,34 @@ class ReportHistoryAdapter(
                 onViewReport(report)
             }
             itemView.setOnClickListener { onViewReport(report) }
+        }
+
+        private fun bindDetailRow(
+            row: View,
+            iconRes: Int,
+            label: String,
+            value: String?,
+            tintIcon: Boolean = true
+        ) {
+            val icon = row.findViewById<ImageView>(R.id.activityDetailIcon)
+            icon.setImageResource(iconRes)
+            if (tintIcon) {
+                icon.setColorFilter(
+                    ContextCompat.getColor(row.context, R.color.activity_title_bar)
+                )
+            } else {
+                icon.clearColorFilter()
+            }
+            row.findViewById<TextView>(R.id.activityDetailLabel).text = label
+            row.findViewById<TextView>(R.id.activityDetailBadge).visibility = View.GONE
+
+            val valueView = row.findViewById<TextView>(R.id.activityDetailValue)
+            if (!value.isNullOrBlank()) {
+                valueView.visibility = View.VISIBLE
+                valueView.text = value
+            } else {
+                valueView.visibility = View.GONE
+            }
         }
 
         private fun stylePill(tv: TextView, fillColor: Int, textColor: Int) {

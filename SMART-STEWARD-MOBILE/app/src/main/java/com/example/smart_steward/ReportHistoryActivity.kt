@@ -1,5 +1,6 @@
 package com.example.smart_steward
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -62,6 +63,11 @@ class ReportHistoryActivity : AppCompatActivity() {
         }
 
         findViewById<ImageView>(R.id.reportHistoryBack).setOnClickListener { finish() }
+
+        findViewById<View>(R.id.reportHistoryHeaderProfile).setOnClickListener {
+            startActivity(Intent(this, ProfileActivity::class.java))
+        }
+        ProfileInitials.bindDefaultAvatar(findViewById(R.id.reportHistoryHeaderProfileAvatar))
 
         bindStatCard(
             R.id.reportHistoryStatTotalBlock,

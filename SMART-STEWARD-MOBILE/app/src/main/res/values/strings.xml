@@ -66,6 +66,9 @@ DASHBOARD</string>
     <string name="dashboard_detail_time_label">Time of Report:</string>
     <string name="dashboard_detail_agency_label">Agency:</string>
     <string name="dashboard_notify_action">NOTIFY</string>
+    <string name="dashboard_notify_cooldown_minutes">You cannot notify again yet. Please wait %1$d more minute(s).</string>
+    <string name="dashboard_notify_cooldown_under_minute">You cannot notify again yet. Please wait less than a minute.</string>
+    <string name="dashboard_notify_already_notified">This report has already been notified by %1$s.</string>
     <string name="dashboard_detail_agency_unassigned">—</string>
     <string name="dashboard_quick_close">Close</string>
     <string name="current_location_text">Current Location
@@ -199,6 +202,12 @@ Talamban</string>
     <string name="notif_mark_all_unread">Mark all unread</string>
     <string name="notif_mark_all_read_done">All notifications marked as read.</string>
     <string name="notif_mark_all_unread_done">All notifications marked as unread.</string>
+    <string name="notif_clear_all">Clear all</string>
+    <string name="notif_clear_all_confirm_title">Clear all notifications?</string>
+    <string name="notif_clear_all_confirm_message">This will permanently delete every notification in your inbox. Reports themselves are not affected.</string>
+    <string name="notif_clear_all_confirm_yes">Clear all</string>
+    <string name="notif_clear_all_confirm_no">Cancel</string>
+    <string name="notif_clear_all_done">All notifications cleared.</string>
     <string name="notif_section_new">NEW</string>
     <string name="notif_section_earlier">EARLIER</string>
     <string name="notif_unread_badge_sample">3 unread</string>
@@ -246,18 +255,29 @@ Talamban</string>
     <string name="notif_cat_duplicate">Validation</string>
     <string name="notif_cat_ai">AI review</string>
     <string name="notif_agency_placeholder">Agency</string>
-    <string name="notif_lifecycle_submitted_title">Submitted</string>
-    <string name="notif_lifecycle_submitted_body">Report submitted successfully.</string>
-    <string name="notif_lifecycle_received_title">Received / Acknowledged</string>
-    <string name="notif_lifecycle_received_body">Your report has been received by %1$s.</string>
-    <string name="notif_lifecycle_under_review_title">Under Review</string>
-    <string name="notif_lifecycle_under_review_body">Your report is under review.</string>
-    <string name="notif_lifecycle_in_progress_title">In Progress</string>
-    <string name="notif_lifecycle_in_progress_body">Action is being taken on your report.</string>
-    <string name="notif_lifecycle_resolved_title">Resolved</string>
-    <string name="notif_lifecycle_resolved_body">Your report has been resolved.</string>
-    <string name="notif_lifecycle_rejected_title">Rejected</string>
-    <string name="notif_lifecycle_rejected_body">Your report was not accepted. See details.</string>
+    <string name="notif_report_kind_fallback">incident</string>
+    <string name="notif_report_ref_fallback">your report</string>
+    <string name="notif_lifecycle_submitted_title">Report submitted</string>
+    <string name="notif_lifecycle_submitted_body">Your %1$s report (%2$s) was submitted successfully and is now awaiting review.</string>
+    <!--
+        Lifecycle status-update copy. Placeholders are positional:
+            %1$s incident type, %2$s agency short name, %3$s report reference.
+        The titles call out the new status so the user can scan their inbox
+        at a glance; the bodies always spell out the agency + report so the
+        message is actionable.
+    -->
+    <string name="notif_lifecycle_received_title">Report status updated</string>
+    <string name="notif_lifecycle_received_body">%2$s updated the status of your %1$s report (%3$s) to In Progress.</string>
+    <string name="notif_lifecycle_under_review_title">Report status updated</string>
+    <string name="notif_lifecycle_under_review_body">%2$s updated the status of your %1$s report (%3$s) to Under Review.</string>
+    <string name="notif_lifecycle_in_progress_title">Report status updated</string>
+    <string name="notif_lifecycle_in_progress_body">%2$s updated the status of your %1$s report (%3$s) to In Progress.</string>
+    <string name="notif_lifecycle_pending_title">Report status updated</string>
+    <string name="notif_lifecycle_pending_body">%2$s moved your %1$s report (%3$s) back to Pending.</string>
+    <string name="notif_lifecycle_resolved_title">Report resolved</string>
+    <string name="notif_lifecycle_resolved_body">%2$s marked your %1$s report (%3$s) as Resolved.</string>
+    <string name="notif_lifecycle_rejected_title">Report rejected</string>
+    <string name="notif_lifecycle_rejected_body">%2$s did not accept your %1$s report (%3$s). Tap to see why.</string>
     <string name="notif_area_nearby_title">Nearby Incident Alert</string>
     <string name="notif_area_nearby_body">Illegal dumping reported near your area.</string>
     <string name="notif_area_hazard_title">Ongoing Hazard</string>
@@ -268,14 +288,16 @@ Talamban</string>
     <string name="notif_user_more_info_body">Please provide additional details for your report.</string>
     <string name="notif_user_evidence_title">Evidence Needed</string>
     <string name="notif_user_evidence_body">Upload clearer photo to continue processing.</string>
+    <string name="notif_user_notified_title">You notified the agency</string>
+    <string name="notif_user_notified_body">You sent a follow-up to %2$s about your %1$s report (%3$s).</string>
     <string name="notif_status_track_title">Track Reminder</string>
     <string name="notif_status_track_body">Your report is still in progress. Tap to track.</string>
     <string name="notif_status_sla_title">No Update</string>
     <string name="notif_status_sla_body">Your report has not been updated. We are following up.</string>
     <string name="notif_admin_agency_title">Agency Message</string>
     <string name="notif_admin_agency_body">%1$s sent an update regarding your report.</string>
-    <string name="notif_admin_comment_title">Comment / Feedback</string>
-    <string name="notif_admin_comment_body">An officer responded to your report.</string>
+    <string name="notif_admin_comment_title">Agency added remarks</string>
+    <string name="notif_admin_comment_body">%2$s left remarks on your %1$s report (%3$s).</string>
     <string name="notif_resolution_summary_title">Resolution Summary</string>
     <string name="notif_resolution_summary_body">Cleanup completed. Area is now safe.</string>
     <string name="notif_resolution_proof_title">Proof of Resolution</string>
@@ -291,6 +313,12 @@ Talamban</string>
     <string name="notif_minutes_ago">%d minutes ago</string>
     <string name="notif_hours_ago">%d hours ago</string>
     <string name="notif_days_ago">%d days ago</string>
+    <!-- System notification (status bar / lock screen) channel + helper text -->
+    <string name="notif_channel_status_updates_name">Report status updates</string>
+    <string name="notif_channel_status_updates_desc">Real-time alerts when an agency updates the status of one of your reports or adds remarks.</string>
+    <string name="report_router_unavailable">Could not open that report. It may have been removed.</string>
+    <string name="report_router_loading">Opening your report…</string>
+    <string name="notif_post_permission_rationale">Smart Steward needs notification permission to alert you when an agency updates your report.</string>
     <string name="tap_to_view">Tap to View</string>
     <string name="my_activity_title">My Activity</string>
     <string name="my_activity_total">Total</string>
@@ -335,8 +363,8 @@ Talamban</string>
     <string name="history_sort_menu">Sort reports</string>
     <string name="history_view_action">View details</string>
     <string name="history_reports_in_month">%1$d REPORTS</string>
-    <string name="history_stat_archived">Archived</string>
-    <string name="history_filter_all">All closed</string>
+    <string name="history_stat_archived">Total Reports</string>
+    <string name="history_filter_all">All</string>
     <string name="history_archive_empty">No closed reports yet. Resolved and rejected reports will appear here.</string>
     <string name="history_archive_hint">Resolved and rejected reports only</string>
     <string name="content_desc_filter">Sort order</string>

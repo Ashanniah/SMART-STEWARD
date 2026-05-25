@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageException
 import com.google.firebase.storage.StorageReference
+import org.json.JSONArray
 import java.io.ByteArrayOutputStream
 import java.util.Date
 
@@ -47,8 +48,22 @@ object ReportFirestore {
         longitude: Double? = null,
         /** Gemini assessment: Low | Medium | High | Critical */
         severity: String? = null,
+        /** Free-text justification from the AI for the chosen [severity]. */
+        severityReason: String? = null,
         /** AI classification confidence 0–100 (stored for backend review rules; not shown to citizens). */
         aiConfidence: Int? = null,
+        /** Raw `category` from the AI response (e.g. "Traffic Accident"). */
+        aiCategory: String? = null,
+        /** AI-generated summary (1–2 sentences) of the incident. */
+        aiSummary: String? = null,
+        /** AI synthesis paragraph that combines per-frame evidence. */
+        aiSynthesis: String? = null,
+        /** AI `reportable` flag — kept for backend auditing. */
+        aiReportable: Boolean? = null,
+        /** Source media kind reported by the AI ("video" | "image"). */
+        aiFile: String? = null,
+        /** Raw `frame_analysis` JSON array string from the AI response. */
+        aiFrameAnalysisJson: String? = null,
         onSuccess: (String, Boolean) -> Unit,
         onError: (String) -> Unit,
         onWarning: ((String) -> Unit)? = null
@@ -81,6 +96,17 @@ object ReportFirestore {
                 data["latitude"] = lat
                 data["longitude"] = lng
             }
+
+            normalizeSeverityForFirestore(severity)?.let { data["severity"] = it }
+            severityReason?.trim()?.takeIf { it.isNotBlank() }?.let { data["severityReason"] = it }
+            aiConfidence?.takeIf { it in 0..100 }?.let { data["aiConfidence"] = it }
+            aiCategory?.trim()?.takeIf { it.isNotBlank() }?.let { data["aiCategory"] = it }
+            aiSummary?.trim()?.takeIf { it.isNotBlank() }?.let { data["aiSummary"] = it }
+            aiSynthesis?.trim()?.takeIf { it.isNotBlank() }?.let { data["aiSynthesis"] = it }
+            aiReportable?.let { data["aiReportable"] = it }
+            aiFile?.trim()?.takeIf { it.isNotBlank() }?.let { data["aiFile"] = it }
+            parseFrameAnalysisToList(aiFrameAnalysisJson)?.let { data["aiFrameAnalysis"] = it }
+
             docRef.set(data)
                 .addOnSuccessListener {
                     try {
@@ -95,10 +121,12 @@ object ReportFirestore {
                     }
                     try {
                         CitizenNotificationsRepository.append(
-                            userId,
-                            CitizenNotificationKind.LIFECYCLE_SUBMITTED,
-                            assignedAgency,
-                            docId
+                            userId = userId,
+                            kind = CitizenNotificationKind.LIFECYCLE_SUBMITTED,
+                            agency = assignedAgency,
+                            reportId = docId,
+                            incidentType = incidentType,
+                            publicReportId = publicReportId
                         )
                     } catch (_: Exception) {
                         /* non-fatal */
@@ -224,6 +252,38 @@ object ReportFirestore {
         return when (s) {
             "low", "medium", "high", "critical" -> s
             else -> null
+        }
+    }
+
+    /**
+     * Converts the raw `frame_analysis` JSON string into a list of plain maps
+     * so Firestore stores it as a queryable array of objects rather than as text.
+     */
+    private fun parseFrameAnalysisToList(raw: String?): List<Map<String, Any>>? {
+        val text = raw?.trim().orEmpty()
+        if (text.isBlank()) return null
+        return try {
+            val arr = JSONArray(text)
+            val out = ArrayList<Map<String, Any>>(arr.length())
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                val entry = mutableMapOf<String, Any>()
+                val frameNumber = obj.opt("frame_number")
+                if (frameNumber is Number) {
+                    entry["frame_number"] = frameNumber.toInt()
+                } else {
+                    val n = frameNumber?.toString()?.toIntOrNull()
+                    if (n != null) entry["frame_number"] = n
+                }
+                obj.optString("physical_description").trim()
+                    .takeIf { it.isNotBlank() }
+                    ?.let { entry["physical_description"] = it }
+                if (entry.isNotEmpty()) out.add(entry)
+            }
+            out.takeIf { it.isNotEmpty() }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not parse aiFrameAnalysisJson: ${e.message}")
+            null
         }
     }
 

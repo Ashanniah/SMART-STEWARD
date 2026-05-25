@@ -19,5 +19,9 @@ class SmartStewardApp : Application() {
         }
         ApiProvider.init(this)
         OfflineDraftSyncManager.start(this)
+        // Register the system-tray channel up front so the very first call
+        // to LocalNotificationCenter.postReportNotification(...) succeeds on
+        // Android 8.0+ without the channel-not-found warning.
+        LocalNotificationCenter.ensureChannel(this)
     }
 }

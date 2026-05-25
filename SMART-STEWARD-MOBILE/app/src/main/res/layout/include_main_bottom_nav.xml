@@ -109,8 +109,8 @@
 
         <ImageView
             android:id="@+id/bottomNavHistoryIcon"
-            android:layout_width="@dimen/bottom_nav_icon_size"
-            android:layout_height="@dimen/bottom_nav_icon_size"
+            android:layout_width="@dimen/bottom_nav_history_icon_size"
+            android:layout_height="@dimen/bottom_nav_history_icon_size"
             android:contentDescription="@string/nav_history"
             android:src="@drawable/ic_nav_history"
             app:tint="@color/bottom_nav_inactive" />

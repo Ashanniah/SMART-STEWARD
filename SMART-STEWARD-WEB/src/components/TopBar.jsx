@@ -22,7 +22,7 @@ export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
     if (pathname.startsWith('/reports/') && pathname.endsWith('/update')) {
       return {
         title: 'REPORT STATUS',
-        subtitle: 'Update current status and add remarks for this report.',
+        subtitle: '',
       };
     }
     if (pathname.startsWith('/reports/') && !pathname.endsWith('/update')) {
@@ -74,9 +74,7 @@ export default function TopBar({ onToggleSidebar, sidebarExpanded = true }) {
           <h1 className="topbar-title">{pageMeta.title}</h1>
           {pathname !== '/dashboard' &&
           pathname !== '/reports' &&
-          !(
-            pathname.startsWith('/reports/') && !pathname.endsWith('/update')
-          ) &&
+          !pathname.startsWith('/reports/') &&
           pathname !== '/report-history' &&
           pathname !== '/profile' &&
           pathname !== '/incident-analytics' &&

@@ -40,21 +40,34 @@ object AgencyNotificationsFirestore {
         }
     }
 
+    /**
+     * Sends a "citizen is requesting an update" notification to EVERY
+     * canonical agency assigned to the report.
+     *
+     * If the report's `assignedAgency` field lists multiple agencies
+     * (e.g. `"DENR, PNP"` for Illegal Logging) one Firestore document is
+     * written per agency, so each agency's admin dashboard surfaces the
+     * nudge independently — per-agency credential isolation is preserved
+     * because each document is still tagged with its own `targetAgency`.
+     *
+     * @param onSuccess invoked after every per-agency document has been
+     *   acknowledged by the server; receives the canonical agency keys
+     *   that were notified (e.g. `["DENR", "PNP"]`).
+     */
     fun sendCitizenNotify(
         report: UserReport,
-        onSuccess: () -> Unit,
+        onSuccess: (notifiedAgencies: List<String>) -> Unit,
         onError: (String) -> Unit
     ) {
         val targets = AgencyCanonical.parseAssignedAgencies(report.assignedAgency)
-            .ifEmpty { listOf(AgencyCanonical.targetKey(report.assignedAgency)) }
-        val title = "A citizen requested agency attention on this pending report."
-        val db = FirebaseFirestore.getInstance()
-        var pending = targets.size
-        var failed = false
-        if (pending == 0) {
+        if (targets.isEmpty()) {
             onError("No agency assigned to this report.")
             return
         }
+        val title = "A citizen is requesting an update on this report."
+        val db = FirebaseFirestore.getInstance()
+        var pending = targets.size
+        var failed = false
         for (target in targets) {
             val data = hashMapOf<String, Any>(
                 "targetAgency" to target,
@@ -70,7 +83,7 @@ object AgencyNotificationsFirestore {
                 .add(data)
                 .addOnSuccessListener {
                     pending -= 1
-                    if (pending == 0 && !failed) onSuccess()
+                    if (pending == 0 && !failed) onSuccess(targets)
                 }
                 .addOnFailureListener { e ->
                     if (!failed) {

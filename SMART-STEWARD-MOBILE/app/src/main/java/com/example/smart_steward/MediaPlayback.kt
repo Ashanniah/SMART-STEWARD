@@ -6,67 +6,60 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.Toast
 
+/**
+ * Opens images and videos inside the app via [MediaPreviewActivity] so the user can
+ * pinch-zoom or scrub without leaving Smart Steward. We intentionally do NOT use
+ * [Intent.ACTION_VIEW] / [Intent.createChooser] here, otherwise Android offers the
+ * device's Gallery / Photos app and the user is taken out of our flow.
+ */
 object MediaPlayback {
 
     fun openRemoteImage(context: Context, url: String) {
-        if (url.isBlank()) return
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(Uri.parse(url.trim()), "image/*")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        try {
-            context.startActivity(Intent.createChooser(intent, context.getString(R.string.tap_to_view)))
-        } catch (_: Exception) {
-            // Fallback to in-app preview if the device has no gallery/photo app.
-            try {
-                val fallback = Intent(context, MediaPreviewActivity::class.java).apply {
-                    putExtra(MediaPreviewActivity.EXTRA_KIND, MediaPreviewActivity.KIND_IMAGE)
-                    putExtra(MediaPreviewActivity.EXTRA_URI, url.trim())
-                    if (context !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(fallback)
-            } catch (_: Exception) {
-                Toast.makeText(context, R.string.cannot_open_image, Toast.LENGTH_SHORT).show()
-            }
-        }
+        val trimmed = url.trim()
+        if (trimmed.isEmpty()) return
+        launchPreview(context) {
+            putExtra(MediaPreviewActivity.EXTRA_KIND, MediaPreviewActivity.KIND_IMAGE)
+            putExtra(MediaPreviewActivity.EXTRA_URI, trimmed)
+        } ?: Toast.makeText(context, R.string.cannot_open_image, Toast.LENGTH_SHORT).show()
     }
 
     fun openBitmapZoom(context: Context, bitmap: Bitmap) {
         CapturedMediaStore.capturedBitmap = bitmap
-        val intent = Intent(context, MediaPreviewActivity::class.java).apply {
+        launchPreview(context) {
             putExtra(MediaPreviewActivity.EXTRA_KIND, MediaPreviewActivity.KIND_BITMAP)
-            if (context !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        try {
-            context.startActivity(intent)
-        } catch (_: Exception) {
-            Toast.makeText(context, R.string.cannot_open_image, Toast.LENGTH_SHORT).show()
-        }
+        } ?: Toast.makeText(context, R.string.cannot_open_image, Toast.LENGTH_SHORT).show()
     }
 
     fun openRemoteVideo(context: Context, url: String) {
-        if (url.isBlank()) return
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(Uri.parse(url.trim()), "video/*")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        try {
-            context.startActivity(intent)
-        } catch (_: Exception) {
-            Toast.makeText(context, R.string.cannot_open_video, Toast.LENGTH_SHORT).show()
-        }
+        val trimmed = url.trim()
+        if (trimmed.isEmpty()) return
+        launchPreview(context) {
+            putExtra(MediaPreviewActivity.EXTRA_KIND, MediaPreviewActivity.KIND_VIDEO)
+            putExtra(MediaPreviewActivity.EXTRA_URI, trimmed)
+        } ?: Toast.makeText(context, R.string.cannot_open_video, Toast.LENGTH_SHORT).show()
     }
 
     fun openLocalVideo(context: Context, uri: Uri) {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "video/*")
+        launchPreview(context) {
+            putExtra(MediaPreviewActivity.EXTRA_KIND, MediaPreviewActivity.KIND_VIDEO)
+            putExtra(MediaPreviewActivity.EXTRA_URI, uri.toString())
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        } ?: Toast.makeText(context, R.string.cannot_open_video, Toast.LENGTH_SHORT).show()
+    }
+
+    private inline fun launchPreview(
+        context: Context,
+        configure: Intent.() -> Unit
+    ): Unit? {
+        val intent = Intent(context, MediaPreviewActivity::class.java).apply {
+            if (context !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            configure()
         }
-        try {
+        return try {
             context.startActivity(intent)
+            Unit
         } catch (_: Exception) {
-            Toast.makeText(context, R.string.cannot_open_video, Toast.LENGTH_SHORT).show()
+            null
         }
     }
 }

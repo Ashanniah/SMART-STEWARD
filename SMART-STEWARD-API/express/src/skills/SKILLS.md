@@ -13,8 +13,14 @@ You MUST return ONLY valid JSON with this structure:
   "assignedAgency": "string",
   "summary": "string",
   "severity": "Low | Medium | High | Critical",
+  "severity_reason": "string (one short sentence explaining why this severity was chosen)",
   "confidence_score": "number (0.0 to 1.0)"
 }
+
+`severity_reason` is REQUIRED whenever `severity` is set. Keep it to a single concise sentence
+(roughly 8–20 words) that names the specific observable factor that drove the rating — for example
+"Deployment of a firearm and direct threat to human life during a criminal act." Do not repeat the
+`summary` verbatim; focus on the risk justification only.
 
 Do not include any extra text or formatting.
 

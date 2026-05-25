@@ -1,12 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive launcher icon foreground.
+
+    Geometry:
+      - 108dp adaptive-icon canvas (Android requirement).
+      - 66dp inner safe zone — the area guaranteed to stay visible under
+        every launcher mask (circle, squircle, rounded square, teardrop).
+      - We size the foreground to that full 66dp safe zone so the entire
+        SMART-STEWARD wordmark + emblem is rendered as large as possible
+        without risking clipping on any launcher.
+
+    Bitmap gravity:
+      `fill` scales the source PNG to the item bounds. The previous
+      `center` value rendered the high-resolution PNG at its intrinsic
+      pixel size, which overflowed the 54dp box and made the launcher
+      look like a heavy center-crop of the logo with the wordmark cut
+      off on the right.
+-->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- ~50% of 108dp canvas — keeps full logo + wordmark inside adaptive icon safe zone -->
     <item
-        android:width="54dp"
-        android:height="54dp"
+        android:width="66dp"
+        android:height="66dp"
         android:gravity="center">
         <bitmap
-            android:gravity="center"
+            android:gravity="fill"
             android:src="@drawable/logo_steward" />
     </item>
 </layer-list>

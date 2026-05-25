@@ -15,16 +15,13 @@ import {
 import { PlayIcon } from '@heroicons/react/24/solid';
 import GoogleMapComponent from '../components/GoogleMap';
 import MediaLightbox from '../components/MediaLightbox';
+import AlertModal from '../components/AlertModal';
+import SeverityBadge from '../components/SeverityBadge';
 import { useReportsData } from '../context/ReportsDataContext';
+import { useAgencyUser } from '../context/AgencyUserContext';
 import { normalizedToDetailView, reportsToMapIncidents } from '../utils/normalizeReportDoc';
-
-function DetailSeverityBadge({ severityKey, label }) {
-  const key = severityKey || 'unknown';
-  const text = label || 'Not assessed';
-  return (
-    <span className={`report-detail-severity report-detail-severity--${key}`}>{text}</span>
-  );
-}
+import { isTerminalWorkflowStatus } from '../data/reportsMock';
+import { viewerScopedAgencyLabel } from '../utils/agencyScope';
 
 function DetailStatusBadge({ status }) {
   const labels = {
@@ -49,14 +46,23 @@ export default function ReportDetail() {
   const id = reportId ? decodeURIComponent(reportId) : '';
 
   const { loading, error, reportByDocId } = useReportsData();
+  const { viewerAgencyKey } = useAgencyUser();
   const row = id ? reportByDocId(id) : null;
 
   const detail = useMemo(() => (row ? normalizedToDetailView(row) : null), [row]);
+  const viewerAgencyLabel = useMemo(
+    () =>
+      viewerScopedAgencyLabel(detail?.assignedAgency ?? '', viewerAgencyKey) ||
+      String(detail?.assignedAgency ?? '').trim() ||
+      '—',
+    [detail?.assignedAgency, viewerAgencyKey]
+  );
   const [mediaPreview, setMediaPreview] = useState({ open: false, type: 'image', src: '' });
+  const [lockedNoticeOpen, setLockedNoticeOpen] = useState(false);
 
   const mapIncidents = useMemo(() => {
     if (!row || row.lat == null || row.lng == null) return [];
-    return reportsToMapIncidents([row]);
+    return reportsToMapIncidents([row], Date.now(), { ignoreVisibilityTtl: true });
   }, [row]);
 
   if (!id) {
@@ -77,6 +83,17 @@ export default function ReportDetail() {
 
   if (!detail) {
     return <Navigate to="/reports" replace />;
+  }
+
+  const isStatusLocked = isTerminalWorkflowStatus(detail.status);
+  const lockedStatusLabel = detail.status === 'rejected' ? 'Rejected' : 'Resolved';
+
+  function handleUpdateClick() {
+    if (isStatusLocked) {
+      setLockedNoticeOpen(true);
+      return;
+    }
+    navigate(`/reports/${encodeURIComponent(id)}/update`);
   }
 
   return (
@@ -140,7 +157,7 @@ export default function ReportDetail() {
                 <BuildingOffice2Icon aria-hidden />
                 Agency
               </dt>
-              <dd>{detail.assignedAgency}</dd>
+              <dd>{viewerAgencyLabel}</dd>
             </div>
             <div className="report-detail-info__row report-detail-info__row--severity">
               <dt>
@@ -148,9 +165,10 @@ export default function ReportDetail() {
                 Incident severity
               </dt>
               <dd>
-                <DetailSeverityBadge
+                <SeverityBadge
                   severityKey={detail.incidentSeverityKey}
                   label={detail.incidentSeverityLabel}
+                  reason={detail.incidentSeverityReason}
                 />
                 {detail.needsAiReview ? (
                   <p className="report-detail-ai-review-hint" role="status">
@@ -160,6 +178,17 @@ export default function ReportDetail() {
               </dd>
             </div>
           </dl>
+
+          <div className="report-detail-info__actions">
+            <button
+              type="button"
+              className={`reports-btn reports-btn--export reports-btn--lg report-detail-info__action-btn ${isStatusLocked ? 'is-locked' : ''}`}
+              onClick={handleUpdateClick}
+              aria-disabled={isStatusLocked}
+            >
+              Update status
+            </button>
+          </div>
         </section>
 
         <div className="report-detail__col-right">
@@ -210,20 +239,19 @@ export default function ReportDetail() {
         </div>
       </div>
 
-      <footer className="report-detail__footer">
-        <button
-          type="button"
-          className="reports-btn reports-btn--export"
-          onClick={() => navigate(`/reports/${encodeURIComponent(id)}/update`)}
-        >
-          Update status
-        </button>
-      </footer>
       <MediaLightbox
         open={mediaPreview.open}
         type={mediaPreview.type}
         src={mediaPreview.src}
         onClose={() => setMediaPreview({ open: false, type: 'image', src: '' })}
+      />
+      <AlertModal
+        open={lockedNoticeOpen}
+        title="Status cannot be changed"
+        message={`This report is marked as ${lockedStatusLabel} and is now closed. Its status can no longer be updated.`}
+        buttonLabel="Got it"
+        showSuccessIcon={false}
+        onClose={() => setLockedNoticeOpen(false)}
       />
     </div>
   );

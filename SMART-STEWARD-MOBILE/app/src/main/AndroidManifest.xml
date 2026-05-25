@@ -6,6 +6,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!--
+        POST_NOTIFICATIONS is required on Android 13+ before
+        NotificationManagerCompat.notify(...) is allowed to show anything in
+        the system tray. We request it at runtime from NotificationActivity.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".SmartStewardApp"
@@ -35,7 +41,8 @@
             android:exported="false" />
         <activity
             android:name=".NotificationActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:launchMode="singleTop" />
         <activity
             android:name=".MediaPreviewActivity"
             android:exported="false" />

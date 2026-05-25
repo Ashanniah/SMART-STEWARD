@@ -55,6 +55,28 @@ export function formatAssignedAgenciesLabel(raw) {
   return trimmed || '—';
 }
 
+/**
+ * Each admin dashboard is scoped to its own agency, so even when the AI
+ * assigns a report to several agencies in Firestore we only show the
+ * viewer's own agency in admin UIs. Resolution order:
+ *
+ *   1. If the viewer's canonical agency is one of the report's agencies,
+ *      use it (most common path for an agency-specific admin).
+ *   2. If we can resolve the viewer's agency but it isn't on the report,
+ *      still prefer it — that mirrors the dashboard scoping rules so the
+ *      header chip never reveals other agencies' assignments.
+ *   3. Otherwise fall back to the first canonical agency on the report,
+ *      then to the raw string, then to `''` for callers to format an em-dash.
+ */
+export function viewerScopedAgencyLabel(rawAgency, viewerAgencyKey) {
+  const viewer = toCanonicalAgency(viewerAgencyKey);
+  const reportAgencies = parseAssignedAgencies(rawAgency);
+  if (viewer && reportAgencies.includes(viewer)) return viewer;
+  if (viewer) return viewer;
+  if (reportAgencies.length > 0) return reportAgencies[0];
+  return String(rawAgency ?? '').trim();
+}
+
 export function agenciesMatch(reportAgencyRaw, viewerAgencyKeyRaw) {
   const v = toCanonicalAgency(viewerAgencyKeyRaw);
   if (!v) return false;

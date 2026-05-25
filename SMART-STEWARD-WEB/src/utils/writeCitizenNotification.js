@@ -12,41 +12,54 @@ export const CITIZEN_NOTIFICATION_KINDS = {
   ADMIN_COMMENT: 'admin_comment',
 };
 
+/**
+ * Each `body` is a function that receives `{ incidentType, agency, publicReportId }`
+ * so every notification card surfaces the exact report it refers to (instead of the
+ * generic "Report submitted successfully." copy the inbox previously showed for
+ * every entry).
+ */
 const KIND_COPY = {
   [CITIZEN_NOTIFICATION_KINDS.LIFECYCLE_SUBMITTED]: {
     category: 'Report lifecycle',
-    title: 'Submitted',
-    body: 'Report submitted successfully.',
+    title: 'Report submitted',
+    body: ({ incidentType, publicReportId }) =>
+      `Your ${incidentType} report (${publicReportId}) was submitted successfully and is now awaiting review.`,
   },
   [CITIZEN_NOTIFICATION_KINDS.LIFECYCLE_RECEIVED]: {
     category: 'Report lifecycle',
-    title: 'Received / Acknowledged',
-    body: null, // formatted with agency
+    title: 'Report acknowledged',
+    body: ({ incidentType, agency, publicReportId }) =>
+      `${agency} has acknowledged your ${incidentType} report (${publicReportId}).`,
   },
   [CITIZEN_NOTIFICATION_KINDS.LIFECYCLE_UNDER_REVIEW]: {
     category: 'Report lifecycle',
-    title: 'Under Review',
-    body: 'Your report is under review.',
+    title: 'Report under review',
+    body: ({ incidentType, agency, publicReportId }) =>
+      `${agency} is now reviewing your ${incidentType} report (${publicReportId}).`,
   },
   [CITIZEN_NOTIFICATION_KINDS.LIFECYCLE_IN_PROGRESS]: {
     category: 'Report lifecycle',
-    title: 'In Progress',
-    body: 'Action is being taken on your report.',
+    title: 'Report in progress',
+    body: ({ incidentType, agency, publicReportId }) =>
+      `${agency} is acting on your ${incidentType} report (${publicReportId}).`,
   },
   [CITIZEN_NOTIFICATION_KINDS.LIFECYCLE_RESOLVED]: {
     category: 'Report lifecycle',
-    title: 'Resolved',
-    body: 'Your report has been resolved.',
+    title: 'Report resolved',
+    body: ({ incidentType, agency, publicReportId }) =>
+      `${agency} has marked your ${incidentType} report (${publicReportId}) as resolved.`,
   },
   [CITIZEN_NOTIFICATION_KINDS.LIFECYCLE_REJECTED]: {
     category: 'Report lifecycle',
-    title: 'Rejected',
-    body: 'Your report was not accepted. See details.',
+    title: 'Report rejected',
+    body: ({ incidentType, agency, publicReportId }) =>
+      `${agency} did not accept your ${incidentType} report (${publicReportId}). Tap to see details.`,
   },
   [CITIZEN_NOTIFICATION_KINDS.ADMIN_COMMENT]: {
-    category: 'Admin',
-    title: 'Comment / Feedback',
-    body: 'An officer responded to your report.',
+    category: 'Agency communication',
+    title: 'Agency added remarks',
+    body: ({ incidentType, agency, publicReportId }) =>
+      `${agency} left remarks on your ${incidentType} report (${publicReportId}).`,
   },
 };
 
@@ -93,12 +106,24 @@ export function citizenKindForStatusTransition(prevWorkflowKey, nextWorkflowKey)
 
 /**
  * Writes to `users/{uid}/citizenInbox` (same schema as Android CitizenNotificationsRepository).
+ *
+ * @param {object}  args
+ * @param {string}  args.userId         Auth UID of the citizen who owns the report.
+ * @param {string}  args.kind           One of [CITIZEN_NOTIFICATION_KINDS].
+ * @param {string}  [args.agency]       Agency short label (e.g. "DENR").
+ * @param {string}  [args.reportId]     Firestore docId of the report.
+ * @param {string}  [args.incidentType] Human-readable incident type ("Illegal Gambling").
+ * @param {string}  [args.publicReportId] Public reference shown in the UI ("REP-…").
+ * @param {string|null} [args.customBody] Override the localized body — used for admin remarks
+ *                                        so the citizen sees the actual remark verbatim.
  */
 export async function writeCitizenNotification({
   userId,
   kind,
   agency = 'Agency',
   reportId = '',
+  incidentType = '',
+  publicReportId = '',
   customBody = null,
 }) {
   const uid = String(userId ?? '').trim();
@@ -113,13 +138,16 @@ export async function writeCitizenNotification({
   }
 
   const ag = String(agency ?? '').trim() || 'Agency';
-  let body = customBody != null ? String(customBody).trim() : meta.body;
+  const incident = String(incidentType ?? '').trim() || 'incident';
+  const publicId = String(publicReportId ?? '').trim() || 'your report';
+
+  const trimmedCustom = customBody != null ? String(customBody).trim() : '';
+  let body = trimmedCustom;
   if (!body) {
-    if (kind === CITIZEN_NOTIFICATION_KINDS.LIFECYCLE_RECEIVED) {
-      body = `Your report has been received by ${ag}.`;
-    } else {
-      body = '';
-    }
+    body =
+      typeof meta.body === 'function'
+        ? meta.body({ incidentType: incident, agency: ag, publicReportId: publicId })
+        : String(meta.body ?? '');
   }
 
   const payload = {
@@ -128,6 +156,8 @@ export async function writeCitizenNotification({
     title: meta.title,
     body: body.slice(0, 2000),
     agency: ag,
+    incidentType: incident,
+    publicReportId: publicId,
     reportId: String(reportId ?? '').trim(),
     read: false,
     createdAt: serverTimestamp(),

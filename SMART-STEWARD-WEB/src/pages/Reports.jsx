@@ -10,8 +10,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { PlayIcon } from '@heroicons/react/24/solid';
 import { useReportsData } from '../context/ReportsDataContext';
+import { useAgencyUser } from '../context/AgencyUserContext';
 import MediaLightbox from '../components/MediaLightbox';
-import { formatAssignedAgenciesLabel, parseAssignedAgencies } from '../utils/agencyScope';
+import {
+  formatAssignedAgenciesLabel,
+  parseAssignedAgencies,
+  viewerScopedAgencyLabel,
+} from '../utils/agencyScope';
 import {
   formatReportDateOnly,
   formatReportTimeOnly,
@@ -59,27 +64,20 @@ function StatusBadge({ status }) {
   );
 }
 
-function AgencyChips({ raw }) {
-  const agencies = parseAssignedAgencies(raw);
-  if (agencies.length === 0) {
-    const fallback = String(raw ?? '').trim();
-    if (!fallback) return <span className="reports-agency-empty">—</span>;
-    return <span className="reports-agency-chip">{fallback}</span>;
-  }
-  return (
-    <div className="reports-agency-chips">
-      {agencies.map((a) => (
-        <span key={a} className="reports-agency-chip">
-          {a}
-        </span>
-      ))}
-    </div>
-  );
+/**
+ * Single agency chip scoped to the viewer's admin dashboard. The AI may
+ * assign a report to several agencies, but each admin only sees their own.
+ */
+function ViewerAgencyChip({ raw, viewerAgencyKey }) {
+  const label = viewerScopedAgencyLabel(raw, viewerAgencyKey);
+  if (!label) return <span className="reports-agency-empty">—</span>;
+  return <span className="reports-agency-chip">{label}</span>;
 }
 
 export default function Reports() {
   const navigate = useNavigate();
   const { reports, loading, error } = useReportsData();
+  const { viewerAgencyKey } = useAgencyUser();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -138,7 +136,9 @@ export default function Reports() {
       timeOfReport: formatReportTimeOnly(r.createdAt),
       location: r.location,
       activityType: r.activity,
-      assignedAgency: formatAssignedAgenciesLabel(r.assignedAgency),
+      assignedAgency:
+        viewerScopedAgencyLabel(r.assignedAgency, viewerAgencyKey) ||
+        formatAssignedAgenciesLabel(r.assignedAgency),
       status:
         r.status === 'review' || r.status === 'in_progress'
           ? 'In Progress'
@@ -337,7 +337,10 @@ export default function Reports() {
                     </td>
                     <td className="reports-table__location">{row.location}</td>
                     <td>
-                      <AgencyChips raw={row.assignedAgency} />
+                      <ViewerAgencyChip
+                        raw={row.assignedAgency}
+                        viewerAgencyKey={viewerAgencyKey}
+                      />
                     </td>
                     <td>
                       <StatusBadge status={row.status} />

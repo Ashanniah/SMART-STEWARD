@@ -6,6 +6,7 @@ import {
   ExclamationTriangleIcon as ExclamationTriangleOutlineIcon,
   IdentificationIcon,
   MapPinIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import {
   DocumentPlusIcon,
@@ -34,8 +35,14 @@ import {
   resolveNotificationDot,
   resolveNotificationVisualKind,
 } from '../utils/agencyNotificationPresentation';
+import ConfirmModal from './ConfirmModal';
 
 const READ_IDS_KEY = 'ss-agency-notif-read-ids';
+// Cleared ids are persisted in localStorage so a deliberate "Clear all" by
+// the admin survives page reloads. Newly-arriving notifications carry new
+// ids and therefore are not affected — they simply appear on top of the
+// list as usual.
+const CLEARED_IDS_KEY = 'ss-agency-notif-cleared-ids';
 
 function loadReadIds() {
   try {
@@ -50,6 +57,24 @@ function loadReadIds() {
 function saveReadIds(set) {
   try {
     sessionStorage.setItem(READ_IDS_KEY, JSON.stringify([...set]));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadClearedIds() {
+  try {
+    const raw = localStorage.getItem(CLEARED_IDS_KEY);
+    const arr = JSON.parse(raw || '[]');
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveClearedIds(set) {
+  try {
+    localStorage.setItem(CLEARED_IDS_KEY, JSON.stringify([...set]));
   } catch {
     /* ignore */
   }
@@ -144,7 +169,9 @@ export default function NotificationsDropdown() {
   const { notifications } = useAgencyNotifications();
   const { reports } = useReportsData();
   const [readIds, setReadIds] = useState(() => loadReadIds());
+  const [clearedIds, setClearedIds] = useState(() => loadClearedIds());
   const [open, setOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const wrapRef = useRef(null);
 
   const mergedList = useMemo(() => {
@@ -152,7 +179,7 @@ export default function NotificationsDropdown() {
     return mergeAndSortAgencyNotifications(notifications, synthetic);
   }, [notifications, reports]);
 
-  const items = useMemo(() => {
+  const allItems = useMemo(() => {
     return mergedList.map((n) => {
       const visual = resolveNotificationVisualKind(n.kind);
       const dot = resolveNotificationDot();
@@ -176,6 +203,13 @@ export default function NotificationsDropdown() {
       };
     });
   }, [mergedList, readIds, reports]);
+
+  // Hide anything the admin has already cleared. New notifications arriving
+  // later will have new ids and therefore won't be affected.
+  const items = useMemo(
+    () => allItems.filter((n) => !clearedIds.has(n.id)),
+    [allItems, clearedIds]
+  );
 
   const hasUnread = useMemo(() => items.some((n) => n.unread), [items]);
   const allRead = useMemo(
@@ -212,6 +246,29 @@ export default function NotificationsDropdown() {
       saveReadIds(next);
       return next;
     });
+  }, []);
+
+  const clearAllVisible = useCallback(() => {
+    setClearedIds((prev) => {
+      const next = new Set(prev);
+      items.forEach((n) => next.add(n.id));
+      saveClearedIds(next);
+      return next;
+    });
+  }, [items]);
+
+  const handleClearAllRequest = useCallback(() => {
+    if (items.length === 0) return;
+    setClearConfirmOpen(true);
+  }, [items.length]);
+
+  const handleClearAllConfirm = useCallback(() => {
+    clearAllVisible();
+    setClearConfirmOpen(false);
+  }, [clearAllVisible]);
+
+  const handleClearAllCancel = useCallback(() => {
+    setClearConfirmOpen(false);
   }, []);
 
   const goView = useCallback(
@@ -266,15 +323,27 @@ export default function NotificationsDropdown() {
         <div className="topbar-notif__panel" role="dialog" aria-label="Notifications">
           <header className="notifications-dropdown__header">
             <h2 className="notifications-dropdown__title">Notifications</h2>
-            <button
-              type="button"
-              className="notifications-mark-all-pill"
-              onClick={toggleMarkAll}
-              disabled={items.length === 0}
-              aria-pressed={allRead}
-            >
-              {hasUnread ? 'Mark all as read' : 'Mark all unread'}
-            </button>
+            <div className="notifications-dropdown__header-actions">
+              <button
+                type="button"
+                className="notifications-mark-all-pill"
+                onClick={toggleMarkAll}
+                disabled={items.length === 0}
+                aria-pressed={allRead}
+              >
+                {hasUnread ? 'Mark all as read' : 'Mark all unread'}
+              </button>
+              <button
+                type="button"
+                className="notifications-clear-all-pill"
+                onClick={handleClearAllRequest}
+                disabled={items.length === 0}
+                aria-label="Clear all notifications"
+              >
+                <TrashIcon className="notifications-clear-all-pill__icon" aria-hidden />
+                <span>Clear all</span>
+              </button>
+            </div>
           </header>
 
           <ul className="notifications-list notifications-dropdown__list">
@@ -345,6 +414,18 @@ export default function NotificationsDropdown() {
           </ul>
         </div>
       ) : null}
+
+      <ConfirmModal
+        open={clearConfirmOpen}
+        title="Clear all notifications?"
+        message="This will remove every notification currently shown in this panel. New notifications that arrive afterwards will still appear normally."
+        confirmLabel="Clear all"
+        cancelLabel="Cancel"
+        variant="danger"
+        icon={TrashIcon}
+        onCancel={handleClearAllCancel}
+        onConfirm={handleClearAllConfirm}
+      />
     </div>
   );
 }

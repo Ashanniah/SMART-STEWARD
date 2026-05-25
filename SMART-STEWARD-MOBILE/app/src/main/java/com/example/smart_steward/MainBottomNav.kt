@@ -9,7 +9,10 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.ImageViewCompat
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ListenerRegistration
 
 enum class MainBottomNavTab {
     HOME,
@@ -22,6 +25,7 @@ object MainBottomNav {
 
     fun setup(activity: AppCompatActivity, selected: MainBottomNavTab?) {
         applySelection(activity, selected)
+        attachLiveBadge(activity)
 
         activity.findViewById<LinearLayout>(R.id.bottomNavHome)?.setOnClickListener {
             if (activity is DashboardActivity) return@setOnClickListener
@@ -68,21 +72,48 @@ object MainBottomNav {
         }
     }
 
-    fun updateBadge(activity: AppCompatActivity) {
+    /**
+     * Kept for source compatibility with older call sites. The live listener attached
+     * by [setup] keeps the badge in sync on its own, so this method is now a no-op.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun updateBadge(activity: AppCompatActivity) { /* superseded by attachLiveBadge() */ }
+
+    /**
+     * Subscribes the bottom-nav notification badge to the citizen's unread count and
+     * keeps it in sync in real time. The Firestore listener is automatically detached
+     * when [activity]'s lifecycle reaches `ON_DESTROY` so navigating between tabs does
+     * not leak listeners.
+     */
+    private fun attachLiveBadge(activity: AppCompatActivity) {
         val badge = activity.findViewById<TextView>(R.id.bottomNavBadge) ?: return
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid.isNullOrBlank()) {
             badge.visibility = View.GONE
             return
         }
-        CitizenNotificationsRepository.countUnread(uid, onResult = { unread ->
-            activity.runOnUiThread {
-                badge.visibility = if (unread > 0) View.VISIBLE else View.GONE
-                if (unread > 0) {
-                    badge.text = if (unread > 99) "99+" else unread.toString()
-                }
+        val registration: ListenerRegistration? = CitizenNotificationsRepository.watchUnreadCount(
+            userId = uid,
+            onResult = { unread ->
+                activity.runOnUiThread { applyBadgeCount(badge, unread) }
             }
-        })
+        )
+        if (registration != null) {
+            activity.lifecycle.addObserver(object : DefaultLifecycleObserver {
+                override fun onDestroy(owner: LifecycleOwner) {
+                    registration.remove()
+                }
+            })
+        }
+    }
+
+    private fun applyBadgeCount(badge: TextView, unread: Int) {
+        if (unread <= 0) {
+            badge.visibility = View.GONE
+            return
+        }
+        badge.visibility = View.VISIBLE
+        badge.text = if (unread > 99) "99+" else unread.toString()
     }
 
     private fun applySelection(activity: AppCompatActivity, selected: MainBottomNavTab?) {

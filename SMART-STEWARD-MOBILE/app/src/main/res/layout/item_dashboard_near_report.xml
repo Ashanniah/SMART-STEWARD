@@ -11,85 +11,98 @@
     app:strokeColor="#E0EBE3"
     app:strokeWidth="1dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:padding="12dp">
 
-        <FrameLayout
-            android:id="@+id/nearRowThumbContainer"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <ImageView
-                android:id="@+id/nearRowPhoto"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="@string/near_report_photo"
-                android:scaleType="centerCrop"
-                android:src="@drawable/bg_near_report_thumb_placeholder"
-                tools:ignore="ImageContrastCheck" />
-
-            <ImageView
-                android:id="@+id/nearRowVideoPlay"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_play_circle"
-                android:contentDescription="@string/play_video"
-                android:padding="4dp"
-                android:scaleType="fitCenter"
-                android:src="@android:drawable/ic_media_play"
-                android:tint="@color/white"
-                android:visibility="gone"
-                tools:visibility="visible" />
-        </FrameLayout>
-
-        <TextView
-            android:id="@+id/nearRowTitle"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_marginEnd="8dp"
-            android:ellipsize="end"
-            android:maxLines="2"
-            android:textColor="@color/activity_title_bar"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toStartOf="@+id/nearRowStatus"
-            app:layout_constraintStart_toEndOf="@id/nearRowThumbContainer"
-            app:layout_constraintTop_toTopOf="@id/nearRowThumbContainer"
-            tools:text="Illegal Dumping" />
+            android:gravity="top"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/nearRowMeta"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:maxLines="2"
-            android:textColor="@color/activity_muted"
-            android:textSize="12sp"
-            app:layout_constraintEnd_toEndOf="@id/nearRowTitle"
-            app:layout_constraintStart_toStartOf="@id/nearRowTitle"
-            app:layout_constraintTop_toBottomOf="@id/nearRowTitle"
-            tools:text="Lahug · 2h ago" />
+            <FrameLayout
+                android:id="@+id/nearRowThumbContainer"
+                android:layout_width="52dp"
+                android:layout_height="52dp">
 
-        <TextView
-            android:id="@+id/nearRowStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="4dp"
-            android:textColor="@color/white"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/nearRowThumbContainer"
-            tools:background="@color/activity_pending_orange"
-            tools:text="Pending" />
+                <ImageView
+                    android:id="@+id/nearRowPhoto"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/near_report_photo"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_near_report_thumb_placeholder"
+                    tools:ignore="ImageContrastCheck" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                <ImageView
+                    android:id="@+id/nearRowVideoPlay"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_play_circle"
+                    android:contentDescription="@string/play_video"
+                    android:padding="4dp"
+                    android:scaleType="fitCenter"
+                    android:src="@android:drawable/ic_media_play"
+                    android:tint="@color/white"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/nearRowTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:textColor="@color/activity_title_bar"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        tools:text="Illegal Dumping" />
+
+                    <TextView
+                        android:id="@+id/nearRowStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:textColor="@color/white"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        tools:background="@color/activity_pending_orange"
+                        tools:text="Pending" />
+                </LinearLayout>
+
+                <include
+                    android:id="@+id/nearRowLocation"
+                    layout="@layout/include_my_activity_detail_row" />
+
+                <include
+                    android:id="@+id/nearRowDate"
+                    layout="@layout/include_my_activity_detail_row" />
+
+                <include
+                    android:id="@+id/nearRowTime"
+                    layout="@layout/include_my_activity_detail_row" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
