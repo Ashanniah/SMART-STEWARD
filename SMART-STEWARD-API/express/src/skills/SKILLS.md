@@ -20,7 +20,7 @@ You MUST return ONLY valid JSON with this structure:
   "assignedAgency": ["string"],
   "summary": "string",
   "severity": "Low | Medium | High | Critical",
-  "severity_reason": "string",
+  "severity_reason": "A justifiable reason explaining why the severity was classified as Low, Medium, High, or Critical",
   "confidence_score": "number (0.0 to 1.0)" you are free to output a confidence score that is not divisible by 5,
   "reportable": "boolean"
 }
@@ -166,7 +166,7 @@ Return:
   "type": "invalid incident",
   "summary": "Plain-language explanation of what is in the image and why it is not reportable (1–2 sentences)",
   "severity": "Low",
-  "severity_reason": "Explanation of why the severity level was chosen",
+  "severity_reason": "The scene shows a completely normal, non-hazardous environment with no immediate threat to safety or property, justifying a Low severity.",
   "confidence_score": 0.95,
   "reportable": false
 }
@@ -208,7 +208,7 @@ Input: Video of a car hitting another vehicle on a road, causing dust and debris
   "assignedAgency": ["PNP", "Barangay"],
   "summary": "The footage captures a vehicular collision resulting in property damage and a large debris cloud, requiring local traffic management and police investigation.",
   "severity": "High",
-  "severity_reason": "High-velocity physical impact involving multiple vehicles and likely injuries.",
+  "severity_reason": "The incident involves a high-velocity physical impact between vehicles causing potential injuries and major structural damage, justifying a High severity.",
   "confidence_score": 0.95,
   "reportable": true
 }
@@ -232,7 +232,7 @@ Input: Video of smoke rising from a residential structure while individuals carr
   "assignedAgency": ["BFP", "PNP"],
   "summary": "A residential structure fire is actively burning while individuals appear to be looting or stealing property from the scene.",
   "severity": "Critical",
-  "severity_reason": "Active residential fire combined with ongoing criminal activities poses an immediate threat to life and property.",
+  "severity_reason": "An active structure fire poses an immediate, life-threatening danger, compounded by ongoing criminal activity, justifying a Critical severity.",
   "confidence_score": 0.90,
   "reportable": true
 }
