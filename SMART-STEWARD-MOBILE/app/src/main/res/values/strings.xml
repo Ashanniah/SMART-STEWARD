@@ -112,6 +112,9 @@ Talamban</string>
     <string name="report_details_description_heading">DESCRIPTION:</string>
     <string name="report_details_photo_uploaded">Photo Uploaded:</string>
     <string name="report_details_agency_remarks_heading">AGENCY REMARKS:</string>
+    <string name="report_details_remarks_heading_from">REMARKS FROM %1$s:</string>
+    <string name="report_remarks_attributed_format">%1$s: %2$s</string>
+    <string name="report_remarks_preview_with_more">%1$s (+%2$d more)</string>
     <string name="report_receipt_close">Close</string>
     <string name="receipt_current_status">Current Status:</string>
     <string name="receipt_status_pending_review">Pending review</string>

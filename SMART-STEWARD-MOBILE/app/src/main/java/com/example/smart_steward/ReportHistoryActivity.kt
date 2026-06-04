@@ -249,7 +249,9 @@ class ReportHistoryActivity : AppCompatActivity() {
                     report.statusLabel,
                     report.id,
                     report.displayReportRef(),
-                    report.lastStatusNote
+                    report.lastStatusNote,
+                ).plus(
+                    report.resolvedStatusRemarks().flatMap { listOf(it.agency, it.note) }
                 ).joinToString(" ").lowercase(Locale.getDefault())
                 haystack.contains(q)
             }

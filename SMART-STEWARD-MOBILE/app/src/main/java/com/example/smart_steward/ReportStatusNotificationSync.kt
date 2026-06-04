@@ -12,11 +12,9 @@ import android.content.Context
  *      progress → Resolved / Rejected lifecycle transitions and surfaces a
  *      lifecycle notification (`LIFECYCLE_RESOLVED`, etc.).
  *
- *   2. **Status note** ([NOTE_KEY_PREFIX]) — covers the free-form remark the
- *      admin types when updating the status. Whenever `lastStatusNote` changes
- *      to a non-empty value we emit an `ADMIN_COMMENT` notification carrying
- *      the actual remark as the body. Clearing the note (e.g. an admin
- *      removing a remark) silently re-baselines without notifying.
+ *   2. **Status remarks** ([REMARKS_KEY_PREFIX]) — tracks every entry in
+ *      `statusRemarks` (and legacy `lastStatusNote`). Each new remark emits an
+ *      `ADMIN_COMMENT` notification attributed to the sending agency.
  *
  * Both are written from the citizen's own signed-in app, so Firestore rules
  * that scope every document under `users/{uid}/citizenInbox` to the inbox
@@ -25,9 +23,13 @@ import android.content.Context
  * payload comment in `ReportStatusUpdate.jsx`.
  */
 object ReportStatusNotificationSync {
+    private fun appContext() =
+        com.google.firebase.FirebaseApp.getInstance().applicationContext
+
     private const val PREFS = "smart_steward_report_notif"
     private const val KEY_PREFIX = "fp_"
-    private const val NOTE_KEY_PREFIX = "note_"
+    private const val REMARKS_KEY_PREFIX = "remarks_set_"
+    private const val REMARK_FP_SEP = "\u001E"
 
     private fun fingerprint(r: UserReport): String = when {
         r.status == ReportStatusUi.RESOLVED -> "RESOLVED"
@@ -60,8 +62,6 @@ object ReportStatusNotificationSync {
         val key = KEY_PREFIX + r.id
         val next = fingerprint(r)
         val prev = prefs.getString(key, null)
-        // First observation: silently record the baseline so we don't replay
-        // historical transitions when the app is opened for the first time.
         if (prev == null) {
             editor.putString(key, next)
             return
@@ -82,43 +82,64 @@ object ReportStatusNotificationSync {
         editor.putString(key, next)
     }
 
+    private fun remarkFingerprint(remark: StatusRemark): String {
+        val agency = remark.agency.trim()
+        val note = remark.note.trim()
+        val ts = remark.createdAt?.time?.toString().orEmpty()
+        return "$agency|$note|$ts"
+    }
+
     private fun syncAdminRemarks(
         prefs: android.content.SharedPreferences,
         editor: android.content.SharedPreferences.Editor,
         userId: String,
         r: UserReport,
     ) {
-        val key = NOTE_KEY_PREFIX + r.id
-        val nextNote = r.lastStatusNote.trim()
-        val prevNote = prefs.getString(key, null)
-        // First observation: silently baseline so existing remarks don't
-        // trigger an "agency added remarks" alert on first launch.
-        if (prevNote == null) {
-            editor.putString(key, nextNote)
+        val key = REMARKS_KEY_PREFIX + r.id
+        val remarks = r.resolvedStatusRemarks()
+        val currentFingerprints = remarks.map { remarkFingerprint(it) }.toSet()
+        val storedRaw = prefs.getString(key, null)
+
+        if (storedRaw == null) {
+            editor.putString(key, currentFingerprints.joinToString(REMARK_FP_SEP))
             return
         }
-        if (nextNote == prevNote) return
-        if (nextNote.isNotEmpty()) {
+
+        val previousFingerprints = storedRaw
+            .split(REMARK_FP_SEP)
+            .filter { it.isNotEmpty() }
+            .toSet()
+
+        for (remark in remarks) {
+            val fp = remarkFingerprint(remark)
+            if (fp in previousFingerprints) continue
+            val note = remark.note.trim()
+            if (note.isEmpty()) continue
+
+            val senderAgency = remark.agency.ifBlank { r.assignedAgency }
+            val senderLabel = AgencyCanonical.shortName(senderAgency).ifBlank { senderAgency }
+            val body = if (senderLabel.isNotBlank()) {
+                appContext().getString(R.string.report_remarks_attributed_format, senderLabel, note)
+            } else {
+                note
+            }
             CitizenNotificationsRepository.append(
                 userId = userId,
                 kind = CitizenNotificationKind.ADMIN_COMMENT,
-                agency = r.assignedAgency,
+                agency = senderAgency,
                 reportId = r.id,
                 incidentType = r.incidentType,
                 publicReportId = r.publicReportId,
-                customBody = nextNote,
+                customBody = body,
             )
         }
-        editor.putString(key, nextNote)
+
+        editor.putString(key, currentFingerprints.joinToString(REMARK_FP_SEP))
     }
 
     private fun transitionKind(prev: String, next: String): CitizenNotificationKind? {
         if (next == "REJECTED") return CitizenNotificationKind.LIFECYCLE_REJECTED
         if (next == "RESOLVED") return CitizenNotificationKind.LIFECYCLE_RESOLVED
-        // Admin moved the report back to (or rebaselined it to) Pending —
-        // covers every prev → PENDING transition except the no-op
-        // PENDING → PENDING (already short-circuited by the equality
-        // check in syncLifecycle before we ever get here).
         if (next == "PENDING") return CitizenNotificationKind.LIFECYCLE_PENDING
         return when {
             prev == "PENDING" && next == "IN_REVIEW" ->

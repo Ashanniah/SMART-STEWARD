@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/remarkAgencyLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:letterSpacing="0.04"
+        android:textColor="@color/activity_title_bar"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        tools:text="PNP" />
+
+    <TextView
+        android:id="@+id/remarkBody"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:lineSpacingMultiplier="1.25"
+        android:textColor="#1A1F1C"
+        android:textSize="14sp"
+        tools:text="Please provide additional details." />
+
+    <TextView
+        android:id="@+id/remarkTimestamp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#94A3B8"
+        android:textSize="11sp"
+        android:visibility="gone"
+        tools:text="Jun 4, 2026 · 2:30 PM"
+        tools:visibility="visible" />
+
+    <View
+        android:id="@+id/remarkDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:background="#E8ECE9"
+        android:visibility="gone" />
+</LinearLayout>
