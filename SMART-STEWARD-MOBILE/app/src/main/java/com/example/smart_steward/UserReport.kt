@@ -12,6 +12,12 @@ enum class ReportStatusUi {
     REJECTED
 }
 
+data class StatusRemark(
+    val agency: String,
+    val note: String,
+    val createdAt: Date? = null,
+)
+
 data class UserReport(
     val id: String,
     /** Stored public reference, e.g. REP-20260505-WY5. Derived when missing on older docs. */
@@ -33,6 +39,10 @@ data class UserReport(
     val longitude: Double? = null,
     /** Latest agency/admin note from a status update on the web panel (`lastStatusNote`). */
     val lastStatusNote: String = "",
+    /** Canonical agency key (e.g. PNP) that wrote [lastStatusNote] (`lastStatusNoteAgency`). */
+    val lastStatusNoteAgency: String = "",
+    /** Full remark history appended by agency admins (`statusRemarks`). */
+    val statusRemarks: List<StatusRemark> = emptyList(),
     val statusUpdatedAt: Date? = null,
     /** Set by web admin status updates so mobile does not duplicate inbox notifications. */
     val lastCitizenNotifyFingerprint: String = "",
@@ -56,6 +66,25 @@ data class UserReport(
                 else -> "Under investigation"
             }
         }
+
+    /** All agency remarks, oldest first — merges Firestore array with legacy single-note fields. */
+    fun resolvedStatusRemarks(): List<StatusRemark> {
+        val merged = statusRemarks.toMutableList()
+        val legacyNote = lastStatusNote.trim()
+        if (legacyNote.isNotEmpty()) {
+            val alreadyPresent = merged.any { it.note.trim() == legacyNote }
+            if (!alreadyPresent) {
+                merged.add(
+                    StatusRemark(
+                        agency = lastStatusNoteAgency,
+                        note = legacyNote,
+                        createdAt = statusUpdatedAt,
+                    )
+                )
+            }
+        }
+        return merged.sortedBy { it.createdAt?.time ?: Long.MAX_VALUE }
+    }
 
     companion object {
         fun fromSnapshot(doc: DocumentSnapshot): UserReport? {
@@ -118,6 +147,8 @@ data class UserReport(
                 doc.getString("adminRemarks"),
                 doc.getString("remarks")
             ).mapNotNull { it?.trim()?.takeIf { s -> s.isNotEmpty() } }.firstOrNull().orEmpty()
+            val lastStatusNoteAgency = doc.getString("lastStatusNoteAgency")?.trim().orEmpty()
+            val statusRemarks = parseStatusRemarks(doc)
             val statusUpdatedAt = when (val ts = doc.get("statusUpdatedAt")) {
                 is Timestamp -> ts.toDate()
                 is Date -> ts
@@ -140,6 +171,8 @@ data class UserReport(
                 latitude = latitude,
                 longitude = longitude,
                 lastStatusNote = lastStatusNote,
+                lastStatusNoteAgency = lastStatusNoteAgency,
+                statusRemarks = statusRemarks,
                 lastCitizenNotifyFingerprint = doc.getString("lastCitizenNotifyFingerprint").orEmpty(),
                 statusUpdatedAt = statusUpdatedAt
             )
@@ -189,5 +222,21 @@ data class UserReport(
                 ReportStatusUi.RESOLVED -> "Resolved"
                 ReportStatusUi.REJECTED -> "Rejected"
             }
+
+        @Suppress("UNCHECKED_CAST")
+        private fun parseStatusRemarks(doc: DocumentSnapshot): List<StatusRemark> {
+            val raw = doc.get("statusRemarks") as? List<Map<String, Any?>> ?: return emptyList()
+            return raw.mapNotNull { map ->
+                val note = (map["note"] as? String)?.trim().orEmpty()
+                if (note.isEmpty()) return@mapNotNull null
+                val agency = (map["agency"] as? String)?.trim().orEmpty()
+                val createdAt = when (val ts = map["createdAt"]) {
+                    is Timestamp -> ts.toDate()
+                    is Date -> ts
+                    else -> null
+                }
+                StatusRemark(agency = agency, note = note, createdAt = createdAt)
+            }
+        }
     }
 }

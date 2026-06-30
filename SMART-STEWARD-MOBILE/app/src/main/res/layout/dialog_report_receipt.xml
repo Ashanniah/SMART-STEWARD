@@ -302,6 +302,7 @@
                         android:src="@drawable/edit" />
 
                     <TextView
+                        android:id="@+id/receiptRemarksHeading"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
@@ -312,15 +313,12 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/receiptRemarksBody"
+                <LinearLayout
+                    android:id="@+id/receiptRemarksList"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:lineSpacingMultiplier="1.25"
-                    android:textColor="#1A1F1C"
-                    android:textSize="14sp"
-                    tools:text="Be careful" />
+                    android:orientation="vertical" />
             </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

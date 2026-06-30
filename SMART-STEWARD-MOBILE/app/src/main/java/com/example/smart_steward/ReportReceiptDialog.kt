@@ -85,11 +85,37 @@ object ReportReceiptDialog {
             badgeText = null
         )
 
-        val adminNote = report.lastStatusNote.trim()
+        val remarks = report.resolvedStatusRemarks()
         val remarksSection = dialogView.findViewById<LinearLayout>(R.id.receiptRemarksSection)
-        if (adminNote.isNotEmpty()) {
+        val remarksList = dialogView.findViewById<LinearLayout>(R.id.receiptRemarksList)
+        if (remarks.isNotEmpty()) {
             remarksSection.visibility = View.VISIBLE
-            dialogView.findViewById<TextView>(R.id.receiptRemarksBody).text = adminNote
+            dialogView.findViewById<TextView>(R.id.receiptRemarksHeading).text =
+                activity.getString(R.string.report_details_agency_remarks_heading)
+            remarksList.removeAllViews()
+            val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
+            remarks.forEachIndexed { index, remark ->
+                val item = activity.layoutInflater.inflate(R.layout.item_report_remark, remarksList, false)
+                val senderLabel = AgencyCanonical.shortName(remark.agency).trim()
+                item.findViewById<TextView>(R.id.remarkAgencyLabel).text = if (senderLabel.isNotEmpty()) {
+                    activity.getString(R.string.report_details_remarks_heading_from, senderLabel)
+                } else {
+                    activity.getString(R.string.report_details_agency_remarks_heading)
+                }
+                item.findViewById<TextView>(R.id.remarkBody).text = remark.note
+                val timestampView = item.findViewById<TextView>(R.id.remarkTimestamp)
+                val createdAt = remark.createdAt
+                if (createdAt != null) {
+                    timestampView.visibility = View.VISIBLE
+                    timestampView.text = "${dateFmt.format(createdAt)} · ${timeFmt.format(createdAt)}"
+                } else {
+                    timestampView.visibility = View.GONE
+                }
+                val divider = item.findViewById<View>(R.id.remarkDivider)
+                divider.visibility = if (index < remarks.lastIndex) View.VISIBLE else View.GONE
+                remarksList.addView(item)
+            }
         } else {
             remarksSection.visibility = View.GONE
         }

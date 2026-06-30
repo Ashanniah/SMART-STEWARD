@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, arrayUnion, getDoc, serverTimestamp, Timestamp, updateDoc } from 'firebase/firestore';
 import {
   CheckCircleIcon,
   ClipboardDocumentListIcon,
@@ -146,6 +146,29 @@ export default function ReportStatusUpdate() {
     setSaving(true);
     try {
       const ref = doc(db, REPORTS_COLLECTION, id);
+      const snap = await getDoc(ref);
+      const existingData = snap.exists() ? snap.data() : {};
+      const existingRemarks = Array.isArray(existingData.statusRemarks)
+        ? existingData.statusRemarks
+        : [];
+      const remarkEntry = {
+        agency: viewerAgencyKey ?? '',
+        note: trimmed,
+        // serverTimestamp() is not allowed inside arrayUnion() — use a concrete Timestamp.
+        createdAt: Timestamp.now(),
+      };
+      const remarksToAppend = [remarkEntry];
+      // Seed a legacy single-note field into the array once so older remarks are kept.
+      if (existingRemarks.length === 0) {
+        const legacyNote = String(existingData.lastStatusNote ?? '').trim();
+        if (legacyNote && legacyNote !== trimmed) {
+          remarksToAppend.unshift({
+            agency: String(existingData.lastStatusNoteAgency ?? '').trim(),
+            note: legacyNote,
+            createdAt: existingData.statusUpdatedAt ?? Timestamp.now(),
+          });
+        }
+      }
       // Citizen inbox writes are intentionally NOT performed from the web admin:
       //  - Firestore rules scope `users/{uid}/citizenInbox/*` to the citizen's own
       //    UID, so a different-user admin can never write there. The mobile app
@@ -160,7 +183,11 @@ export default function ReportStatusUpdate() {
       const payload = {
         status: workflowKeyToFirestoreStatus(selectedStatus),
         statusUpdatedAt: serverTimestamp(),
+        // Latest remark — kept for backward compatibility and notification sync.
         lastStatusNote: trimmed,
+        lastStatusNoteAgency: viewerAgencyKey ?? '',
+        // Full history: append instead of replace so citizens see every agency note.
+        statusRemarks: arrayUnion(...remarksToAppend),
       };
       await updateDoc(ref, payload);
 

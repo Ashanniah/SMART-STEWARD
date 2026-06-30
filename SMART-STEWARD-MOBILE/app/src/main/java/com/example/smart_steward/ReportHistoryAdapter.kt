@@ -163,10 +163,24 @@ class ReportHistoryAdapter(
             )
 
             val metaChip = itemView.findViewById<TextView>(R.id.historyMetaChip)
-            val note = report.lastStatusNote.trim()
+            val remarks = report.resolvedStatusRemarks()
+            val latestRemark = remarks.lastOrNull()
+            val notePreview = latestRemark?.let { remark ->
+                val senderLabel = AgencyCanonical.shortName(remark.agency).trim()
+                val line = if (senderLabel.isNotEmpty()) {
+                    ctx.getString(R.string.report_remarks_attributed_format, senderLabel, remark.note)
+                } else {
+                    remark.note
+                }
+                if (remarks.size > 1) {
+                    ctx.getString(R.string.report_remarks_preview_with_more, line, remarks.size - 1)
+                } else {
+                    line
+                }
+            }.orEmpty()
             metaChip.text = when {
-                report.status == ReportStatusUi.REJECTED && note.isNotEmpty() ->
-                    note.take(56).let { if (note.length > 56) "$it…" else it }
+                report.status == ReportStatusUi.REJECTED && notePreview.isNotEmpty() ->
+                    notePreview.take(56).let { if (notePreview.length > 56) "$it…" else it }
                 else -> report.displayReportRef()
             }
             stylePill(
